@@ -13,7 +13,7 @@ for i in range(1):
     ))
     agent_id += 1
 
-for i in range(2):
+for i in range(4):
     ps.append(subprocess.Popen(['python', 'agent.py', '--id', str(agent_id)]))
     agent_id += 1
 

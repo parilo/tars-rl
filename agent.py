@@ -172,18 +172,22 @@ step_index = 0
 init_action_producer = InitActionProducer()
 init_action_producer.reset_init_action()
 
+np.set_printoptions(suppress=True)
+
 while True:
 
     prev_obs_seq.append_obs(prev_observation)
 
     # randomize
-    if (step_index < 20 and random_start) or episode_index < 30:
+    if (step_index < 20 and random_start):
         if step_index == 10:
             init_action_producer.reset_init_action()
         action = init_action_producer.get_init_action()
 
     else:
         action_received = rl_client.act(prev_obs_seq.get_flatten_obs_seq())
+        if vis:
+            print('--- action {}'.format(np.array(action_received)))
         action = (
             np.array(action_received) +
             np.random.normal(scale=0.02, size=num_actions)
