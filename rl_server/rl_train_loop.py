@@ -3,6 +3,7 @@ import tempfile
 import tensorflow as tf
 import time
 from .experience_replay_buffer import ExperienceReplayBuffer
+from threading import Lock
 
 
 class RLTrainLoop():
@@ -45,6 +46,7 @@ class RLTrainLoop():
             num_of_parts_in_state=len(observation_shapes)
         )
 
+        self._store_lock = Lock()
         self._store_index = 0
 
     def get_tf_session(self):
@@ -80,25 +82,30 @@ class RLTrainLoop():
         next_states,
         terminators
     ):
-        self._exp_replay_buffer.store_exp_batch(
-            rewards,
-            actions,
-            prev_states,
-            next_states,
-            terminators
-        )
+        with self._store_lock:
+            self._exp_replay_buffer.store_exp_batch(
+                rewards,
+                actions,
+                prev_states,
+                next_states,
+                terminators
+            )
 
-        if (
-            self._store_index % self._train_every_nth == 0 and
-            self._store_index > self._start_learning_after
-        ):
-            self.train_step(self._store_index)
-        elif self._store_index % self._show_stats_period == 0:
-            print('--- buffer size {}'.format(
-                self._exp_replay_buffer.get_buffer_size()
-            ))
+            buffer_size = self._exp_replay_buffer.get_buffer_size()
+            if (
+                self._store_index % self._train_every_nth == 0 and
+                buffer_size > self._start_learning_after
+            ):
+                self.train_step(self._store_index)
+            elif (
+                buffer_size < self._start_learning_after and
+                self._store_index % 10 == 0
+            ):
+                print('--- buffer size {}'.format(
+                    buffer_size
+                ))
 
-        self._store_index += 1
+            self._store_index += 1
 
     def set_algorithm(self, algo):
         self._algo = algo
