@@ -122,7 +122,7 @@ class ExtRunEnv(L2RunEnv):
 
 env = ExtRunEnv(visualize=vis)
 
-rl_client = RLClient()
+rl_client = RLClient(port=8777 + id_)
 
 
 class ObservationSequence(object):

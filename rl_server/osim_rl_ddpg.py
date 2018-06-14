@@ -18,9 +18,6 @@ class OSimRLDDPG ():
         target_critic_update_rate=1.0
     ):
 
-        learning_rate = 1e-4
-        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-
         critic_shapes = list(observation_shapes)
         critic_shapes.append((action_size,))
 
