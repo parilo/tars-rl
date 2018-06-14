@@ -62,8 +62,8 @@ class OSimRLModelDense(object):
                     # actor
                     ff_network = Sequential([
                         Dense(128, activation='tanh', input_shape=input_shape),
-                        Dense(128, activation='sigmoid'),
-                        Dense(self._output_size)
+                        Dense(128, activation='tanh'),
+                        Dense(self._output_size, activation='sigmoid')
                     ])
 
                     model_inputs = [

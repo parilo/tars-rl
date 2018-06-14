@@ -12,7 +12,7 @@ random.seed(seed)
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-num_clients = 4  # number of parallel simulators
+num_clients = 8  # number of parallel simulators
 action_size = 18
 observation_shapes = [(41 * 3,)]
 
