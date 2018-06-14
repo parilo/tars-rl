@@ -19,6 +19,7 @@ Now client-server approach is used to be able to utilize many simulators during 
 Client code
 - agent.py - agent code
 - run_many_agents.py - edit file to specify number of agents and its types
+
 Server code
 - osim-rl-server.py - run this file to run the server, edit file to set parameters
 - rl_server/osim_rl_mode_dense.py - NN description
