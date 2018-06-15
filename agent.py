@@ -212,12 +212,11 @@ while True:
 
     if done:
 
-        if vis:
-            print('--- episode ended {} {} {}'.format(
-                episode_index,
-                step_index,
-                env.get_total_reward()
-            ))
+        print('--- episode ended {} {} {}'.format(
+            episode_index,
+            step_index,
+            env.get_total_reward()
+        ))
 
         step_index = 0
         episode_index += 1

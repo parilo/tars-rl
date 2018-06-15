@@ -12,7 +12,7 @@ random.seed(seed)
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-num_clients = 8  # number of parallel simulators
+num_clients = 40  # number of parallel simulators
 action_size = 18
 observation_shapes = [(41 * 3,)]
 
@@ -26,6 +26,7 @@ train_loop = RLTrainLoop(
     action_size=action_size,
     action_dtype=tf.float32,
     is_actions_space_continuous=True,
+    gpu_id=0,
     batch_size=256,
     experience_replay_buffer_size=1000000,
     store_every_nth=1,

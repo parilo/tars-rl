@@ -3,48 +3,30 @@ import tempfile
 import tensorflow as tf
 import threading
 from .algo.ddpg import DDPG
-from .osim_rl_model_dense import OSimRLModelDense
+from .osim_rl_model_dense import OSimRLModelDense, DenseNetwork
 
 
 class OSimRLDDPG ():
 
-    def __init__(
-        self,
-        observation_shapes,
-        action_size,
-        discount_rate=0.99,
-        optimizer=tf.train.RMSPropOptimizer(learning_rate=1e-4),
-        target_actor_update_rate=1.0,
-        target_critic_update_rate=1.0
-    ):
+    def __init__(self,
+                 observation_shapes,
+                 action_size,
+                 discount_rate=0.99,
+                 optimizer=tf.train.RMSPropOptimizer(learning_rate=1e-4),
+                 target_actor_update_rate=1.0,
+                 target_critic_update_rate=1.0):
 
         critic_shapes = list(observation_shapes)
         critic_shapes.append((action_size,))
 
-        self._critic = OSimRLModelDense(
-            input_shapes=critic_shapes,
-            output_size=1,
-            scope='critic'
-        )
+        self._critic = DenseNetwork(critic_shapes, 1, scope='critic')
+        self._target_critic = DenseNetwork(critic_shapes, 1, scope='target_critic')
+       
+        self._actor = DenseNetwork(observation_shapes, action_size, scope='actor')
+        self._target_actor = DenseNetwork(observation_shapes, action_size, scope='target_actor')
 
-        self._target_critic = OSimRLModelDense(
-            input_shapes=critic_shapes,
-            output_size=1,
-            scope='target_critic'
-        )
-
-        self._actor = OSimRLModelDense(
-            input_shapes=observation_shapes,
-            output_size=action_size,
-            scope='actor'
-        )
-
-        self._target_actor = OSimRLModelDense(
-            input_shapes=observation_shapes,
-            output_size=action_size,
-            scope='target_actor'
-        )
-
+        
+        
         for v in self._actor.variables():
             print('--- actor v: {}'.format(v.name))
         for v in self._critic.variables():

@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import tempfile
 import tensorflow as tf
@@ -14,6 +15,7 @@ class RLTrainLoop():
         action_size,
         action_dtype,
         is_actions_space_continuous,
+        gpu_id=0,
         batch_size=96,
         experience_replay_buffer_size=1000000,
         store_every_nth=4,
@@ -35,9 +37,14 @@ class RLTrainLoop():
         self._show_stats_period = show_stats_period
         self._save_model_period = save_model_period
 
+        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
+        config.intra_op_parallelism_threads = 1
+        config.inter_op_parallelism_threads= 1
         self._sess = tf.Session(config=config)
+        
         self._logger = tf.summary.FileWriter("logs")
 
         self._exp_replay_buffer = ExperienceReplayBuffer(
