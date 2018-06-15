@@ -46,10 +46,8 @@ class RLClient(object):
         })
 
         with self._tcp_lock:
-            self._tcp_client.write(req)
-            data = self._tcp_client.read()
-
-        return deserialize(data)
+            data = self._tcp_client.write_and_read_with_retries(req)
+            return deserialize(data)
 
     def act_test_controller_batch(self, states):
         states = self.copy_states(states)
@@ -61,10 +59,8 @@ class RLClient(object):
         })
 
         with self._tcp_lock:
-            self._tcp_client.write(req)
-            data = self._tcp_client.read()
-
-        return deserialize(data)
+            data = self._tcp_client.write_and_read_with_retries(req)
+            return deserialize(data)
 
     def store_exp(
             self,
@@ -113,5 +109,4 @@ class RLClient(object):
         })
 
         with self._tcp_lock:
-            self._tcp_client.write(req)
-            self._tcp_client.read()
+            self._tcp_client.write_and_read_with_retries(req)
