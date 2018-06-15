@@ -18,6 +18,8 @@ from io import BytesIO
 class TCPConnectionError(Exception):
     pass
 
+class TCPConnectionClosedError(TCPConnectionError):
+    pass
 
 class TCPBase(object):
     """
@@ -54,6 +56,7 @@ class TCPBase(object):
         try:
             self._socket.sendall(header + message)
         except Exception as exception:
+            print('--- tcp write: error {}'.format(exception))
             self._reraise_exception_as_tcp_error(
                 'failed to write data', exception)
 
@@ -61,7 +64,7 @@ class TCPBase(object):
         """Read a message from the server."""
         header = self._read_n(4)
         if not header:
-            raise TCPConnectionError(self._logprefix + 'connection closed')
+            raise TCPConnectionClosedError(self._logprefix + 'connection closed')
         length = struct.unpack('<L', header)[0]
         data = self._read_n(length)
         return data
@@ -78,7 +81,7 @@ class TCPBase(object):
                 self._reraise_exception_as_tcp_error(
                     'failed to read data', exception)
             if not data:
-                raise TCPConnectionError(self._logprefix + 'connection closed')
+                raise TCPConnectionClosedError(self._logprefix + 'connection closed')
             buf.write(data)
             length -= len(data)
         return buf.getvalue()
@@ -86,6 +89,18 @@ class TCPBase(object):
     def _reraise_exception_as_tcp_error(self, message, exception):
         raise TCPConnectionError(
             '%s%s: %s' % (self._logprefix, message, exception))
+
+    def write_and_read_with_retries(self, data):
+        while True:
+            try:
+                self.write(data)
+                data = self.read()
+                return data
+            except TCPConnectionClosedError as e:
+                raise e
+            except TCPConnectionError as e:
+                print('--- write and read tcp error {} retring'.format(e))
+
 
 
 class TCPClient(TCPBase):
@@ -123,8 +138,11 @@ class TCPServer(TCPBase):
                     request = self.read()
                     response = callback(request)
                     self.write(response)
-                except TCPConnectionError as e:
+                except TCPConnectionClosedError as e:
+                    print('--- tcp connection closed error {}'.format(e))
                     break
+                except TCPConnectionError as e:
+                    print('--- tcp server: tcp connection error {} retring to read'.format(e))
 
         def listen_func():
             while True:

@@ -219,6 +219,9 @@ while True:
                 env.get_total_reward()
             ))
 
+        with open('episode_rewards.txt', 'a') as f:
+            f.write(str(env.get_total_reward()) + '\n')
+
         step_index = 0
         episode_index += 1
         init_action_producer.reset_init_action()
