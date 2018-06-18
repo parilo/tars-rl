@@ -58,7 +58,7 @@ class ServerBuffer:
             s[-1] = self.observations[part_id][idx]
             for i in range(self.hist_len-1):
                 if (idx-i-1<0 or self.dones[idx-i-1]): break
-                s[-2-i] = self.observations[part_id][idx-1]
+                s[-2-i] = self.observations[part_id][idx-i-1]
                 
             s_ = np.zeros_like(s)
             s_[:-1] = s[1:]
