@@ -48,7 +48,7 @@ class RLClient:
             your state and want to process it
             differently in the NN
         """
-        return self.act_batch([state])[0]
+        return self.act_batch(state)[0]
 
     def act_batch(self, states):
         """

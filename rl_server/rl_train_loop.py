@@ -7,6 +7,14 @@ from .experience_replay_buffer import ExperienceReplayBuffer
 from replay_buffer import ServerBuffer
 from threading import Lock
 
+def gpu_config(gpu_id):
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    config.intra_op_parallelism_threads = 1
+    config.inter_op_parallelism_threads= 1
+    return config
 
 class RLTrainLoop():
 
@@ -18,8 +26,8 @@ class RLTrainLoop():
                  gpu_id=0,
                  batch_size=96,
                  experience_replay_buffer_size=1000000,
-                 store_every_nth=4,
                  train_every_nth=4,
+                 history_length=3,
                  start_learning_after=5000,
                  target_networks_update_period=500,  # of train ops invokes
                  show_stats_period=2000,
@@ -29,36 +37,22 @@ class RLTrainLoop():
         self._action_size = action_size
         self._action_dtype = action_dtype
         self._batch_size = batch_size
-        self._experience_replay_buffer_size = experience_replay_buffer_size
+        self._buffer_size = experience_replay_buffer_size
         self._start_learning_after = start_learning_after
-        self._store_every_nth = store_every_nth
         self._train_every_nth = train_every_nth
         self._target_networks_update_period = target_networks_update_period
         self._show_stats_period = show_stats_period
         self._save_model_period = save_model_period
+        self._hist_len = history_length
 
-        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
-        config = tf.ConfigProto()
-        config.gpu_options.allow_growth = True
-        config.intra_op_parallelism_threads = 1
-        config.inter_op_parallelism_threads= 1
+        config = gpu_config(gpu_id)
         self._sess = tf.Session(config=config)
-        
         self._logger = tf.summary.FileWriter("logs")
         
-        self.server_buffer = ServerBuffer(capacity=self._experience_replay_buffer_size, 
-                                          history_len=3,
+        self.server_buffer = ServerBuffer(capacity=self._buffer_size, history_len=self._hist_len,
                                           num_of_parts_in_obs = len(observation_shapes))
-        
-        #self._exp_replay_buffer = ExperienceReplayBuffer(
-        #    self._experience_replay_buffer_size,
-        #    self._store_every_nth,
-        #    num_of_parts_in_state=len(observation_shapes)
-        #)
-
         self._store_lock = Lock()
-        self._store_index = 0
+        self._step_index = 0
 
     def get_tf_session(self):
         return self._sess
@@ -79,63 +73,51 @@ class RLTrainLoop():
     def act_batch(self, states):
         return self._algo.act_batch(self._sess, states)
 
-    def store_exp_batch(self, observations, actions, rewards, dones):
+    def store_exp_episode(self, episode):
         
         with self._store_lock:
-            #self._exp_replay_buffer.store_exp_batch(rewards, actions, prev_states,
-            #                                        next_states, terminators)
-            episode = [observations, actions, rewards, dones]
             self.server_buffer.push_episode(episode)
             buffer_size = self.server_buffer.num_in_buffer
-
-            #buffer_size = self._exp_replay_buffer.get_buffer_size()
             
             if (buffer_size > self._start_learning_after):
-                #if (self._store_index % self._train_every_nth == 0):
-                #    self.train_step(self._store_index)
-                update_quota = len(rewards) // self._train_every_nth
-                for i in range(update_quota):
-                    self._store_index += 1
-                    self.train_step(self._store_index)
-                    
-            elif (buffer_size < self._start_learning_after and self._store_index % 10 == 0):
-                self._store_index += 1
+                episode_len = len(episode[1])
+                for i in range(episode_len):
+                    self._step_index += 1
+                    if (self._step_index % self._train_every_nth == 0):
+                        self.train_step()
+            elif (buffer_size < self._start_learning_after and self._step_index % 10 == 0):
+                self._step_index += 1
                 print('--- buffer size {}'.format(buffer_size))
             else:
-                self._store_index += 1
-            #self._store_index += 1
+                self._step_index += 1
 
     def set_algorithm(self, algo):
         self._algo = algo
 
-    def train_step(self, step_index):
+    def train_step(self):
         
         batch = self.server_buffer.get_batch(self._batch_size)
+        
+        for i in range(len(batch.s)):
+            shape = batch.s[i].shape
+            new_shape = (shape[0],)+(-1,)
+            batch.s[i] = batch.s[i].reshape(new_shape)
+            
+        for i in range(len(batch.s_)):
+            shape = batch.s_[i].shape
+            new_shape = (shape[0],)+(-1,)
+            batch.s_[i] = batch.s_[i].reshape(new_shape)
+        
         queue_size = self.server_buffer.num_in_buffer
-
-        #batch = self._exp_replay_buffer.sample(self._batch_size)
-        #queue_size = self._exp_replay_buffer.get_stored_count()
         loss = self._algo.train(self._sess, batch)
 
-        if step_index % self._target_networks_update_period == 0:
+        if self._step_index % self._target_networks_update_period == 0:
             print('--- target network update')
             self._algo.target_network_update(self._sess)
 
-        #if step_index % self._show_stats_period == 0:
-        #    print(
-        #        ('trains: {} rewards: {} loss: {}' +
-        #         ' stored: {} buffer size {}').format(
-        #            step_index,
-        #            self._exp_replay_buffer.get_sum_rewards(),
-        #            loss,
-        #            queue_size,
-        #            self._exp_replay_buffer.get_buffer_size()
-        #        )
-        #    )
-        #    self._exp_replay_buffer.reset_sum_rewards()
-        if step_index % self._show_stats_period == 0:
-            print (('trains: {} loss: {} stored: {}').format(step_index, loss, queue_size))
+        if self._step_index % self._show_stats_period == 0:
+            print (('trains: {} loss: {} stored: {}').format(self._step_index, loss, queue_size))
 
-        if step_index % self._save_model_period == 0:
-            save_path = self._saver.save(self._sess, 'ckpt/model-{}.ckpt'.format(step_index))
+        if self._step_index % self._save_model_period == 0:
+            save_path = self._saver.save(self._sess, 'ckpt/model-{}.ckpt'.format(self._step_index))
             print("Model saved in file: %s" % save_path)

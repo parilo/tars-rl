@@ -24,9 +24,7 @@ class OSimRLDDPG ():
        
         self._actor = DenseNetwork(observation_shapes, action_size, scope='actor')
         self._target_actor = DenseNetwork(observation_shapes, action_size, scope='target_actor')
-
-        
-        
+      
         for v in self._actor.variables():
             print('--- actor v: {}'.format(v.name))
         for v in self._critic.variables():
