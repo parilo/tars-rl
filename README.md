@@ -1,6 +1,16 @@
 # nips2018_prosthetics_challenge
 Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.org/challenges/nips-2018-ai-for-prosthetics-challenge), [GitHub](https://github.com/stanfordnmbl/osim-rl)).
 
+# Work progress
+
+### TODO list
+1. Efficient distributed experience replay buffer
+2. Prioritized experience replay buffer
+3. Learning with n-step returns
+4. Implement other algorithms (SoftAC)
+
+### Ideas to try
+
 # Resources
 ### Learning to Run challenge
 1. Learning to Run challenge: Synthesizing physiologically accurate motion using deep reinforcement learning ([pdf](https://arxiv.org/pdf/1804.00198.pdf)).
