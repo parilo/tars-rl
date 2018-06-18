@@ -76,10 +76,7 @@ class ExperienceReplayBuffer ():
                 buffer_size = self.get_buffer_size()
                 storing_count = len(rewards)
 
-                if (
-                    (buffer_size + storing_count) <
-                    self._experience_replay_buffer_size
-                ):
+                if (buffer_size + storing_count < self._experience_replay_buffer_size):
                     self._rewards.extend(rewards)
                     self._actions.extend(actions)
                     self._terminators.extend(is_terminators)
@@ -90,11 +87,9 @@ class ExperienceReplayBuffer ():
 
                 else:
 
-                    if buffer_size < self._experience_replay_buffer_size:
-                        free_items_left = (
-                            self._experience_replay_buffer_size -
-                            buffer_size
-                        )
+                    if (buffer_size < self._experience_replay_buffer_size):
+                        free_items_left = (self._experience_replay_buffer_size - buffer_size)
+                        
                         self._rewards.extend(rewards[:free_items_left])
                         self._actions.extend(actions[:free_items_left])
                         self._terminators.extend(is_terminators[:free_items_left])
@@ -109,15 +104,14 @@ class ExperienceReplayBuffer ():
                         next_states = next_states[free_items_left:]
                         is_terminators = is_terminators[free_items_left:]
 
-                        self.store_index = (
-                            self.store_index +
-                            free_items_left) % self._experience_replay_buffer_size
+                        self.store_index = (self.store_index + free_items_left) % self._experience_replay_buffer_size
                         print('--- store index {}'.format(self.store_index))
 
                         storing_count = len(rewards)
 
                     for i in range(len(prev_states)):
                         sample_index = (self.store_index + i) % self._experience_replay_buffer_size
+                        
                         self._rewards[sample_index] = rewards[i]
                         self._actions[sample_index] = actions[i]
                         self._terminators[sample_index] = is_terminators[i]
@@ -125,9 +119,7 @@ class ExperienceReplayBuffer ():
                             self._prev_states[si][sample_index] = prev_states[i][si]
                             self._next_states[si][sample_index] = next_states[i][si]
 
-                self.store_index = (
-                    self.store_index +
-                    storing_count) % self._experience_replay_buffer_size
+                self.store_index = (self.store_index + storing_count) % self._experience_replay_buffer_size
                 self.stored_count += storing_count
                 self.sum_rewards += np.sum(rewards)
 

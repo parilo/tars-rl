@@ -3,7 +3,7 @@ import tempfile
 import tensorflow as tf
 import threading
 from .algo.ddpg import DDPG
-from .osim_rl_model_dense import OSimRLModelDense, DenseNetwork
+from .osim_rl_model_dense import DenseNetwork
 
 
 class OSimRLDDPG ():
