@@ -34,53 +34,54 @@ def req_to_episode(req, obs_shapes):
 
 class RLServerAPI:
 
-    def __init__(self,
-                 num_clients,
-                 observation_shapes,
-                 state_shapes,
-                 observation_shapes_low_level=None,
-                 ip_address_str='0.0.0.0',
-                 first_client_port=8777,
-                 network_timeout=120):
+    def __init__(self, num_clients, observation_shapes, state_shapes,
+                 ip_address='0.0.0.0', first_client_port=8777, network_timeout=120):
+        """ Class for RL Server which interacts with multiple RL Clients.
+        
+        Parameters
+        ----------
+        num_clients: int
+            maximal number of clients
+        observation_shapes: list of tuples [obs_shape_1, ..., obs_shape_n]
+            which corresponds to observations' shapes
+        state_shapes: list of tuples [state_shape_1, ..., state_shape_n]
+            which corresponds to states' shapes
+        ip_address: str
+            ip address of the server
+        first_client_port: int
+            port number of the first client, all clients are assumed to be
+            connected via consecutive port numbers
+            [first_client_port, first_client_port+1, ...]
+        network_timeout: int
+            network timeout
+        """
 
         self._num_clients = num_clients
         self._observation_shapes = observation_shapes
         self._state_shapes = state_shapes
-        self._observation_shapes_low_level = observation_shapes_low_level
-        self._ip_address_str = ip_address_str
-        self._first_client_port = first_client_port
-        self._network_timeout = network_timeout
+        self._ip_address = ip_address
+        self._init_port = first_client_port
+        self._timeout = network_timeout
 
     def set_act_batch_callback(self, callback):
         self._act_batch_callback = callback
-
-    def set_act_test_controller_batch_callback(self, callback):
-        self._act_test_controller_batch_callback = callback
 
     def set_store_exp_batch_callback(self, callback):
         self._store_exp_batch_callback = callback
 
     def start_server(self):
         for i in range(self._num_clients):
-            server = TCPServer(self._ip_address_str,
-                               self._first_client_port+i,
-                               self._network_timeout)
+            server = TCPServer(self._ip_address, self._init_port+i, self._timeout)
             server.listen(self.agent_listener)
 
     def agent_listener(self, request):
+        
         req = deserialize(request)
         method = req['method']
 
         if method == 'act_batch':
             states = string_to_obs(req['states'], self._state_shapes)
             response = self._act_batch_callback(states)
-
-        elif method == 'act_test_controller_batch':
-            assert self._observation_shapes_low_level is not None, \
-                'if you want to test low level controller specify observation_shapes_low_level'
-            
-            states = string_to_obs(req['states'], self._observation_shapes_low_level)
-            response = self._act_test_controller_batch_callback(states)
             
         elif method == 'store_exp_batch':
             episode = req_to_episode(req, self._observation_shapes)

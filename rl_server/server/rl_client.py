@@ -22,22 +22,33 @@ def obs_to_string(observations):
     return str_obs
 
 def episode_to_req(episode, method='store_exp_batch'):
+    """ Create compact serialized representation of the episode 
+        to pass it as a request.
+    """
     observations, actions, rewards, dones = episode
     str_obs = obs_to_string(observations)
     str_act = actions.tolist()
     str_rew = rewards.tolist()
     str_don = dones.tolist()
-    req = serialize({'method':method, 
-                     'observations':str_obs,
-                     'actions':str_act,
-                     'rewards':str_rew,
-                     'dones':str_don})
+    req = serialize({'method':method, 'observations':str_obs, 'actions':str_act,
+                     'rewards':str_rew, 'dones':str_don})
     return req
 
 class RLClient:
 
-    def __init__(self, port=8777):
-        self._tcp_client = TCPClient('127.0.0.1', port, 120)
+    def __init__(self, ip_address='127.0.0.1', port=8777, network_timeout=120):
+        """ Class for RL Client which interacts with RL Server.
+    
+        Parameters
+        ----------
+        ip_address: str
+            ip address of the client
+        port: int
+            port number of the client
+        network_timeout: int
+            network timeout
+        """
+        self._tcp_client = TCPClient(ip_address, port, network_timeout)
         self._tcp_client.connect()
         self._tcp_lock = threading.Lock()
         
@@ -59,13 +70,6 @@ class RLClient:
         """
         str_states = obs_to_string(states)
         req = serialize({'method': 'act_batch', 'states': str_states})
-        with self._tcp_lock:
-            data = self._tcp_client.write_and_read_with_retries(req)
-            return deserialize(data)
-
-    def act_test_controller_batch(self, states):
-        str_states = obs_to_string(states)
-        req = serialize({'method': 'act_test_controller_batch', 'states': str_states})
         with self._tcp_lock:
             data = self._tcp_client.write_and_read_with_retries(req)
             return deserialize(data)
