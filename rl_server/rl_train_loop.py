@@ -3,18 +3,19 @@ import numpy as np
 import tempfile
 import tensorflow as tf
 import time
-from .experience_replay_buffer import ExperienceReplayBuffer
-from replay_buffer import ServerBuffer
+from .server_replay_buffer import ServerBuffer
 from threading import Lock
 
+
 def gpu_config(gpu_id):
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     config.intra_op_parallelism_threads = 1
-    config.inter_op_parallelism_threads= 1
+    config.inter_op_parallelism_threads = 1
     return config
+
 
 class RLTrainLoop():
 
@@ -29,10 +30,10 @@ class RLTrainLoop():
                  train_every_nth=4,
                  history_length=3,
                  start_learning_after=5000,
-                 target_networks_update_period=500,  # of train ops invokes
+                 target_networks_update_period=500,
                  show_stats_period=2000,
                  save_model_period=10000):
-        
+
         self._observation_shapes = observation_shapes
         self._action_size = action_size
         self._action_dtype = action_dtype
@@ -48,9 +49,8 @@ class RLTrainLoop():
         config = gpu_config(gpu_id)
         self._sess = tf.Session(config=config)
         self._logger = tf.summary.FileWriter("logs")
-        
-        self.server_buffer = ServerBuffer(capacity=self._buffer_size, history_len=self._hist_len,
-                                          num_of_parts_in_obs = len(observation_shapes))
+
+        self.server_buffer = ServerBuffer(self._buffer_size, observation_shapes, action_size)
         self._store_lock = Lock()
         self._step_index = 0
 
@@ -73,12 +73,12 @@ class RLTrainLoop():
     def act_batch(self, states):
         return self._algo.act_batch(self._sess, states)
 
-    def store_exp_episode(self, episode):
-        
+    def store_episode(self, episode):
+
         with self._store_lock:
             self.server_buffer.push_episode(episode)
             buffer_size = self.server_buffer.num_in_buffer
-            
+
             if (buffer_size > self._start_learning_after):
                 episode_len = len(episode[1])
                 for i in range(episode_len):
@@ -95,19 +95,15 @@ class RLTrainLoop():
         self._algo = algo
 
     def train_step(self):
-        
-        batch = self.server_buffer.get_batch(self._batch_size)
-        
+
+        batch = self.server_buffer.get_batch(self._batch_size, history_len=self._hist_len)
+
         for i in range(len(batch.s)):
             shape = batch.s[i].shape
             new_shape = (shape[0],)+(-1,)
             batch.s[i] = batch.s[i].reshape(new_shape)
-            
-        for i in range(len(batch.s_)):
-            shape = batch.s_[i].shape
-            new_shape = (shape[0],)+(-1,)
             batch.s_[i] = batch.s_[i].reshape(new_shape)
-        
+
         queue_size = self.server_buffer.num_in_buffer
         loss = self._algo.train(self._sess, batch)
 
@@ -116,7 +112,7 @@ class RLTrainLoop():
             self._algo.target_network_update(self._sess)
 
         if self._step_index % self._show_stats_period == 0:
-            print (('trains: {} loss: {} stored: {}').format(self._step_index, loss, queue_size))
+            print(('trains: {} loss: {} stored: {}').format(self._step_index, loss, queue_size))
 
         if self._step_index % self._save_model_period == 0:
             save_path = self._saver.save(self._sess, 'ckpt/model-{}.ckpt'.format(self._step_index))

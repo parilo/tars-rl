@@ -5,7 +5,7 @@ import random
 import numpy as np
 from osim.env import L2RunEnv
 from rl_server.server.rl_client import RLClient
-from replay_buffer import AgentBuffer
+from agent_replay_buffer import AgentBuffer
 
 parser = argparse.ArgumentParser(
     description='Train or test neural net motor controller'
@@ -23,6 +23,10 @@ args = parser.parse_args()
 vis = args.visualize
 random_start = args.random_start
 id_ = args.id
+
+action_size = 18
+observation_shapes = [(41,)]
+buf_capacity = 1001
 
 num_actions = 18
 history_len = 3
@@ -112,7 +116,7 @@ env = ExtRunEnv(visualize=vis)
 rl_client = RLClient(port=8777 + id_)
 
 prev_observation = np.array(env.reset())
-agent_buffer = AgentBuffer(1010, history_len=history_len)
+agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
 agent_buffer.push_init_observation([prev_observation])
 
 class InitActionProducer(object):
@@ -131,14 +135,22 @@ init_action_producer.reset_init_action()
 np.set_printoptions(suppress=True)
 
 def prep_state(state):
+    
     state_ = np.copy(state)
-    state_[0] = state_[1] - state_[0]
-    state_[1] = state_[2] - state_[1]
+    #state_[0] = state_[1] - state_[0]
+    #
+    #if d == False:
+    #    state_[1] = state_[2] - state_[1]
+    #else:
+    #    state_[2] = state_[1]
+    #    state_[1] = state_[1] - state_[1]
+        
     return state_.ravel()
 
+done = False
 while True:
     
-    state = prep_state(agent_buffer.get_current_state()[0])
+    state = prep_state(agent_buffer.get_current_state(history_len=history_len)[0])
     
     # randomize
     if (step_index < 20 and random_start):
@@ -155,7 +167,7 @@ while True:
     
     transition = [[next_observation], action, reward, done]
     agent_buffer.push_transition(transition) 
-    next_state = prep_state(agent_buffer.get_current_state()[0])
+    next_state = prep_state(agent_buffer.get_current_state(history_len=history_len)[0])
 
     prev_observation = next_observation
     step_index += 1
@@ -163,7 +175,7 @@ while True:
     if done:
         
         episode = agent_buffer.get_complete_episode()
-        rl_client.store_exp_batch(episode)
+        rl_client.store_episode(episode)
 
         print('--- episode ended {} {} {}'.format(episode_index, step_index, env.get_total_reward()))
 
@@ -176,5 +188,5 @@ while True:
         rand = random.uniform(0, 1)
         prev_observation = np.array(env.reset())
         
-        agent_buffer = AgentBuffer(1010, history_len=history_len)
+        agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
         agent_buffer.push_init_observation([prev_observation])

@@ -55,6 +55,6 @@ def model_load_callback(sess, saver):
 train_loop.init_vars(model_load_callback)
 
 server_api.set_act_batch_callback(train_loop.act_batch)
-server_api.set_store_exp_batch_callback(train_loop.store_exp_episode)
+server_api.set_store_episode_callback(train_loop.store_episode)
 print('--- starting rl server')
 server_api.start_server()

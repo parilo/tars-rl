@@ -18,8 +18,10 @@ from io import BytesIO
 class TCPConnectionError(Exception):
     pass
 
+
 class TCPConnectionClosedError(TCPConnectionError):
     pass
+
 
 class TCPBase(object):
     """
@@ -100,7 +102,6 @@ class TCPBase(object):
                 raise e
             except TCPConnectionError as e:
                 print('--- write and read tcp error {} retring'.format(e))
-
 
 
 class TCPClient(TCPBase):

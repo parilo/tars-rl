@@ -23,7 +23,7 @@ def obs_to_string(observations):
     return str_obs
 
 
-def episode_to_req(episode, method='store_exp_batch'):
+def episode_to_req(episode, method='store_episode'):
     """ Create compact serialized representation of the episode
         to pass it as a request.
     """
@@ -81,10 +81,7 @@ class RLClient:
             data = self._tcp_client.write_and_read_with_retries(req)
             return deserialize(data)
 
-    def store_exp(self, transition):
-        self.store_exp_batch(transition)
-
-    def store_exp_batch(self, episode):
-        req = episode_to_req(episode, method='store_exp_batch')
+    def store_episode(self, episode):
+        req = episode_to_req(episode, method='store_episode')
         with self._tcp_lock:
             self._tcp_client.write_and_read_with_retries(req)

@@ -2,9 +2,10 @@ import numpy as np
 from .tcp_client_server import TCPServer
 from .serialization import serialize, deserialize
 
+
 def string_to_obs(strings, obs_shapes):
     """ Convert strings back to observations (or states).
-    
+
     Parameters
     ----------
     strings: list of strings [str_1, ..., str_n]
@@ -20,8 +21,10 @@ def string_to_obs(strings, obs_shapes):
     """
     obs_str = []
     for i, str_ in enumerate(strings):
-        obs_str.append(np.frombuffer(str_, dtype=np.float32).reshape((-1,)+obs_shapes[i]))
+        obs = np.frombuffer(str_, dtype=np.float32)
+        obs_str.append(obs.reshape((-1,)+obs_shapes[i]))
     return obs_str
+
 
 def req_to_episode(req, obs_shapes):
     """ Preprocess deserealized request to obtain episode.
@@ -32,12 +35,13 @@ def req_to_episode(req, obs_shapes):
     dones = np.array(req['dones'], dtype=np.bool)
     return [observations, actions, rewards, dones]
 
+
 class RLServerAPI:
 
     def __init__(self, num_clients, observation_shapes, state_shapes,
-                 ip_address='0.0.0.0', first_client_port=8777, network_timeout=120):
+                 ip_address='0.0.0.0', init_port=8777, network_timeout=120):
         """ Class for RL Server which interacts with multiple RL Clients.
-        
+
         Parameters
         ----------
         num_clients: int
@@ -48,7 +52,7 @@ class RLServerAPI:
             which corresponds to states' shapes
         ip_address: str
             ip address of the server
-        first_client_port: int
+        init_port: int
             port number of the first client, all clients are assumed to be
             connected via consecutive port numbers
             [first_client_port, first_client_port+1, ...]
@@ -60,32 +64,34 @@ class RLServerAPI:
         self._observation_shapes = observation_shapes
         self._state_shapes = state_shapes
         self._ip_address = ip_address
-        self._init_port = first_client_port
+        self._init_port = init_port
         self._timeout = network_timeout
 
     def set_act_batch_callback(self, callback):
         self._act_batch_callback = callback
 
-    def set_store_exp_batch_callback(self, callback):
-        self._store_exp_batch_callback = callback
+    def set_store_episode_callback(self, callback):
+        self._store_episode_callback = callback
 
     def start_server(self):
         for i in range(self._num_clients):
-            server = TCPServer(self._ip_address, self._init_port+i, self._timeout)
+            server = TCPServer(self._ip_address,
+                               self._init_port+i,
+                               self._timeout)
             server.listen(self.agent_listener)
 
     def agent_listener(self, request):
-        
+
         req = deserialize(request)
         method = req['method']
 
         if method == 'act_batch':
             states = string_to_obs(req['states'], self._state_shapes)
             response = self._act_batch_callback(states)
-            
-        elif method == 'store_exp_batch':
+
+        elif method == 'store_episode':
             episode = req_to_episode(req, self._observation_shapes)
-            self._store_exp_batch_callback(episode)
+            self._store_episode_callback(episode)
             response = ''
 
         return serialize(response)
