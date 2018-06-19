@@ -15,8 +15,9 @@ tf.set_random_seed(seed)
 num_clients = 40  # number of parallel simulators
 action_size = 18
 observation_shapes = [(41,)]
+state_shapes = [(41*3,)]
 
-server_api = RLServerAPI(num_clients, observation_shapes, state_shapes=[(41*3,)])
+server_api = RLServerAPI(num_clients, observation_shapes, state_shapes)
 
 train_loop = RLTrainLoop(
     observation_shapes=observation_shapes,
@@ -24,7 +25,7 @@ train_loop = RLTrainLoop(
     action_dtype=tf.float32,
     is_actions_space_continuous=True,
     gpu_id=0,
-    batch_size=96,
+    batch_size=512,
     experience_replay_buffer_size=1000000,
     train_every_nth=4,
     history_length=3,
@@ -35,7 +36,7 @@ train_loop = RLTrainLoop(
 )
 
 agent_algorithm = OSimRLDDPG(
-    observation_shapes=[(41*3,)],
+    observation_shapes=state_shapes,
     action_size=action_size,
     discount_rate=0.99,
     optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),

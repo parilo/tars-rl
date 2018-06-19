@@ -6,7 +6,7 @@ from .algo.ddpg import DDPG
 from .osim_rl_model_dense import DenseNetwork
 
 
-class OSimRLDDPG ():
+class OSimRLDDPG:
 
     def __init__(self,
                  observation_shapes,
