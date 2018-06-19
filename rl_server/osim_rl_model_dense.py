@@ -29,26 +29,30 @@ class DenseNetwork:
             unique name of a specific network
         """
 
+        self._input_shapes = input_shapes
         self._output_size = output_size
-        self._fc = fully_connected
+        self._fully_connected = fully_connected
         self._activation = activation
-        state_input = keras.layers.Input(shape=input_shapes[0], name='state_input_dummy')
-
-        if len(input_shapes) == 1:
-            self._scope = scope or 'ActorNetwork'
-            self._input_shape = input_shapes[0]
-            model_inputs = [state_input]
-            input_layer = state_input
-            output_activation = 'sigmoid'
-
-        elif len(input_shapes) == 2:
-            self._scope = scope or 'CriticNetwork'
-            self._input_shape = (input_shapes[0][0] + input_shapes[1][0], )
-            action_input = keras.layers.Input(shape=input_shapes[1], name='action_input_dummy')
-            model_inputs = [state_input, action_input]
-            input_layer = Concatenate(axis=1)(model_inputs)
+        self._output_activation = output_activation
 
         if model is None:
+
+            state_input = keras.layers.Input(shape=input_shapes[0], name='state_input_dummy')
+
+            if len(input_shapes) == 1:
+                self._scope = scope or 'ActorNetwork'
+                self._input_shape = input_shapes[0]
+                model_inputs = [state_input]
+                input_layer = state_input
+                output_activation = 'sigmoid'
+
+            elif len(input_shapes) == 2:
+                self._scope = scope or 'CriticNetwork'
+                self._input_shape = (input_shapes[0][0] + input_shapes[1][0], )
+                action_input = keras.layers.Input(shape=input_shapes[1], name='action_input_dummy')
+                model_inputs = [state_input, action_input]
+                input_layer = Concatenate(axis=1)(model_inputs)
+
             with tf.variable_scope(self._scope):
                 model_outputs = self.ff_network(output_activation)(input_layer)
                 self._model = keras.models.Model(inputs=model_inputs, outputs=model_outputs)
@@ -79,8 +83,23 @@ class DenseNetwork:
 
     def ff_network(self, output_activation=None):
         model = Sequential()
-        model.add(Dense(self._fc[0], activation=self._activation, input_shape=self._input_shape))
-        for num_units in self._fc[1:]:
+        model.add(Dense(self._fully_connected[0], activation=self._activation, input_shape=self._input_shape))
+        for num_units in self._fully_connected[1:]:
             model.add(Dense(num_units, activation=self._activation))
         model.add(Dense(self._output_size, activation=output_activation))
         return model
+
+    def copy(self, scope=None):
+        scope = scope or self.scope + "_copy"
+        with tf.variable_scope(scope) as sc:
+            m = keras.models.model_from_json(self._model.to_json())
+            m.set_weights(self._model.get_weights())
+            return DenseNetwork(
+                input_shapes=self._input_shapes,
+                output_size=self._output_size,
+                fully_connected=self._fully_connected,
+                activation=self._activation,
+                output_activation=self._output_activation,
+                model=m,
+                scope=scope
+            )
