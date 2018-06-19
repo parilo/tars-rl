@@ -1,0 +1,59 @@
+#!/usr/bin/env python
+
+import tensorflow as tf
+import random
+import numpy as np
+from rl_server.server.rl_server_api import RLServerAPI
+from rl_server.rl_train_loop import RLTrainLoop
+
+
+class RLServer:
+
+    def __init__(self,
+             num_clients,  # number of parallel simulators
+             action_size,
+             observation_shapes,
+             state_shapes,
+             model_load_callback,
+             agent_algorithm,
+             action_dtype=tf.float32,
+             is_actions_space_continuous=True,
+             gpu_id=0,
+             batch_size=512,
+             experience_replay_buffer_size=1000000,
+             train_every_nth=4,
+             history_length=3,
+             start_learning_after=5000,
+             target_networks_update_period=500,
+             show_stats_period=20,
+             save_model_period=10000):
+
+        self._server_api = RLServerAPI(
+            num_clients,
+            observation_shapes,
+            state_shapes)
+
+        train_loop = RLTrainLoop(
+            observation_shapes=observation_shapes,
+            action_size=action_size,
+            action_dtype=action_dtype,
+            is_actions_space_continuous=is_actions_space_continuous,
+            gpu_id=gpu_id,
+            batch_size=batch_size,
+            experience_replay_buffer_size=experience_replay_buffer_size,
+            train_every_nth=train_every_nth,
+            history_length=history_length,
+            start_learning_after=start_learning_after,
+            target_networks_update_period=target_networks_update_period,
+            show_stats_period=show_stats_period,
+            save_model_period=save_model_period
+        )
+
+        train_loop.set_algorithm(agent_algorithm)
+        train_loop.init_vars(model_load_callback)
+        self._server_api.set_act_batch_callback(train_loop.act_batch)
+        self._server_api.set_store_episode_callback(train_loop.store_episode)
+
+    def start(self):
+        print('--- starting rl server')
+        self._server_api.start_server()
