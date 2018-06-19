@@ -59,11 +59,9 @@ class DDPG(object):
         self._target_critic = target_critic
         self._actor_optimizer = actor_optimizer
         self._critic_optimizer = critic_optimizer
-        self._discount_rate = tf.constant(discount_rate)
-        self._target_actor_update_rate = \
-            tf.constant(target_actor_update_rate)
-        self._target_critic_update_rate = \
-            tf.constant(target_critic_update_rate)
+        self._gamma = tf.constant(discount_rate)
+        self._target_actor_update_rate = tf.constant(target_actor_update_rate)
+        self._target_critic_update_rate = tf.constant(target_critic_update_rate)
 
         self._rewards = rewards
         self._given_action = given_action
@@ -85,92 +83,53 @@ class DDPG(object):
                 source_network.variables(),
                 target_network.variables()
             )
-        ))
-
-    @staticmethod
-    def assign_network(source_network, target_network):
-        return tf.group(*(
-            v_target.assign(v_source)
-            for v_source, v_target in zip(
-                source_network.variables(),
-                target_network.variables()
-            )
-        ))
-
+        ))       
+                        
     def create_variables(self):
-        # self._target_actor = self._actor.copy(scope="target_actor")
-
-        # # we need second GPU for inference of actions.
-        # # Such setup significantly increases learning by
-        # # eliminating competition (for GPU) between train ops
-        # # and inference and thus increasing simulation speed
-        # # which let get more training data from simulator
-        # with tf.device('/device:GPU:1'):
-        #     self._actor_gpu_1 = self._actor.copy(scope="actor_gpu_1")
-        # self._target_critic = self._critic.copy(scope="target_critic")
 
         with tf.name_scope("taking_action"):
-            self._actor_action = self._actor(
-                self._observation_for_act)
+            self._actor_action = self._actor(self._observation_for_act)
 
-        with tf.name_scope("estimating_future_reward"):
-            self._next_action = tf.stop_gradient(
-                self._target_actor(self._next_observation))
-
-            self._next_value = tf.stop_gradient(
-                tf.reshape(
-                    self._target_critic(
-                        [self._next_observation, self._next_action]),
-                    [-1]))
-
-            self._future_reward = self._rewards + self._discount_rate * \
-                (1 - self._terminator) * \
-                self._next_value
-
+        with tf.name_scope("estimating_bellman_equation_sides"):
+            
+            # left hand side of the Bellman equation
+            self._value_lhs = tf.reshape(self._critic([self._observation, self._given_action]), [-1]) 
+            
+            # right hand side of the Bellman equation
+            self._next_action = tf.stop_gradient(self._target_actor(self._next_observation))
+            self._next_value = tf.stop_gradient(tf.reshape(self._target_critic(
+                [self._next_observation, self._next_action]), [-1]))
+            self._value_rhs = self._rewards + self._gamma * (1 - self._terminator) * self._next_value
+                      
         with tf.name_scope("critic_update"):
-            self._value_given_action = tf.reshape(
-                self._critic([self._observation, self._given_action]),
-                [-1])
-
-            self._critic_error = tf.identity(
-                tf.losses.huber_loss(
-                    self._value_given_action,
-                    self._future_reward),
-                name='critic_error')
-
+            
+            self._critic_error = tf.losses.huber_loss(self._value_lhs,self._value_rhs)
+            
             critic_gradients = self._critic_optimizer.compute_gradients(
-                self._critic_error,
-                var_list=self._critic.variables())
-
-            self._critic_update = self._critic_optimizer.apply_gradients(
-                critic_gradients,
-                name='critic_train_op')
+                self._critic_error, var_list=self._critic.variables())
+            
+            self._critic_update = self._critic_optimizer.apply_gradients(critic_gradients)
 
         with tf.name_scope("actor_update"):
-            self._actor_score = self._critic(
-                [self._observation, self._actor(self._observation)])
-
+            
+            self._actor_error = -tf.reduce_mean(self._critic(
+                [self._observation, self._actor(self._observation)]))
+            
             actor_gradients = self._actor_optimizer.compute_gradients(
-                tf.reduce_mean(-self._actor_score),
-                var_list=self._actor.variables())
+                self._actor_error, var_list=self._actor.variables())
 
-            self._actor_update = self._actor_optimizer.apply_gradients(
-                actor_gradients,
-                name='actor_train_op')
+            self._actor_update = self._actor_optimizer.apply_gradients(actor_gradients)
 
-        with tf.name_scope("target_network_update"):
+        with tf.name_scope("target_networks_update"):
+            
             self._target_actor_update = DDPG.update_target_network(
-                self._actor,
-                self._target_actor,
-                self._target_actor_update_rate)
+                self._actor, self._target_actor, self._target_actor_update_rate)
+            
             self._target_critic_update = DDPG.update_target_network(
-                self._critic,
-                self._target_critic,
-                self._target_critic_update_rate)
+                self._critic, self._target_critic, self._target_critic_update_rate)
+            
             self._update_all_targets = tf.group(
-                self._target_actor_update,
-                self._target_critic_update,
-                name='target_networks_update')
+                self._target_actor_update, self._target_critic_update)
 
     def get_actor_train_op(self):
         return self._actor_update

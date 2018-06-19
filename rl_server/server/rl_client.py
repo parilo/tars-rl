@@ -3,23 +3,60 @@ from .tcp_client_server import TCPClient
 from .serialization import serialize, deserialize
 
 
-class RLClient(object):
+def obs_to_string(observations):
+    """ Convert observations (or states) to strings for transmission to server.
 
-    def __init__(self, port=8777):
-        self._tcp_client = TCPClient('127.0.0.1', port, 120)
+    Parameters
+    ----------
+    observations: list of np.arrays [obs_1, ..., obs_n]
+        which corresponds to the original observations (or states)
+        each np.array obs_i has shape (batch_size) + obs_shape_i
+
+    Returns
+    -------
+    str_obs: list of strings [str_1, ..., str_n]
+        which corresponds to the encoded observations (or states)
+    """
+    str_obs = []
+    for obs in observations:
+        str_obs.append(obs.reshape(-1).tostring())
+    return str_obs
+
+
+def episode_to_req(episode, method='store_episode'):
+    """ Create compact serialized representation of the episode
+        to pass it as a request.
+    """
+    observations, actions, rewards, dones = episode
+    str_obs = obs_to_string(observations)
+    str_act = actions.tolist()
+    str_rew = rewards.tolist()
+    str_don = dones.tolist()
+    req = serialize({'method': method,
+                     'observations': str_obs,
+                     'actions': str_act,
+                     'rewards': str_rew,
+                     'dones': str_don})
+    return req
+
+
+class RLClient:
+
+    def __init__(self, ip_address='127.0.0.1', port=8777, network_timeout=120):
+        """ Class for RL Client which interacts with RL Server.
+
+        Parameters
+        ----------
+        ip_address: str
+            ip address of the client
+        port: int
+            port number of the client
+        network_timeout: int
+            network timeout
+        """
+        self._tcp_client = TCPClient(ip_address, port, network_timeout)
         self._tcp_client.connect()
         self._tcp_lock = threading.Lock()
-
-    def preprocess_states(self, states):
-        for s in states:
-            for i in range(len(s)):
-                s[i] = s[i].reshape((-1)).tostring()
-
-    def copy_states(self, states):
-        states_copy = list(states)
-        for i in range(len(states)):
-            states_copy[i] = list(states[i])
-        return states_copy
 
     def act(self, state):
         """
@@ -28,7 +65,7 @@ class RLClient(object):
             your state and want to process it
             differently in the NN
         """
-        return self.act_batch([state])[0]
+        return self.act_batch(state)[0]
 
     def act_batch(self, states):
         """
@@ -37,76 +74,14 @@ class RLClient(object):
             your state and want to process it
             differently in the NN
         """
-        states = self.copy_states(states)
-        self.preprocess_states(states)
-
-        req = serialize({
-            'method': 'act_batch',
-            'states': states
-        })
-
+        str_states = obs_to_string(states)
+        req = serialize({'method': 'act_batch',
+                         'states': str_states})
         with self._tcp_lock:
             data = self._tcp_client.write_and_read_with_retries(req)
             return deserialize(data)
 
-    def act_test_controller_batch(self, states):
-        states = self.copy_states(states)
-        self.preprocess_states(states)
-
-        req = serialize({
-            'method': 'act_test_controller_batch',
-            'states': states
-        })
-
-        with self._tcp_lock:
-            data = self._tcp_client.write_and_read_with_retries(req)
-            return deserialize(data)
-
-    def store_exp(
-            self,
-            reward,
-            action,
-            prev_state,
-            next_state,
-            is_terminator):
-
-        assert isinstance(action, list), 'action must be list'
-        assert isinstance(prev_state, list), 'prev_state must be list'
-        assert isinstance(next_state, list), 'next_state must be list'
-
-        self.store_exp_batch(
-            [reward],
-            [action],
-            [prev_state],
-            [next_state],
-            [is_terminator]
-        )
-
-    def store_exp_batch(
-            self,
-            rewards,
-            actions,
-            prev_states,
-            next_states,
-            is_terminators):
-
-        assert isinstance(actions, list), 'actions must be list'
-        assert isinstance(prev_states, list), 'prev_state must be list'
-        assert isinstance(next_states, list), 'next_state must be list'
-
-        prev_states = self.copy_states(prev_states)
-        next_states = self.copy_states(next_states)
-        self.preprocess_states(prev_states)
-        self.preprocess_states(next_states)
-
-        req = serialize({
-            'method': 'store_exp_batch',
-            'rewards': rewards,
-            'actions': actions,
-            'prev_states': prev_states,
-            'next_states': next_states,
-            'is_terminators': is_terminators
-        })
-
+    def store_episode(self, episode):
+        req = episode_to_req(episode, method='store_episode')
         with self._tcp_lock:
             self._tcp_client.write_and_read_with_retries(req)

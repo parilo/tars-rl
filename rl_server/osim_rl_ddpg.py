@@ -3,7 +3,7 @@ import tempfile
 import tensorflow as tf
 import threading
 from .algo.ddpg import DDPG
-from .osim_rl_model_dense import OSimRLModelDense, DenseNetwork
+from .osim_rl_model_dense import DenseNetwork
 
 
 class OSimRLDDPG ():
@@ -24,9 +24,7 @@ class OSimRLDDPG ():
        
         self._actor = DenseNetwork(observation_shapes, action_size, scope='actor')
         self._target_actor = DenseNetwork(observation_shapes, action_size, scope='target_actor')
-
-        
-        
+      
         for v in self._actor.variables():
             print('--- actor v: {}'.format(v.name))
         for v in self._critic.variables():
