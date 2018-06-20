@@ -3,11 +3,14 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 
 # Work progress
 
-### TODO list
-1. Efficient distributed experience replay buffer
-2. Prioritized experience replay buffer
-3. Learning with n-step returns
-4. Implement other algorithms (SoftAC)
+### Small but important things
+1. Handy tool for storing and visualizing agents' performance
+2. Simple baseline to evaluate changes made in the code
+
+### Global TODO list
+1. Efficient distributed prioritized experience replay buffer
+2. Learning with n-step returns
+3. Implement other algorithms (SoftAC)
 
 ### Ideas to try
 
