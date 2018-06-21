@@ -4,13 +4,14 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 # Work progress
 
 ### Small but important things
-1. Handy tool for storing and visualizing agents' performance
-2. Simple baseline to evaluate changes made in the code
+1. Handy tool for storing and visualizing agents' performance (not good and handy yet)
+2. ~~Simple baselines to evaluate changes made in the code (pendulum and lunar lander)~~
+3. Beat score of **162.245** in Prosthetics environment
 
 ### Global TODO list
 1. Efficient distributed prioritized experience replay buffer
 2. Learning with n-step returns
-3. Implement other algorithms (SoftAC)
+3. Implement other algorithms (SoftAC, Distributional Critic)
 
 ### Ideas to try
 
