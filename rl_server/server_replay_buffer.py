@@ -13,12 +13,14 @@ class ServerBuffer:
         self.obs_shapes = observation_shapes
         self.act_shape = (action_size,)
 
+        # initialize all np.arrays which store necessary data
         self.observations = []
         for part_id in range(self.num_parts):
             self.observations.append(np.empty((self.size, ) + self.obs_shapes[part_id], dtype=np.float32))
         self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
         self.rewards = np.empty((self.size, ), dtype=np.float32)
         self.dones = np.empty((self.size, ), dtype=np.bool)
+        self.td_errors = np.empty((self.size, ), dtype=np.float32)
 
         self.pointer = 0
         self._store_lock = Lock()
@@ -42,6 +44,7 @@ class ServerBuffer:
             self.actions[indices] = np.array(actions)
             self.rewards[indices] = np.array(rewards)
             self.dones[indices] = np.array(dones)
+            self.td_errors[indices] = np.ones(len(indices))
 
             self.pointer = (self.pointer + episode_len) % self.size
 
@@ -74,14 +77,17 @@ class ServerBuffer:
         action = self.actions[idx]
         reward = self.rewards[idx]
         done = self.dones[idx]
-        return state, action, reward, next_state, done
+        td_error = self.td_errors[idx]
+        return state, action, reward, next_state, done, td_error
 
-    def get_random_indices(self, num_indices):
-        indices = random.sample(range(self.num_in_buffer), k=num_indices)
-        return indices
+    def update_td_errors(self, indices, td_errors):
+        self.td_errors[indices] = td_errors
 
-    def get_batch(self, batch_size, history_len=1):
-        indices = self.get_random_indices(batch_size)
+    def get_batch(self, batch_size, history_len=1, indices=None):
+
+        if indices is None:
+            indices = random.sample(range(self.num_in_buffer), k=batch_size)
+
         transitions = []
         for idx in indices:
             transitions.append(self.get_transition(idx, history_len))
@@ -99,3 +105,17 @@ class ServerBuffer:
         dones = np.array([transitions[i][4] for i in range(batch_size)])
         batch = self.transition(states, actions, rewards, next_states, dones)
         return batch
+    
+    def get_prioritized_batch(self, batch_size, history_len=1, 
+                              priority='proportional', alpha=1.0, beta=1.0):
+
+        if priority == 'proportional':
+            p = np.power(np.abs(self.td_errors[:self.num_in_buffer]), alpha)
+            p = p / p.sum()
+            indices = np.random.choice(range(self.num_in_buffer), size=batch_size, p=p)
+            probs = p[indices]
+            is_weights = np.power(self.num_in_buffer * probs, -beta)
+            is_weights = is_weights / is_weights.max()
+
+        batch = self.get_batch(batch_size, history_len, indices)
+        return batch, indices, is_weights

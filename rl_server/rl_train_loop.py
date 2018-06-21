@@ -29,6 +29,7 @@ class RLTrainLoop():
                  experience_replay_buffer_size=1000000,
                  train_every_nth=4,
                  history_length=3,
+                 priority='random',
                  start_learning_after=5000,
                  target_networks_update_period=500,
                  show_stats_period=2000,
@@ -45,6 +46,7 @@ class RLTrainLoop():
         self._show_stats_period = show_stats_period
         self._save_model_period = save_model_period
         self._hist_len = history_length
+        self._priority = priority
 
         config = gpu_config(gpu_id)
         self._sess = tf.Session(config=config)
@@ -96,7 +98,8 @@ class RLTrainLoop():
 
     def train_step(self):
 
-        batch = self.server_buffer.get_batch(self._batch_size, history_len=self._hist_len)
+        batch, indices, is_weights = self.server_buffer.get_prioritized_batch(self._batch_size,
+                                                                              history_len=self._hist_len)
 
         for i in range(len(batch.s)):
             shape = batch.s[i].shape
@@ -105,7 +108,9 @@ class RLTrainLoop():
             batch.s_[i] = batch.s_[i].reshape(new_shape)
 
         queue_size = self.server_buffer.num_in_buffer
-        loss = self._algo.train(self._sess, batch)
+        loss = self._algo.train(self._sess, batch, is_weights)
+        td_errors = self._algo.get_td_errors(self._sess, batch)
+        self.server_buffer.update_td_errors(indices, td_errors)
 
         if self._step_index % self._target_networks_update_period == 0:
             print('--- target network update')
