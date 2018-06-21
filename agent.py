@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import argparse
 import random
 import numpy as np
@@ -24,14 +25,18 @@ parser.add_argument('--id',
                     default=0)
 parser.add_argument('--frame_skip',
                     dest='frame_skip',
-                    default=1)
+                    default=2)
 args = parser.parse_args()
 
-experiment_name = "lunar_lander-hist_len3-frame_skip1-relu-batchnorm-agents40"
+#experiment_name = "lunar_lander-hist_len3-frame_skip1-relu-batchnorm-agents40-prio"
+experiment_name = "pendulum-hist_len3-frame_skip2-relu-batchnorm-agents40-prio"
+path_to_results = 'results/' + experiment_name + '_episode_rewards.txt'
+if os.path.isfile(path_to_results):
+    os.remove(path_to_results)
 
-#env = Pendulum(frame_skip=args.frame_skip)
+env = Pendulum(frame_skip=args.frame_skip)
 #env = ExtRunEnv(frame_skip=args.frame_skip)
-env = LunarLander(frame_skip=args.frame_skip)
+#env = LunarLander(frame_skip=args.frame_skip)
 observation_shapes = env.observation_shapes
 action_size = env.action_size
 
@@ -59,8 +64,8 @@ while True:
         action_received = rl_client.act([state])
         action = np.array(action_received) + np.random.normal(scale=0.02, size=action_size)
         #action = np.clip(action, 0.0, 1.0)
-        #action = np.clip(action, 0.0, 1.0)*4-2
-        action = np.clip(action, 0.0, 1.0)*2-1
+        action = np.clip(action, 0.0, 1.0)*4-2
+        #action = np.clip(action, 0.0, 1.0)*2-1
 
     next_obs, reward, done, info = env.step(action)
     
@@ -75,7 +80,7 @@ while True:
 
         print('--- episode ended {} {} {}'.format(episode_index, env.time_step, env.get_total_reward()))
 
-        with open('results/' + experiment_name + '_episode_rewards.txt', 'a') as f:
+        with open(path_to_results, 'a') as f:
             f.write(str(args.id) + ' ' + str(episode_index) + ' ' + str(env.get_total_reward()) + '\n')
 
         episode_index += 1

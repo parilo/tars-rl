@@ -24,14 +24,14 @@ history_len = 3
 #state_shapes = [(41*3,)]
 
 # pendulum
-#action_size = 1
-#observation_shapes = [(3,)]
-#state_shapes = [(history_len*3,)]
+action_size = 1
+observation_shapes = [(3,)]
+state_shapes = [(history_len*3,)]
 
 # lunar lander
-action_size = 2
-observation_shapes = [(8,)]
-state_shapes = [(history_len*8,)]
+#action_size = 2
+#observation_shapes = [(8,)]
+#state_shapes = [(history_len*8,)]
 
 critic_shapes = list(state_shapes)
 critic_shapes.append((action_size,))
@@ -63,13 +63,13 @@ rl_server = RLServer(num_clients=40,
                      action_dtype=tf.float32,
                      is_actions_space_continuous=True,
                      gpu_id=0,
-                     batch_size=128,
-                     experience_replay_buffer_size=1000000,
+                     batch_size=256,
+                     experience_replay_buffer_size=100000,
                      train_every_nth=4,
                      history_length=history_len,
                      start_learning_after=5000,
                      target_networks_update_period=1,
-                     show_stats_period=20,
+                     show_stats_period=1000,
                      save_model_period=10000)
 
 rl_server.start()

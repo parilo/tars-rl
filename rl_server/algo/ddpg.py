@@ -132,9 +132,6 @@ class DDPG:
             
             self._critic_error = tf.reduce_mean(self._is_weights * td_errors * self._value_lhs)
 
-            #self._critic_error = tf.losses.huber_loss(self._value_lhs, 
-            #                                          self._value_rhs, delta=self._grad_clip)
-
             critic_gradients = self._critic_optimizer.compute_gradients(
                 self._critic_error, var_list=self._critic.variables())
 

@@ -107,10 +107,10 @@ class ServerBuffer:
         return batch
     
     def get_prioritized_batch(self, batch_size, history_len=1, 
-                              priority='proportional', alpha=1.0, beta=1.0):
+                              priority='proportional', alpha=0.6, beta=1.0):
 
         if priority == 'proportional':
-            p = np.power(np.abs(self.td_errors[:self.num_in_buffer]), alpha)
+            p = np.power(np.abs(self.td_errors[:self.num_in_buffer])+1e-6, alpha)
             p = p / p.sum()
             indices = np.random.choice(range(self.num_in_buffer), size=batch_size, p=p)
             probs = p[indices]

@@ -29,7 +29,7 @@ class RLTrainLoop():
                  experience_replay_buffer_size=1000000,
                  train_every_nth=4,
                  history_length=3,
-                 priority='random',
+                 initial_beta=0.4,
                  start_learning_after=5000,
                  target_networks_update_period=500,
                  show_stats_period=2000,
@@ -46,14 +46,14 @@ class RLTrainLoop():
         self._show_stats_period = show_stats_period
         self._save_model_period = save_model_period
         self._hist_len = history_length
-        self._priority = priority
+        self._beta = initial_beta
 
         config = gpu_config(gpu_id)
         self._sess = tf.Session(config=config)
         self._logger = tf.summary.FileWriter("logs")
 
         self.server_buffer = ServerBuffer(self._buffer_size, observation_shapes, action_size)
-        self._store_lock = Lock()
+        self._train_loop_step_lock = Lock()
         self._step_index = 0
 
     def get_tf_session(self):
@@ -73,25 +73,24 @@ class RLTrainLoop():
             model_load_callback(self._sess, self._saver)
 
     def act_batch(self, states):
-        return self._algo.act_batch(self._sess, states)
+        actions = self._algo.act_batch(self._sess, states)
+        self.train_loop_step()
+        return actions
+
+    def train_loop_step(self):
+        with self._train_loop_step_lock:
+            self._step_index += 1
+
+            buffer_size = self.server_buffer.num_in_buffer
+            if buffer_size > self._start_learning_after:
+                if (self._step_index % self._train_every_nth == 0):
+                    self.train_step()
+            elif buffer_size < self._start_learning_after and self._step_index % 10 == 0:
+                print('--- buffer size {}'.format(buffer_size))
 
     def store_episode(self, episode):
-
-        with self._store_lock:
+        with self._train_loop_step_lock:
             self.server_buffer.push_episode(episode)
-            buffer_size = self.server_buffer.num_in_buffer
-
-            if (buffer_size > self._start_learning_after):
-                episode_len = len(episode[1])
-                for i in range(episode_len):
-                    self._step_index += 1
-                    if (self._step_index % self._train_every_nth == 0):
-                        self.train_step()
-            elif (buffer_size < self._start_learning_after and self._step_index % 10 == 0):
-                self._step_index += 1
-                print('--- buffer size {}'.format(buffer_size))
-            else:
-                self._step_index += 1
 
     def set_algorithm(self, algo):
         self._algo = algo
@@ -99,7 +98,8 @@ class RLTrainLoop():
     def train_step(self):
 
         batch, indices, is_weights = self.server_buffer.get_prioritized_batch(self._batch_size,
-                                                                              history_len=self._hist_len)
+                                                                              history_len=self._hist_len,
+                                                                              beta=self._beta)
 
         for i in range(len(batch.s)):
             shape = batch.s[i].shape
@@ -112,8 +112,10 @@ class RLTrainLoop():
         td_errors = self._algo.get_td_errors(self._sess, batch)
         self.server_buffer.update_td_errors(indices, td_errors)
 
+        self._beta = min(1.0, self._beta+1e-5)
+
         if self._step_index % self._target_networks_update_period == 0:
-            print('--- target network update')
+            #print('--- target network update')
             self._algo.target_network_update(self._sess)
 
         if self._step_index % self._show_stats_period == 0:
