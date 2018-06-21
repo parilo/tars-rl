@@ -1,13 +1,13 @@
 import tensorflow as tf
 from tensorflow.python import keras
 from tensorflow.python.keras.models import Sequential
-from tensorflow.python.keras.layers import Dense, Concatenate
+from tensorflow.python.keras.layers import Dense, Concatenate, BatchNormalization
 
 
 class DenseNetwork:
 
-    def __init__(self, input_shapes, output_size, fully_connected=[400, 300],
-                 activation='tanh', output_activation=None, model=None, scope=None):
+    def __init__(self, input_shapes, output_size, fully_connected=[64, 64],
+                 activation='relu', output_activation=None, model=None, scope=None):
         """
         Class for dense neural network which estimates either
         value function (critic mode) or policy (actor mode).
@@ -86,6 +86,7 @@ class DenseNetwork:
         model.add(Dense(self._fully_connected[0], activation=self._activation, input_shape=self._input_shape))
         for num_units in self._fully_connected[1:]:
             model.add(Dense(num_units, activation=self._activation))
+        model.add(BatchNormalization())
         model.add(Dense(self._output_size, activation=output_activation))
         return model
 

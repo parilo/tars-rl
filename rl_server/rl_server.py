@@ -19,7 +19,7 @@ class RLServer:
              action_dtype=tf.float32,
              is_actions_space_continuous=True,
              gpu_id=0,
-             batch_size=512,
+             batch_size=256,
              experience_replay_buffer_size=1000000,
              train_every_nth=4,
              history_length=3,
@@ -46,8 +46,7 @@ class RLServer:
             start_learning_after=start_learning_after,
             target_networks_update_period=target_networks_update_period,
             show_stats_period=show_stats_period,
-            save_model_period=save_model_period
-        )
+            save_model_period=save_model_period)
 
         train_loop.set_algorithm(agent_algorithm)
         train_loop.init_vars(model_load_callback)

@@ -8,6 +8,8 @@ from osim.env import L2RunEnv
 from rl_server.server.rl_client import RLClient
 from agent_replay_buffer import AgentBuffer
 from envs.l2run import ExtRunEnv
+from envs.pendulum import Pendulum
+from envs.lunar_lander import LunarLander
 
 # parse input arguments
 
@@ -25,8 +27,11 @@ parser.add_argument('--frame_skip',
                     default=1)
 args = parser.parse_args()
 
-# env = Pendulum()
-env = ExtRunEnv(frame_skip=args.frame_skip)
+experiment_name = "lunar_lander-hist_len3-frame_skip1-relu-batchnorm-agents40"
+
+#env = Pendulum(frame_skip=args.frame_skip)
+#env = ExtRunEnv(frame_skip=args.frame_skip)
+env = LunarLander(frame_skip=args.frame_skip)
 observation_shapes = env.observation_shapes
 action_size = env.action_size
 
@@ -53,8 +58,9 @@ while True:
     else:
         action_received = rl_client.act([state])
         action = np.array(action_received) + np.random.normal(scale=0.02, size=action_size)
-        action = np.clip(action, -1.0, 1.0)
-        # action = np.clip(action, 0.0, 1.0)*4-2
+        #action = np.clip(action, 0.0, 1.0)
+        #action = np.clip(action, 0.0, 1.0)*4-2
+        action = np.clip(action, 0.0, 1.0)*2-1
 
     next_obs, reward, done, info = env.step(action)
     
@@ -69,8 +75,8 @@ while True:
 
         print('--- episode ended {} {} {}'.format(episode_index, env.time_step, env.get_total_reward()))
 
-        with open('episode_rewards.txt', 'a') as f:
-            f.write(str(episode_index) + ' ' + str(env.get_total_reward()) + '\n')
+        with open('results/' + experiment_name + '_episode_rewards.txt', 'a') as f:
+            f.write(str(args.id) + ' ' + str(episode_index) + ' ' + str(env.get_total_reward()) + '\n')
 
         episode_index += 1
         obs = env.reset()
