@@ -1,7 +1,7 @@
 import random
 import numpy as np
 from collections import namedtuple
-from threading import Lock
+from threading import RLock
 
 
 class ServerBuffer:
@@ -13,15 +13,18 @@ class ServerBuffer:
         self.obs_shapes = observation_shapes
         self.act_shape = (action_size,)
 
+        # initialize all np.arrays which store necessary data
         self.observations = []
         for part_id in range(self.num_parts):
-            self.observations.append(np.empty((self.size, ) + self.obs_shapes[part_id], dtype=np.float32))
+            obs = np.empty((self.size, ) + self.obs_shapes[part_id], dtype=np.float32)
+            self.observations.append(obs)
         self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
         self.rewards = np.empty((self.size, ), dtype=np.float32)
         self.dones = np.empty((self.size, ), dtype=np.bool)
+        self.td_errors = np.empty((self.size, ), dtype=np.float32)
 
         self.pointer = 0
-        self._store_lock = Lock()
+        self._store_lock = RLock()
         self.transition = namedtuple('Transition', ('s', 'a', 'r', 's_', 'done'))
 
     def push_episode(self, episode):
@@ -42,14 +45,15 @@ class ServerBuffer:
             self.actions[indices] = np.array(actions)
             self.rewards[indices] = np.array(rewards)
             self.dones[indices] = np.array(dones)
+            self.td_errors[indices] = np.ones(len(indices))
 
             self.pointer = (self.pointer + episode_len) % self.size
 
-    def get_transition(self, idx, history_len=1):
-
-        state, next_state = [], []
+    def get_state(self, idx, history_len=1):
+        """ compose the state from a number (history_len) of observations
+        """
+        state = []
         for part_id in range(self.num_parts):
-
             s = np.zeros((history_len, ) + self.obs_shapes[part_id], dtype=np.float32)
             indices = [idx]
             for i in range(history_len-1):
@@ -63,39 +67,62 @@ class ServerBuffer:
             indices = indices[::-1]
             s[-len(indices):] = self.observations[part_id][indices]
             state.append(s)
+        return state
 
-            s_ = np.zeros_like(s)
-            indices = indices[1:]
-            if not self.dones[idx]:
-                indices.append((idx + 1) % self.size)
-            s_[:len(indices)] = self.observations[part_id][indices]
-            next_state.append(s_)
+    def get_transition_n_step(self, idx, history_len=1, n_step=1, gamma=0.99):
+        state = self.get_state(idx, history_len)
+        next_state = self.get_state((idx + n_step) % self.size, history_len)
+        cum_reward = 0
+        indices = np.arange(idx, idx + n_step) % self.size
+        for num, i in enumerate(indices):
+            cum_reward += self.rewards[i] * (gamma ** num)
+            done = self.dones[i]
+            if done:
+                break
+        return state, self.actions[idx], cum_reward, next_state, done, self.td_errors[idx]
 
-        action = self.actions[idx]
-        reward = self.rewards[idx]
-        done = self.dones[idx]
-        return state, action, reward, next_state, done
+    def update_td_errors(self, indices, td_errors):
+        self.td_errors[indices] = td_errors
 
-    def get_random_indices(self, num_indices):
-        indices = random.sample(range(self.num_in_buffer), k=num_indices)
-        return indices
+    def get_batch(self, batch_size, history_len=1, n_step=1, gamma=0.99, indices=None):
 
-    def get_batch(self, batch_size, history_len=1):
-        indices = self.get_random_indices(batch_size)
-        transitions = []
-        for idx in indices:
-            transitions.append(self.get_transition(idx, history_len))
+        with self._store_lock:
 
-        states = []
-        for part_id in range(self.num_parts):
-            state = np.array([transitions[i][0][part_id] for i in range(batch_size)])
-            states.append(state)
-        actions = np.array([transitions[i][1] for i in range(batch_size)])
-        rewards = np.array([transitions[i][2] for i in range(batch_size)])
-        next_states = []
-        for part_id in range(self.num_parts):
-            next_state = np.array([transitions[i][3][part_id] for i in range(batch_size)])
-            next_states.append(next_state)
-        dones = np.array([transitions[i][4] for i in range(batch_size)])
-        batch = self.transition(states, actions, rewards, next_states, dones)
-        return batch
+            if indices is None:
+                indices = random.sample(range(self.num_in_buffer), k=batch_size)
+
+            transitions = []
+            for idx in indices:
+                transition = self.get_transition_n_step(idx, history_len, n_step, gamma)
+                transitions.append(transition)
+
+            states = []
+            for part_id in range(self.num_parts):
+                state = np.array([transitions[i][0][part_id] for i in range(batch_size)])
+                states.append(state)
+            actions = np.array([transitions[i][1] for i in range(batch_size)])
+            rewards = np.array([transitions[i][2] for i in range(batch_size)])
+            next_states = []
+            for part_id in range(self.num_parts):
+                next_state = np.array([transitions[i][3][part_id] for i in range(batch_size)])
+                next_states.append(next_state)
+            dones = np.array([transitions[i][4] for i in range(batch_size)])
+            batch = self.transition(states, actions, rewards, next_states, dones)
+            return batch
+
+    def get_prioritized_batch(self, batch_size, history_len=1,
+                              n_step=1, gamma=0.99,
+                              priority='proportional', alpha=0.6, beta=1.0):
+
+        with self._store_lock:
+
+            if priority == 'proportional':
+                p = np.power(np.abs(self.td_errors[:self.num_in_buffer])+1e-6, alpha)
+                p = p / p.sum()
+                indices = np.random.choice(range(self.num_in_buffer), size=batch_size, p=p)
+                probs = p[indices]
+                is_weights = np.power(self.num_in_buffer * probs, -beta)
+                is_weights = is_weights / is_weights.max()
+
+            batch = self.get_batch(batch_size, history_len, n_step, gamma, indices)
+            return batch, indices, is_weights

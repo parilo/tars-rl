@@ -12,6 +12,7 @@ class DDPG:
                  critic,
                  actor_optimizer,
                  critic_optimizer,
+                 gradient_clip=1.0,
                  discount_factor=0.95,
                  target_actor_update_rate=1.0,
                  target_critic_update_rate=1.0):
@@ -58,6 +59,7 @@ class DDPG:
         self._target_critic = critic.copy(scope='target_critic')
         self._actor_optimizer = actor_optimizer
         self._critic_optimizer = critic_optimizer
+        self._grad_clip = gradient_clip
         self._gamma = tf.constant(discount_factor)
         self._target_actor_update_rate = tf.constant(target_actor_update_rate)
         self._target_critic_update_rate = tf.constant(target_critic_update_rate)
@@ -81,17 +83,11 @@ class DDPG:
     def _create_placeholders(self):
         state_batch_shapes = []
         for s in self._state_shapes:
-            state_batch_shapes.append(
-                tuple([None] + list(s))
-            )
+            state_batch_shapes.append(tuple([None] + list(s)))
 
-        self._rewards = tf.placeholder(
-            tf.float32, (None,), name='inp_rewards'
-        )
-        self._given_action = tf.placeholder(
-            tf.float32, (None, self._action_size),
-            name='inp_actions'
-        )
+        self._rewards = tf.placeholder(tf.float32, (None,), name='inp_rewards')
+        self._given_action = tf.placeholder(tf.float32, (None, self._action_size),
+                                            name='inp_actions')
         self._state_for_act = []
         self._state = []
         self._next_state = []
@@ -104,14 +100,13 @@ class DDPG:
                 )
             )
             self._state.append(
-                tf.placeholder(tf.float32, shape, name='inp_prev_state')
-            )
+                tf.placeholder(tf.float32, shape, name='inp_prev_state'))
             self._next_state.append(
-                tf.placeholder(tf.float32, shape, name='inp_next_states')
-            )
+                tf.placeholder(tf.float32, shape, name='inp_next_states'))
         self._terminator = tf.placeholder(
-            tf.float32, (None,), name='inp_terminator'
-        )
+            tf.float32, (None,), name='inp_terminator')
+        self._is_weights = tf.placeholder(
+            tf.float32, (None,), name='importance_sampling_weights')
 
     def _create_variables(self):
 
@@ -130,8 +125,12 @@ class DDPG:
             self._value_rhs = self._rewards + self._gamma * (1 - self._terminator) * self._next_value
 
         with tf.name_scope("critic_update"):
-
-            self._critic_error = tf.losses.huber_loss(self._value_lhs,self._value_rhs)
+            
+            self._td_errors = tf.clip_by_value(self._value_lhs - self._value_rhs, 
+                                               -self._grad_clip, self._grad_clip)
+            td_errors = tf.stop_gradient(self._td_errors)
+            
+            self._critic_error = tf.reduce_mean(self._is_weights * td_errors * self._value_lhs)
 
             critic_gradients = self._critic_optimizer.compute_gradients(
                 self._critic_error, var_list=self._critic.variables())
@@ -171,11 +170,12 @@ class DDPG:
 
         return actions.tolist()
 
-    def train(self, sess, batch):
+    def train(self, sess, batch, is_weights):
 
         feed_dict = {self._rewards: batch.r,
                      self._given_action: batch.a,
-                     self._terminator: batch.done}
+                     self._terminator: batch.done,
+                     self._is_weights: is_weights}
 
         for i in range(len(batch.s)):
             feed_dict[self._state[i]] = batch.s[i]
@@ -186,6 +186,19 @@ class DDPG:
                                self._actor_update],
                               feed_dict=feed_dict)
         return loss
+
+    def get_td_errors(self, sess, batch):
+
+        feed_dict = {self._rewards: batch.r,
+                     self._given_action: batch.a,
+                     self._terminator: batch.done}
+
+        for i in range(len(batch.s)):
+            feed_dict[self._state[i]] = batch.s[i]
+            feed_dict[self._next_state[i]] = batch.s_[i]
+
+        td_errors = sess.run(self._td_errors, feed_dict=feed_dict)
+        return td_errors
 
     def target_network_update(self, sess):
         sess.run(self._update_all_targets)

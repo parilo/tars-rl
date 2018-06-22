@@ -10,23 +10,23 @@ from rl_server.rl_train_loop import RLTrainLoop
 class RLServer:
 
     def __init__(self,
-             num_clients,  # number of parallel simulators
-             action_size,
-             observation_shapes,
-             state_shapes,
-             model_load_callback,
-             agent_algorithm,
-             action_dtype=tf.float32,
-             is_actions_space_continuous=True,
-             gpu_id=0,
-             batch_size=256,
-             experience_replay_buffer_size=1000000,
-             train_every_nth=4,
-             history_length=3,
-             start_learning_after=5000,
-             target_networks_update_period=500,
-             show_stats_period=20,
-             save_model_period=10000):
+                 num_clients,
+                 action_size,
+                 observation_shapes,
+                 state_shapes,
+                 model_load_callback,
+                 agent_algorithm,
+                 action_dtype=tf.float32,
+                 is_actions_space_continuous=True,
+                 gpu_id=0,
+                 batch_size=256,
+                 experience_replay_buffer_size=1000000,
+                 train_every_nth=4,
+                 history_length=3,
+                 start_learning_after=5000,
+                 target_networks_update_period=500,
+                 show_stats_period=20,
+                 save_model_period=10000):
 
         self._server_api = RLServerAPI(
             num_clients,
