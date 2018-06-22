@@ -22,11 +22,15 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 ```python
 model='3D', prosthetic=True, difficulty=0, seed=25
 ```
-| Approach | Experiment info | 5K episodes | 10K episodes | 15K episodes |
-|-|-|-|-|-|
-| DDPG + PrioReplay | fs2, hl2, relu, [400,300] | 22.13 | 175.81 | **246.22** |
-| DDPG + PrioReplay | fs2, hl2, ns4, relu, [400,300] | 86.71 |  |  |
+| Approach | Experiment info | 5K episodes | 10K episodes | 15K episodes | 20K episodes |
+|-|-|-|-|-|-|
+| DDPG + PrioReplay | fs2, hl2, relu, [400,300] | 22.13 | 175.81 | 246.22 |
+| DDPG + PrioReplay | fs2, hl2, ns4, relu, [400,300] | 86.71 | 107.08 | 175.61 | **260.77** |
 
+
+107.07703744546455
+175.61003200657254
+260.7673205069435
 
 # Resources
 ### Learning to Run challenge
