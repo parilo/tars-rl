@@ -17,6 +17,14 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 ### Ideas to try
 1. Shift positions with respect to pelvis or center mass
 
+### Performance of different approaches
+```python
+model='3D', prosthetic=True, difficulty=0, seed=25
+```
+| Approach | Experiment info | 5K episodes | 10K episodes | 15K episodes |
+|-|-|-|-|-|
+| DDPG + PrioReplay | fs2, hl2, relu, [400,300] | 22.13 | 175.81 | **246.22** |
+
 
 # Resources
 ### Learning to Run challenge
@@ -29,17 +37,3 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 4. Distributional Reinforcement Learning with Quantile Regression (QR-DQN) ([pdf](https://arxiv.org/pdf/1710.10044.pdf)).
 ### Third party code
 1. Ray RLlib: Scalable Reinforcement Learning. Ray RLlib is an RL execution toolkit built on the Ray distributed execution framework. RLlib implements a collection of distributed policy optimizers that make it easy to use a variety of training strategies with existing RL algorithms written in frameworks such as PyTorch and TensorFlow ([docs](http://ray.readthedocs.io/en/latest/rllib.html), [github](https://github.com/ray-project/ray/tree/master/python/ray/rllib), [paper](https://arxiv.org/pdf/1712.09381.pdf)).
-
-# Description
-Now client-server approach is used to be able to utilize many simulators during training
-# Files description
-Client code
-- agent.py - agent code
-- run_many_agents.py - edit file to specify number of agents and its types
-
-Server code
-- osim-rl-server.py - run this file to run the server, edit file to set parameters
-- rl_server/osim_rl_mode_dense.py - NN description
-- rl_server/algo/ddpg.py - DDPG algorithm main file
-- rl_server/osim_rl_ddpg.py - adapter for DDPG
-- server - folder with client-server api
