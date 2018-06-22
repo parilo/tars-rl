@@ -6,13 +6,14 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 ### Small but important things
 1. Handy tool for storing and visualizing agents' performance (not good and handy yet)
 2. ~~Simple baselines to evaluate changes made in the code (pendulum and lunar lander)~~
-3. Beat score of **162.245** in Prosthetics environment
-4. Normalize input observations based on magnitude statistics
+3. ~~Beat score of **162.245** in Prosthetics environment~~
+4. Normalize input observations based on magnitude statistics (done stupidly, rework)
 
 ### Global TODO list
-1. Efficient distributed prioritized experience replay buffer
-2. Learning with n-step returns
+1. ~~Efficient distributed prioritized experience replay buffer~~
+2. ~~Learning with n-step returns~~
 3. Implement other algorithms (SoftAC, Distributional Critic)
+4. Ensembles of actors and critics
 
 ### Ideas to try
 1. Shift positions with respect to pelvis or center mass
@@ -24,6 +25,7 @@ model='3D', prosthetic=True, difficulty=0, seed=25
 | Approach | Experiment info | 5K episodes | 10K episodes | 15K episodes |
 |-|-|-|-|-|
 | DDPG + PrioReplay | fs2, hl2, relu, [400,300] | 22.13 | 175.81 | **246.22** |
+| DDPG + PrioReplay | fs2, hl2, ns4, relu, [400,300] | 86.71 |  |  |
 
 
 # Resources
