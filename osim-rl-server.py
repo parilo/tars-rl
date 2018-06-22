@@ -5,7 +5,7 @@ import tensorflow as tf
 import random
 import numpy as np
 from rl_server.rl_server import RLServer
-from rl_server.osim_rl_model_dense import DenseNetwork
+from rl_server.dense_network import DenseNetwork
 from rl_server.algo.ddpg import DDPG
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -16,7 +16,12 @@ random.seed(seed)
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-history_len = 3
+history_len = 2
+
+# prosthetics
+action_size = 19
+observation_shapes = [(158,)]
+state_shapes = [(history_len*158,)]
 
 # osim
 #action_size = 18
@@ -24,9 +29,9 @@ history_len = 3
 #state_shapes = [(41*3,)]
 
 # pendulum
-action_size = 1
-observation_shapes = [(3,)]
-state_shapes = [(history_len*3,)]
+#action_size = 1
+#observation_shapes = [(3,)]
+#state_shapes = [(history_len*3,)]
 
 # lunar lander
 #action_size = 2
@@ -64,7 +69,7 @@ rl_server = RLServer(num_clients=40,
                      is_actions_space_continuous=True,
                      gpu_id=0,
                      batch_size=256,
-                     experience_replay_buffer_size=100000,
+                     experience_replay_buffer_size=1000000,
                      train_every_nth=4,
                      history_length=history_len,
                      start_learning_after=5000,

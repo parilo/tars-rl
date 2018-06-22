@@ -6,7 +6,7 @@ from tensorflow.python.keras.layers import Dense, Concatenate, BatchNormalizatio
 
 class DenseNetwork:
 
-    def __init__(self, input_shapes, output_size, fully_connected=[64, 64],
+    def __init__(self, input_shapes, output_size, fully_connected=[400, 300],
                  activation='relu', output_activation=None, model=None, scope=None):
         """
         Class for dense neural network which estimates either
@@ -37,7 +37,7 @@ class DenseNetwork:
 
         if model is None:
 
-            state_input = keras.layers.Input(shape=input_shapes[0], name='state_input_dummy')
+            state_input = keras.layers.Input(shape=input_shapes[0], name='state_input')
 
             if len(input_shapes) == 1:
                 self._scope = scope or 'ActorNetwork'
@@ -49,7 +49,7 @@ class DenseNetwork:
             elif len(input_shapes) == 2:
                 self._scope = scope or 'CriticNetwork'
                 self._input_shape = (input_shapes[0][0] + input_shapes[1][0], )
-                action_input = keras.layers.Input(shape=input_shapes[1], name='action_input_dummy')
+                action_input = keras.layers.Input(shape=input_shapes[1], name='action_input')
                 model_inputs = [state_input, action_input]
                 input_layer = Concatenate(axis=1)(model_inputs)
 
@@ -83,10 +83,12 @@ class DenseNetwork:
 
     def ff_network(self, output_activation=None):
         model = Sequential()
-        model.add(Dense(self._fully_connected[0], activation=self._activation, input_shape=self._input_shape))
+        model.add(Dense(self._fully_connected[0],
+                        activation=self._activation,
+                        input_shape=self._input_shape))
         for num_units in self._fully_connected[1:]:
             model.add(Dense(num_units, activation=self._activation))
-        model.add(BatchNormalization())
+        # model.add(BatchNormalization())
         model.add(Dense(self._output_size, activation=output_activation))
         return model
 

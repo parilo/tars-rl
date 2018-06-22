@@ -81,16 +81,15 @@ class RLTrainLoop():
         with self._train_loop_step_lock:
             self._step_index += 1
 
-            buffer_size = self.server_buffer.num_in_buffer
-            if buffer_size > self._start_learning_after:
-                if (self._step_index % self._train_every_nth == 0):
-                    self.train_step()
-            elif buffer_size < self._start_learning_after and self._step_index % 10 == 0:
-                print('--- buffer size {}'.format(buffer_size))
+        buffer_size = self.server_buffer.num_in_buffer
+        if buffer_size > self._start_learning_after:
+            if (self._step_index % self._train_every_nth == 0):
+                self.train_step()
+        elif buffer_size < self._start_learning_after and self._step_index % 10 == 0:
+            print('--- buffer size {}'.format(buffer_size))
 
     def store_episode(self, episode):
-        with self._train_loop_step_lock:
-            self.server_buffer.push_episode(episode)
+        self.server_buffer.push_episode(episode)
 
     def set_algorithm(self, algo):
         self._algo = algo
@@ -99,6 +98,7 @@ class RLTrainLoop():
 
         batch, indices, is_weights = self.server_buffer.get_prioritized_batch(self._batch_size,
                                                                               history_len=self._hist_len,
+                                                                              n_step=4,
                                                                               beta=self._beta)
 
         for i in range(len(batch.s)):
@@ -112,10 +112,10 @@ class RLTrainLoop():
         td_errors = self._algo.get_td_errors(self._sess, batch)
         self.server_buffer.update_td_errors(indices, td_errors)
 
-        self._beta = min(1.0, self._beta+1e-5)
+        self._beta = min(1.0, self._beta+1e-6)
 
         if self._step_index % self._target_networks_update_period == 0:
-            #print('--- target network update')
+            # print('--- target network update')
             self._algo.target_network_update(self._sess)
 
         if self._step_index % self._show_stats_period == 0:
