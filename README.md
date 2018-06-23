@@ -14,6 +14,7 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 2. ~~Learning with n-step returns~~
 3. Implement other algorithms (SoftAC, Distributional Critic)
 4. Ensembles of actors and critics
+5. Implement and test different exploration techniques
 
 ### Ideas to try
 1. Shift positions with respect to pelvis or center mass
@@ -27,10 +28,12 @@ model='3D', prosthetic=True, difficulty=0, seed=25
 | DDPG + PrioReplay | fs2, hl2, relu, [400,300] | 22.13 | 175.81 | 246.22 |
 | DDPG + PrioReplay | fs2, hl2, ns4, relu, [400,300] | 86.71 | 107.08 | 175.61 | **260.77** |
 
+# Hacks and hyperparameters from the literature
 
-107.07703744546455
-175.61003200657254
-260.7673205069435
+### Ape-X DPG
+1. The gradient used to update the **actor network** is clipped to [-1,1] element-wise.
+2. **Hard** target updates every 100 training batches.
+3. Prioritization parameters: priority exponent (alpha) -- 0.6, importance sampling exponent (beta) -- 0.4
 
 # Resources
 ### Learning to Run challenge
