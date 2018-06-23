@@ -4,7 +4,7 @@ import tempfile
 import tensorflow as tf
 import time
 from .server_replay_buffer import ServerBuffer
-from threading import Lock
+from threading import Lock, Thread
 
 
 def gpu_config(gpu_id):
@@ -74,19 +74,35 @@ class RLTrainLoop():
 
     def act_batch(self, states):
         actions = self._algo.act_batch(self._sess, states)
-        self.train_loop_step()
+        # self.train_loop_step()
         return actions
 
-    def train_loop_step(self):
-        with self._train_loop_step_lock:
-            self._step_index += 1
+    def start_training(self):
 
-        buffer_size = self.server_buffer.num_in_buffer
-        if buffer_size > self._start_learning_after:
-            if (self._step_index % self._train_every_nth == 0):
-                self.train_step()
-        elif buffer_size < self._start_learning_after and self._step_index % 10 == 0:
-            print('--- buffer size {}'.format(buffer_size))
+        def train_loop():
+            while True:
+                buffer_size = self.server_buffer.num_in_buffer
+                if buffer_size > self._start_learning_after:
+                    # if (self._step_index % self._train_every_nth == 0):
+                    self.train_step()
+                    self._step_index += 1
+                elif buffer_size < self._start_learning_after and self._step_index % 10 == 0:
+                    print('--- buffer size {}'.format(buffer_size))
+                    time.sleep(1.0)
+
+        th = Thread(target=train_loop)
+        th.start()
+
+    # def train_loop_step(self):
+    #     with self._train_loop_step_lock:
+    #         self._step_index += 1
+    #
+    #         buffer_size = self.server_buffer.num_in_buffer
+    #         if buffer_size > self._start_learning_after:
+    #             if (self._step_index % self._train_every_nth == 0):
+    #                 self.train_step()
+    #         elif buffer_size < self._start_learning_after and self._step_index % 10 == 0:
+    #             print('--- buffer size {}'.format(buffer_size))
 
     def store_episode(self, episode):
         self.server_buffer.push_episode(episode)
