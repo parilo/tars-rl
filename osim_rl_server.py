@@ -6,7 +6,7 @@ import random
 import numpy as np
 from rl_server.rl_server import RLServer
 from rl_server.dense_network import DenseNetwork
-from rl_server.algo.ddpg import DDPG
+from rl_server.algo.ddpg_prio_buf import DDPG
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
@@ -21,7 +21,7 @@ history_len = 2
 # prosthetics
 action_size = 19
 observation_shapes = [(158,)]
-state_shapes = [(history_len*158,)]
+state_shapes = [(history_len, 158,)]
 
 # osim
 #action_size = 18
@@ -32,11 +32,6 @@ state_shapes = [(history_len*158,)]
 #action_size = 1
 #observation_shapes = [(3,)]
 #state_shapes = [(history_len*3,)]
-
-# lunar lander
-#action_size = 2
-#observation_shapes = [(8,)]
-#state_shapes = [(history_len*8,)]
 
 critic_shapes = list(state_shapes)
 critic_shapes.append((action_size,))
@@ -70,6 +65,7 @@ rl_server = RLServer(num_clients=40,
                      gpu_id=0,
                      batch_size=256,
                      experience_replay_buffer_size=1000000,
+                     use_prioritized_buffer=True,
                      train_every_nth=4,
                      history_length=history_len,
                      start_learning_after=5000,

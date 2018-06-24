@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.python import keras
 from tensorflow.python.keras.models import Sequential
-from tensorflow.python.keras.layers import Dense, Concatenate, BatchNormalization
+from tensorflow.python.keras.layers import Dense, Concatenate, BatchNormalization, Reshape
 
 
 class DenseNetwork:
@@ -41,17 +41,17 @@ class DenseNetwork:
 
             if len(input_shapes) == 1:
                 self._scope = scope or 'ActorNetwork'
-                self._input_shape = input_shapes[0]
+                self._input_shape = (input_shapes[0][0]*input_shapes[0][1], )
                 model_inputs = [state_input]
-                input_layer = state_input
+                input_layer = Reshape((-1,))(state_input)
                 output_activation = 'sigmoid'
 
             elif len(input_shapes) == 2:
                 self._scope = scope or 'CriticNetwork'
-                self._input_shape = (input_shapes[0][0] + input_shapes[1][0], )
+                self._input_shape = (input_shapes[0][0]*input_shapes[0][1] + input_shapes[1][0], )
                 action_input = keras.layers.Input(shape=input_shapes[1], name='action_input')
                 model_inputs = [state_input, action_input]
-                input_layer = Concatenate(axis=1)(model_inputs)
+                input_layer = Concatenate(axis=1)([Reshape((-1,))(state_input), action_input])
 
             with tf.variable_scope(self._scope):
                 model_outputs = self.ff_network(output_activation)(input_layer)
@@ -74,7 +74,7 @@ class DenseNetwork:
         """
 
         if len(inputs) == 2:
-            return self._model([inputs[0][0], inputs[1]])
+            return self._model(inputs[0] + [inputs[1]])
         else:
             return self._model(inputs)
 

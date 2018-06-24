@@ -6,13 +6,13 @@ import tensorflow as tf
 
 class DDPG(object):
     def __init__(self,
-                 observation_shapes,
+                 state_shapes,
                  action_size,
                  actor,
                  critic,
                  actor_optimizer,
                  critic_optimizer,
-                 discount_rate=0.95,
+                 discount_factor=0.95,
                  target_actor_update_rate=1.0,
                  target_critic_update_rate=1.0):
         """Initialize the DDPG object.
@@ -47,7 +47,7 @@ class DDPG(object):
             analogous to target_actor_update_rate, but for
             target_critic
         """
-        self._observation_shapes = observation_shapes
+        self._observation_shapes = state_shapes
         self._action_size = action_size
         self._actor = actor
         self._critic = critic
@@ -55,7 +55,7 @@ class DDPG(object):
         self._target_critic = critic.copy(scope='target_critic')
         self._actor_optimizer = actor_optimizer
         self._critic_optimizer = critic_optimizer
-        self._gamma = tf.constant(discount_rate)
+        self._gamma = tf.constant(discount_factor)
         self._target_actor_update_rate = tf.constant(target_actor_update_rate)
         self._target_critic_update_rate = tf.constant(target_critic_update_rate)
 

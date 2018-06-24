@@ -7,6 +7,7 @@ import numpy as np
 from rl_server.rl_server import RLServer
 from lunar_lander_model_dense import LunarLanderModelDense
 from rl_server.algo.ddpg import DDPG
+# from rl_server.algo.ddpg_prio_buf import DDPG
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
@@ -20,7 +21,7 @@ history_len = 3
 
 action_size = 2
 observation_shapes = [(8,)]
-state_shapes = [(history_len*8,)]
+state_shapes = [(history_len, 8,)]
 
 critic_shapes = list(state_shapes)
 critic_shapes.append((action_size,))
@@ -54,11 +55,13 @@ rl_server = RLServer(num_clients=40,
                      gpu_id=0,
                      batch_size=512,
                      experience_replay_buffer_size=1000000,
+                    #  use_prioritized_buffer=True,
+                     use_prioritized_buffer=False,
                      train_every_nth=4,
                      history_length=history_len,
                      start_learning_after=5000,
                      target_networks_update_period=1000,
-                     show_stats_period=2000,
+                     show_stats_period=100,
                      save_model_period=10000)
 
 rl_server.start()

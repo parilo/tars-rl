@@ -32,11 +32,11 @@ class LunarLanderModelDense(object):
                     )
 
                     concatenated_input = Concatenate(axis=1)([
-                        state_input,
+                        Reshape((-1,))(state_input),
                         critic_input
                     ])
                     concatenated_input_shape = (
-                        input_shape[0] + critic_shape[0],
+                        input_shape[0]*input_shape[1] + critic_shape[0],
                     )
 
                     ff_network = Sequential([
@@ -61,7 +61,8 @@ class LunarLanderModelDense(object):
                 else:
                     # actor
                     ff_network = Sequential([
-                        Dense(32, activation='tanh', input_shape=input_shape, name='critic_1'),
+                        Reshape((-1,), input_shape=input_shape),
+                        Dense(32, activation='tanh', name='critic_1'),
                         Dense(32, activation='tanh', name='critic_2'),
                         Dense(self._output_size, activation='tanh', name='critic_output')
                     ])

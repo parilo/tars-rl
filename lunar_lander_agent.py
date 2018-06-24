@@ -28,7 +28,7 @@ parser.add_argument('--visualize',
                     default=False)
 args = parser.parse_args()
 
-experiment_name = "lunar_lander-hist_len3-frame_skip1-critic-64-64-relu-agent-32-32-tanh-agents4-reward-scale-001"
+experiment_name = "lunar_lander-hist_len3-frame_skip1-critic-64-64-relu-agent-32-32-tanh-agents4-reward-scale-001-sync"
 
 env = LunarLander(frame_skip=args.frame_skip, visualize=args.visualize)
 observation_shapes = env.observation_shapes
@@ -57,8 +57,6 @@ while True:
     else:
         action_received = rl_client.act([state])
         action = np.array(action_received) + np.random.normal(scale=0.02, size=action_size)
-        # action[0] = np.clip(action[0], 0, 1) * 1.1 - 0.1
-        # action[1] = np.clip(action[1], -1, 1)
         action = np.clip(action, -1., 1.)
         (action[0] + 1.0) * 0.6 - 0.2
         if action[1] < 0:

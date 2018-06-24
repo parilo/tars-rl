@@ -17,7 +17,7 @@ class DDPG:
                  target_actor_update_rate=1.0,
                  target_critic_update_rate=1.0):
         """Class for DDPG algorithm.
-        
+
         Parameters
         -------
         state_shapes: list of tuples
@@ -125,11 +125,11 @@ class DDPG:
             self._value_rhs = self._rewards + self._gamma * (1 - self._terminator) * self._next_value
 
         with tf.name_scope("critic_update"):
-            
-            self._td_errors = tf.clip_by_value(self._value_lhs - self._value_rhs, 
+
+            self._td_errors = tf.clip_by_value(self._value_lhs - self._value_rhs,
                                                -self._grad_clip, self._grad_clip)
             td_errors = tf.stop_gradient(self._td_errors)
-            
+
             self._critic_error = tf.reduce_mean(self._is_weights * td_errors * self._value_lhs)
 
             critic_gradients = self._critic_optimizer.compute_gradients(
