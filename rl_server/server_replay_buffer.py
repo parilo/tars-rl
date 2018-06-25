@@ -10,6 +10,7 @@ class ServerBuffer:
     def __init__(self, capacity, observation_shapes, action_size):
         self.size = capacity
         self.num_in_buffer = 0
+        self.stored_in_buffer = 0
         self.num_parts = len(observation_shapes)
         self.obs_shapes = observation_shapes
         self.act_shape = (action_size,)
@@ -38,6 +39,7 @@ class ServerBuffer:
             observations, actions, rewards, dones = episode
             episode_len = len(actions)
             self.num_in_buffer += episode_len
+            self.stored_in_buffer += episode_len
             self.num_in_buffer = min(self.size, self.num_in_buffer)
 
             indices = np.arange(self.pointer, self.pointer + episode_len) % self.size
@@ -51,25 +53,31 @@ class ServerBuffer:
             self.pointer = (self.pointer + episode_len) % self.size
 
     def get_stored_in_buffer(self):
-        return self.num_in_buffer
+        return self.stored_in_buffer
 
     def get_state(self, idx, history_len=1):
         """ compose the state from a number (history_len) of observations
         """
         state = []
-        for part_id in range(self.num_parts):   
-            s = np.zeros((history_len, ) + self.obs_shapes[part_id], dtype=np.float32)
-            indices = [idx]
-            for i in range(history_len-1):
-                if (self.num_in_buffer == self.size):
-                    next_idx = (idx-i-1) % self.size
-                else:
-                    next_idx = idx-i-1
-                if (next_idx < 0 or self.dones[next_idx]):
-                    break
-                indices.append(next_idx)
-            indices = indices[::-1]
-            s[-len(indices):] = self.observations[part_id][indices]
+        for part_id in range(self.num_parts):
+            start_idx = idx - history_len + 1
+
+            if (start_idx < 0 or np.any(self.dones[start_idx:idx+1])):
+                s = np.zeros((history_len, ) + self.obs_shapes[part_id], dtype=np.float32)
+                indices = [idx]
+                for i in range(history_len-1):
+                    if (self.num_in_buffer == self.size):
+                        next_idx = (idx-i-1) % self.size
+                    else:
+                        next_idx = idx-i-1
+                    if (next_idx < 0 or self.dones[next_idx]):
+                        break
+                    indices.append(next_idx)
+                indices = indices[::-1]
+                s[-len(indices):] = self.observations[part_id][indices]
+            else:
+                s = self.observations[part_id][slice(start_idx, idx+1, 1)]
+                
             state.append(s)
         return state
 
