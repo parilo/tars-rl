@@ -7,7 +7,8 @@ import numpy as np
 from rl_server.rl_server import RLServer
 from lunar_lander_model_dense import LunarLanderModelDense
 from rl_server.algo.ddpg import DDPG
-# from rl_server.algo.ddpg_prio_buf import DDPG
+from rl_server.networks.actor_networks import ActorNetwork
+from rl_server.networks.critic_networks import CriticNetwork, QunatileCriticNetwork
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
@@ -25,8 +26,16 @@ state_shapes = [(history_len, 8,)]
 
 critic_shapes = list(state_shapes)
 critic_shapes.append((action_size,))
-critic = LunarLanderModelDense(critic_shapes, 1, scope='critic')
-actor = LunarLanderModelDense(state_shapes, action_size, scope='critic')
+#critic = LunarLanderModelDense(critic_shapes, 1, scope='critic')
+#actor = LunarLanderModelDense(state_shapes, action_size, scope='actor')
+
+critic = CriticNetwork(state_shapes[0], action_size, hiddens=[[64, 64]],
+                            activations=['relu'], output_activation=None,
+                            action_insert_block=0, scope='critic')
+
+actor = ActorNetwork(state_shapes[0], action_size, hiddens=[[32, 32]], 
+                          activations=['tanh'], output_activation='tanh', 
+                          scope='actor')
 
 def model_load_callback(sess, saver):
     pass
@@ -40,6 +49,8 @@ agent_algorithm = DDPG(state_shapes=state_shapes,
                        critic=critic,
                        actor_optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),
                        critic_optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),
+                       n_step=1,
+                       gradient_clip=1.0,
                        discount_factor=0.99,
                        target_actor_update_rate=1.0,
                        target_critic_update_rate=1.0)
@@ -55,7 +66,6 @@ rl_server = RLServer(num_clients=40,
                      gpu_id=0,
                      batch_size=512,
                      experience_replay_buffer_size=1000000,
-                    #  use_prioritized_buffer=True,
                      use_prioritized_buffer=False,
                      train_every_nth=4,
                      history_length=history_len,
