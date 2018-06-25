@@ -12,12 +12,13 @@ class DDPG:
                  critic,
                  actor_optimizer,
                  critic_optimizer,
+                 n_step=1,
                  gradient_clip=1.0,
                  discount_factor=0.95,
                  target_actor_update_rate=1.0,
                  target_critic_update_rate=1.0):
         """Class for DDPG algorithm.
-
+        
         Parameters
         -------
         state_shapes: list of tuples
@@ -59,6 +60,7 @@ class DDPG:
         self._target_critic = critic.copy(scope='target_critic')
         self._actor_optimizer = actor_optimizer
         self._critic_optimizer = critic_optimizer
+        self._n_step = n_step
         self._grad_clip = gradient_clip
         self._gamma = tf.constant(discount_factor)
         self._target_actor_update_rate = tf.constant(target_actor_update_rate)
@@ -122,18 +124,22 @@ class DDPG:
             self._next_action = tf.stop_gradient(self._target_actor(self._next_state))
             self._next_value = tf.stop_gradient(tf.reshape(self._target_critic(
                 [self._next_state, self._next_action]), [-1]))
-            self._value_rhs = self._rewards + self._gamma * (1 - self._terminator) * self._next_value
+            discount = self._gamma ** self._n_step
+            self._value_rhs = self._rewards + discount * (1 - self._terminator) * self._next_value
 
         with tf.name_scope("critic_update"):
-
-            self._td_errors = tf.clip_by_value(self._value_lhs - self._value_rhs,
+            
+            self._td_errors = tf.clip_by_value(self._value_lhs - self._value_rhs, 
                                                -self._grad_clip, self._grad_clip)
             td_errors = tf.stop_gradient(self._td_errors)
-
+            
             self._critic_error = tf.reduce_mean(self._is_weights * td_errors * self._value_lhs)
 
             critic_gradients = self._critic_optimizer.compute_gradients(
                 self._critic_error, var_list=self._critic.variables())
+            
+            #capped_grads = [(tf.clip_by_value(grad, -self._grad_clip, self._grad_clip), var) 
+            #                for grad, var in critic_gradients]
 
             self._critic_update = self._critic_optimizer.apply_gradients(critic_gradients)
 
@@ -141,10 +147,13 @@ class DDPG:
 
             self._actor_error = -tf.reduce_mean(self._critic(
                 [self._state, self._actor(self._state)]))
-
+            
             actor_gradients = self._actor_optimizer.compute_gradients(
                 self._actor_error, var_list=self._actor.variables())
-
+            
+            actor_gradients = [(tf.clip_by_value(grad, -self._grad_clip, self._grad_clip), var)
+                               for grad, var in actor_gradients]
+            
             self._actor_update = self._actor_optimizer.apply_gradients(actor_gradients)
 
         with tf.name_scope("target_networks_update"):
@@ -202,3 +211,4 @@ class DDPG:
 
     def target_network_update(self, sess):
         sess.run(self._update_all_targets)
+
