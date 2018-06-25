@@ -1,16 +1,12 @@
 #!/usr/bin/env python
 
-import os
 import argparse
 import random
 import numpy as np
 import gym
-from osim.env import L2RunEnv
 from rl_server.server.rl_client import RLClient
 from agent_replay_buffer import AgentBuffer
-from envs.l2run import ExtRunEnv
-from envs.pendulum import Pendulum
-from envs.prosthetics import ProstheticsEnvWrap
+from envs.lunar_lander import LunarLander
 
 # parse input arguments
 
@@ -25,28 +21,21 @@ parser.add_argument('--id',
                     default=0)
 parser.add_argument('--frame_skip',
                     dest='frame_skip',
-                    default=2)
+                    default=1)
 parser.add_argument('--visualize',
                     dest='visualize',
                     type=bool,
                     default=False)
 args = parser.parse_args()
 
-#experiment_name = "lunar_lander-hist_len3-frame_skip1-relu-batchnorm-agents40-prio"
-#experiment_name = "lunar_lander-hist_len3-frame_skip1-relu-agents40-prio"
-experiment_name = "prosthetics-hist_len2-frame_skip2-relu-agents40-prio-n_step3"
-path_to_results = 'results/' + experiment_name + '_episode_rewards.txt'
-if os.path.isfile(path_to_results):
-    os.remove(path_to_results)
+experiment_name = "lunar_lander-hist_len3-frame_skip1-critic-64-64-relu-agent-32-32-tanh-agents4-reward-scale-001-sync"
 
-#env = Pendulum(frame_skip=args.frame_skip)
-#env = ExtRunEnv(frame_skip=args.frame_skip)
-env = ProstheticsEnvWrap(frame_skip=args.frame_skip, visualize=args.visualize)
+env = LunarLander(frame_skip=args.frame_skip, visualize=args.visualize)
 observation_shapes = env.observation_shapes
 action_size = env.action_size
 
-buf_capacity = 10001
-history_len = 2
+buf_capacity = 1001
+history_len = 3
 
 rl_client = RLClient(port=8777+args.id)
 agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
@@ -68,9 +57,12 @@ while True:
     else:
         action_received = rl_client.act([state])
         action = np.array(action_received) + np.random.normal(scale=0.02, size=action_size)
-        action = np.clip(action, 0.0, 1.0)
-        #action = np.clip(action, 0.0, 1.0)*4-2
-        #action = np.clip(action, 0.0, 1.0)*2-1
+        action = np.clip(action, -1., 1.)
+        (action[0] + 1.0) * 0.6 - 0.2
+        if action[1] < 0:
+            action[1] = action[1] * 0.6 - 0.4
+        else:
+            action[1] = action[1] * 0.6 + 0.4
 
     next_obs, reward, done, info = env.step(action)
 
@@ -85,7 +77,7 @@ while True:
 
         print('--- episode ended {} {} {}'.format(episode_index, env.time_step, env.get_total_reward()))
 
-        with open(path_to_results, 'a') as f:
+        with open('results/' + experiment_name + '_episode_rewards.txt', 'a') as f:
             f.write(str(args.id) + ' ' + str(episode_index) + ' ' + str(env.get_total_reward()) + '\n')
 
         episode_index += 1

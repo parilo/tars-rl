@@ -4,7 +4,7 @@ import tempfile
 import tensorflow as tf
 import time
 from .server_replay_buffer import ServerBuffer
-from threading import Lock
+from threading import Lock, Thread
 
 
 def gpu_config(gpu_id):
@@ -27,6 +27,7 @@ class RLTrainLoop():
                  gpu_id=0,
                  batch_size=96,
                  experience_replay_buffer_size=1000000,
+                 use_prioritized_buffer=True,
                  train_every_nth=4,
                  history_length=3,
                  initial_beta=0.4,
@@ -47,6 +48,7 @@ class RLTrainLoop():
         self._save_model_period = save_model_period
         self._hist_len = history_length
         self._beta = initial_beta
+        self._use_prioritized_buffer = use_prioritized_buffer
 
         config = gpu_config(gpu_id)
         self._sess = tf.Session(config=config)
@@ -77,16 +79,36 @@ class RLTrainLoop():
         self.train_loop_step()
         return actions
 
+    def start_training(self):
+        pass
+        # for asynchronous act
+        # def train_loop():
+        #     while True:
+        #         buffer_size = self.server_buffer.num_in_buffer
+        #         if buffer_size > self._start_learning_after:
+        #             # if (self._step_index % self._train_every_nth == 0):
+        #             self.train_step()
+        #             self._step_index += 1
+        #         elif buffer_size < self._start_learning_after and self._step_index % 10 == 0:
+        #             print('--- buffer size {}'.format(buffer_size))
+        #             time.sleep(1.0)
+        #
+        # th = Thread(target=train_loop)
+        # th.start()
+
+    # for synchronous acts and trains
     def train_loop_step(self):
         with self._train_loop_step_lock:
-            self._step_index += 1
 
-        buffer_size = self.server_buffer.num_in_buffer
-        if buffer_size > self._start_learning_after:
-            if (self._step_index % self._train_every_nth == 0):
-                self.train_step()
-        elif buffer_size < self._start_learning_after and self._step_index % 10 == 0:
-            print('--- buffer size {}'.format(buffer_size))
+            buffer_size = self.server_buffer.get_stored_in_buffer()
+            if buffer_size > self._start_learning_after:
+                # if (self._step_index % self._train_every_nth == 0):
+                if buffer_size > self._step_index * self._train_every_nth:
+                    self.train_step()
+                    self._step_index += 1
+
+            elif buffer_size < self._start_learning_after:
+                print('--- buffer size {}'.format(buffer_size))
 
     def store_episode(self, episode):
         self.server_buffer.push_episode(episode)
@@ -96,23 +118,24 @@ class RLTrainLoop():
 
     def train_step(self):
 
-        batch, indices, is_weights = self.server_buffer.get_prioritized_batch(self._batch_size,
-                                                                              history_len=self._hist_len,
-                                                                              n_step=4,
-                                                                              beta=self._beta)
+        queue_size = self.server_buffer.get_stored_in_buffer()
 
-        for i in range(len(batch.s)):
-            shape = batch.s[i].shape
-            new_shape = (shape[0],)+(-1,)
-            batch.s[i] = batch.s[i].reshape(new_shape)
-            batch.s_[i] = batch.s_[i].reshape(new_shape)
+        if self._use_prioritized_buffer:
 
-        queue_size = self.server_buffer.num_in_buffer
-        loss = self._algo.train(self._sess, batch, is_weights)
-        td_errors = self._algo.get_td_errors(self._sess, batch)
-        self.server_buffer.update_td_errors(indices, td_errors)
+            batch, indices, is_weights = self.server_buffer.get_prioritized_batch(self._batch_size,
+                                                                                  history_len=self._hist_len,
+                                                                                  n_step=4,
+                                                                                  beta=self._beta)
+            loss = self._algo.train(self._sess, batch, is_weights)
+            td_errors = self._algo.get_td_errors(self._sess, batch)
+            self.server_buffer.update_td_errors(indices, td_errors)
+            self._beta = min(1.0, self._beta+1e-6)
 
-        self._beta = min(1.0, self._beta+1e-6)
+        else:
+            batch = self.server_buffer.get_batch(self._batch_size,
+                                         history_len=self._hist_len,
+                                         n_step=4)
+            loss = self._algo.train(self._sess, batch)
 
         if self._step_index % self._target_networks_update_period == 0:
             # print('--- target network update')
