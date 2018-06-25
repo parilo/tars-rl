@@ -24,7 +24,7 @@ class ProstheticsEnvWrap:
         reward = 0
         for i in range(self.frame_skip):
             observation, r, done, info = self.env.step(action, project=True)
-            reward += r*0.1
+            reward += r*1e-2
             if done: break
         observation = self.preprocess_obs(observation)
         self.total_reward += reward
