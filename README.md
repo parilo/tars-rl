@@ -1,19 +1,6 @@
 # nips2018_prosthetics_challenge
 Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.org/challenges/nips-2018-ai-for-prosthetics-challenge), [GitHub](https://github.com/stanfordnmbl/osim-rl)).
 
-# Environment description
-
-| Group | N | Description |
-|-|-|-|
-|Pelvis|8|Linear motion (y, vx, vy, ax, ay), Rotation (rz, vrz, arz)|
-|Head|9|Linear motion (x, y, vx, vy, ax, ay), Rotation (rz, vrz, arz)|
-|Torso|9|Linear motion (x, y, vx, vy, ax, ay), Rotation (rz, vrz, arz)|
-|Toes left|9|Linear motion (x, y, vx, vy, ax, ay), Rotation (rz, vrz, arz)|
-|Toes right|9|all zeros for prosthetics|
-|Talus left|9|Linear motion (x, y, vx, vy, ax, ay), Rotation (rz, vrz, arz)|
-|Talus right|9|all zeros for prosthetics|
-
-
 # Work progress
 
 ### Small but important things
@@ -30,7 +17,9 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 5. Implement and test different exploration techniques
 
 ### Ideas to try
-1. Shift positions with respect to pelvis or center mass
+1. ~~Shift positions with respect to pelvis or center mass~~
+2. Penalize for dying
+3. Smart reward shaping (e.g. give some reward for bending a knee or doing a step forward)
 
 ### Performance of different approaches
 ```python
