@@ -20,6 +20,7 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 1. ~~Shift positions with respect to pelvis or center mass~~
 2. Penalize for dying
 3. Smart reward shaping (e.g. give some reward for bending a knee or doing a step forward)
+4. Take previous action into consideration through residual connection
 
 ### Performance of different approaches
 ```python
