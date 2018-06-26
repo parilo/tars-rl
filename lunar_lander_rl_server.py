@@ -1,41 +1,46 @@
 #!/usr/bin/env python
 
 import os
+import json
 import tensorflow as tf
 import random
 import numpy as np
 from rl_server.rl_server import RLServer
-from lunar_lander_model_dense import LunarLanderModelDense
 from rl_server.algo.ddpg import DDPG
 from rl_server.networks.actor_networks import ActorNetwork
 from rl_server.networks.critic_networks import CriticNetwork, QunatileCriticNetwork
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = str(0)
+os.environ["CUDA_VISIBLE_DEVICES"] = str(3)
 
 seed = 1
 random.seed(seed)
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-history_len = 3
+environment_name = 'lunar_lander'
+experiment_config = json.load(open('configs/' + environment_name + '.txt'))
 
-action_size = 2
-observation_shapes = [(8,)]
-state_shapes = [(history_len, 8,)]
+history_len = experiment_config['history_len']
+n_step = experiment_config['n_step']
+obs_size = experiment_config['observation_size']
+action_size = experiment_config['action_size']
+use_prioritized_buffer = experiment_config['prio']
+batch_size = experiment_config['batch_size']
+
+observation_shapes = [(obs_size,)]
+state_shapes = [(history_len, obs_size,)]
 
 critic_shapes = list(state_shapes)
 critic_shapes.append((action_size,))
-#critic = LunarLanderModelDense(critic_shapes, 1, scope='critic')
-#actor = LunarLanderModelDense(state_shapes, action_size, scope='actor')
 
 critic = CriticNetwork(state_shapes[0], action_size, hiddens=[[64, 64]],
-                            activations=['relu'], output_activation=None,
-                            action_insert_block=0, scope='critic')
+                       activations=['relu'], output_activation=None,
+                       action_insert_block=0, scope='critic')
 
-actor = ActorNetwork(state_shapes[0], action_size, hiddens=[[32, 32]], 
-                          activations=['tanh'], output_activation='tanh', 
-                          scope='actor')
+actor = ActorNetwork(state_shapes[0], action_size, hiddens=[[32, 32]],
+                     activations=['tanh'], output_activation='tanh',
+                     scope='actor')
 
 def model_load_callback(sess, saver):
     pass
@@ -49,7 +54,7 @@ agent_algorithm = DDPG(state_shapes=state_shapes,
                        critic=critic,
                        actor_optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),
                        critic_optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),
-                       n_step=1,
+                       n_step=n_step,
                        gradient_clip=1.0,
                        discount_factor=0.99,
                        target_actor_update_rate=1.0,
@@ -63,10 +68,10 @@ rl_server = RLServer(num_clients=40,
                      agent_algorithm=agent_algorithm,
                      action_dtype=tf.float32,
                      is_actions_space_continuous=True,
-                     gpu_id=0,
-                     batch_size=512,
+                     gpu_id=3,
+                     batch_size=batch_size,
                      experience_replay_buffer_size=1000000,
-                     use_prioritized_buffer=False,
+                     use_prioritized_buffer=use_prioritized_buffer,
                      train_every_nth=4,
                      history_length=history_len,
                      start_learning_after=5000,
