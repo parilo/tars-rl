@@ -1,0 +1,7 @@
+{"history_len":       1,
+ "frame_skip":        4,
+ "n_step":            1,
+ "prio" :             1,
+ "observation_size":  275,
+ "action_size":       19,
+ "batch_size":        256}
