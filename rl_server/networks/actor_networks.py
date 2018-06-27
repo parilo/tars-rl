@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.python import keras
 from tensorflow.python.keras.models import Sequential
-from tensorflow.python.keras.layers import Dense, Concatenate, BatchNormalization, Add, Reshape
+from tensorflow.python.keras.layers import Dense, Reshape
 
 
 def dense_block(input_layer, hiddens, activation='relu'):
