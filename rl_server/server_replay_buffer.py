@@ -38,9 +38,8 @@ class ServerBuffer:
 
             observations, actions, rewards, dones = episode
             episode_len = len(actions)
-            self.num_in_buffer += episode_len
             self.stored_in_buffer += episode_len
-            self.num_in_buffer = min(self.size, self.num_in_buffer)
+            self.num_in_buffer = min(self.size, self.num_in_buffer + episode_len)
 
             indices = np.arange(self.pointer, self.pointer + episode_len) % self.size
             for part_id in range(self.num_parts):
@@ -66,11 +65,8 @@ class ServerBuffer:
                 s = np.zeros((history_len, ) + self.obs_shapes[part_id], dtype=np.float32)
                 indices = [idx]
                 for i in range(history_len-1):
-                    if (self.num_in_buffer == self.size):
-                        next_idx = (idx-i-1) % self.size
-                    else:
-                        next_idx = idx-i-1
-                    if (next_idx < 0 or self.dones[next_idx]):
+                    next_idx = (idx-i-1) % self.size
+                    if next_idx >= self.num_in_buffer or self.dones[next_idx]:
                         break
                     indices.append(next_idx)
                 indices = indices[::-1]
@@ -100,37 +96,26 @@ class ServerBuffer:
 
         with self._store_lock:
 
-            ts1 = time.time()
             if indices is None:
                 indices = random.sample(range(self.num_in_buffer), k=batch_size)
-
-            ts2 = time.time()
             transitions = []
             for idx in indices:
                 transition = self.get_transition_n_step(idx, history_len, n_step, gamma)
                 transitions.append(transition)
 
-            ts3 = time.time()
-
             states = []
             for part_id in range(self.num_parts):
                 state = [transitions[i][0][part_id] for i in range(batch_size)]
                 states.append(state)
-
             actions = [transitions[i][1] for i in range(batch_size)]
             rewards = [transitions[i][2] for i in range(batch_size)]
-
             next_states = []
             for part_id in range(self.num_parts):
                 next_state = [transitions[i][3][part_id] for i in range(batch_size)]
                 next_states.append(next_state)
-
             dones = [transitions[i][4] for i in range(batch_size)]
 
-            ts4 = time.time()
             batch = self.transition(states, actions, rewards, next_states, dones)
-            ts5 = time.time()
-
             return batch
 
     def get_prioritized_batch(self, batch_size, history_len=1,

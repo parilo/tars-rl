@@ -10,14 +10,14 @@ from rl_server.networks.actor_networks import ActorNetwork
 from rl_server.networks.critic_networks import CriticNetwork, DuelingCriticNetwork, QuantileCriticNetwork
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = str(3)
+os.environ["CUDA_VISIBLE_DEVICES"] = str(-1)
 
 seed = 1
 random.seed(seed)
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-environment_name = 'lunar_lander'
+environment_name = 'pendulum'
 experiment_config = json.load(open('configs/' + environment_name + '.txt'))
 
 history_len = experiment_config['history_len']
@@ -39,7 +39,7 @@ state_shapes = [(history_len, obs_size,)]
 
 critic = QuantileCriticNetwork(state_shapes[0], action_size, hiddens=[[64, 64]],
                        activations=['relu'], output_activation=None,
-                       action_insert_block=0, scope='critic')
+                       action_insert_block=0, num_atoms=50, scope='critic')
 
 actor = ActorNetwork(state_shapes[0], action_size, hiddens=[[32, 32]],
                      activations=['tanh'], output_activation='tanh',
@@ -71,9 +71,9 @@ rl_server = RLServer(num_clients=40,
                      agent_algorithm=agent_algorithm,
                      action_dtype=tf.float32,
                      is_actions_space_continuous=True,
-                     gpu_id=3,
+                     gpu_id=-1,
                      batch_size=batch_size,
-                     experience_replay_buffer_size=1000000,
+                     experience_replay_buffer_size=100000,
                      use_prioritized_buffer=use_prioritized_buffer,
                      train_every_nth=4,
                      history_length=history_len,

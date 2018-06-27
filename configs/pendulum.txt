@@ -1,7 +1,8 @@
-{"history_len":       3, 
+{"history_len":       2, 
  "frame_skip":        2,
  "n_step":            1,
  "prio" :             0,
  "observation_size":  3,
  "action_size":       1,
- "batch_size":        256}
+ "batch_size":        256,
+ "port":              8877}

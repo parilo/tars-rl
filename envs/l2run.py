@@ -6,8 +6,8 @@ import numpy as np
 
 class ExtRunEnv(L2RunEnv):
 
-    def __init__(self, frame_skip=1):
-        self.env = L2RunEnv(visualize=False)
+    def __init__(self, frame_skip=1, visualize=False):
+        self.env = L2RunEnv(visualize=visualize)
         self.frame_skip = frame_skip
         self.observation_shapes = [(41,)]
         self.action_size = 18
@@ -15,7 +15,7 @@ class ExtRunEnv(L2RunEnv):
     def reset(self):
         self.time_step = 0
         self.total_reward = 0
-        self.init_action = np.round(np.random.uniform(0, 0.7, size=self.action_size))
+        self.init_action = np.random.uniform(0., 1., size=self.action_size)
         obs = self.env.reset()
         return self.preprocess_obs(obs)
 
@@ -62,5 +62,5 @@ class ExtRunEnv(L2RunEnv):
     
     def get_random_action(self, resample=True):
         if resample:
-            self.init_action = np.round(np.random.uniform(0, 0.7, size=self.action_size))
+            self.init_action = np.random.uniform(0., 1., size=self.action_size)
         return self.init_action

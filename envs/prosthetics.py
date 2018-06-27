@@ -29,6 +29,12 @@ class ProstheticsEnvWrap:
         observation = self.preprocess_obs(observation)
         self.total_reward += reward
         self.time_step += 1
+        
+        #if observation[-1] < -4:
+        #    reward -= 1
+        if done:
+            reward -= 3
+
         return observation, reward, done, info
 
     def preprocess_obs(self, obs):
