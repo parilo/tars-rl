@@ -71,19 +71,24 @@ class DDPG:
 
         with tf.name_scope("estimating_bellman_equation_sides"):
 
-            # left hand side of the Bellman equation
-            self._value_lhs = tf.reshape(self._critic([self._state, self._given_action]), [-1])
+            # left hand side of the distributional Bellman equation
+            atoms, q_values = self._critic([self._state, self._given_action])
 
             # right hand side of the Bellman equation
             self._next_action = tf.stop_gradient(self._target_actor(self._next_state))
-            self._next_value = tf.stop_gradient(tf.reshape(self._target_critic(
-                [self._next_state, self._next_action]), [-1]))
+            next_atoms, next_q_values = [tf.stop_gradient(val)
+                                         for val in self._target_critic([self._next_state, self._next_action])]
             discount = self._gamma ** self._n_step
-            self._value_rhs = self._rewards + discount * (1 - self._terminator) * self._next_value
+            target_atoms = self._rewards[:,None] + discount * (1 - self._terminator[:,None]) * next_atoms
 
         with tf.name_scope("critic_update"):
+            
+            atoms_diff = target_atoms[:,None,:] - atoms[:,:,None]
+            delta_atoms_diff = tf.where(atoms_diff<0, tf.ones_like(atoms_diff), tf.zeros_like(atoms_diff))
+            
+            huber_weights = tf.abs(self._critic.tau[None,:,None] - delta_atoms_diff)
 
-            self._critic_error = tf.losses.huber_loss(self._value_lhs, self._value_rhs)
+            self._critic_error = self.huber_loss(atoms[:,:,None], target_atoms[:,None,:], huber_weights)
 
             critic_gradients = self._critic_optimizer.compute_gradients(
                 self._critic_error, var_list=self._critic.variables())
@@ -92,8 +97,8 @@ class DDPG:
 
         with tf.name_scope("actor_update"):
 
-            self._actor_error = -tf.reduce_mean(self._critic(
-                [self._state, self._actor(self._state)]))
+            _, q = self._critic([self._state, self._actor(self._state)])
+            self._actor_error = -tf.reduce_mean(q)
 
             actor_gradients = self._actor_optimizer.compute_gradients(
                 self._actor_error, var_list=self._actor.variables())
@@ -113,6 +118,14 @@ class DDPG:
 
             self._update_all_targets = tf.group(
                 self._target_actor_update, self._target_critic_update)
+            
+    def huber_loss(self, source, target, weights, kappa=1.0):
+        err = tf.subtract(source, target)
+        loss = tf.where(tf.abs(err)<kappa,
+                        0.5*tf.square(err),
+                        kappa*(tf.abs(err)-0.5*kappa))
+        return tf.reduce_sum(tf.multiply(loss, weights))
+        
 
     def init(self, sess):
         sess.run(tf.global_variables_initializer())

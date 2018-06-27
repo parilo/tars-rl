@@ -17,41 +17,7 @@ class DDPG:
                  discount_factor=0.95,
                  target_actor_update_rate=1.0,
                  target_critic_update_rate=1.0):
-        """Class for DDPG algorithm.
-        
-        Parameters
-        -------
-        state_shapes: list of tuples
-            shapes of states' parts
-        action_size: int
-            dimensionality of action vector
-        actor: model
-            neural network that implements activate function
-            that can take in state vector or a batch
-            and returns action for each state.
-            input shape:  [[batch_size, state_size], ...]
-            output shape: [batch_size, action_size]
-        critic: model
-            neural network that takes states and actions
-            and returns Q values (scores)
-            for each pair of state and action
-            input shape:
-            [[[batch_size, state_size], ...], [batch_size, action_size]]
-            output shape: [batch_size, 1]
-        optimizer:
-            optimizer for train actor and critic
-        dicount_factor: float (0 to 1)
-            how much we care about future rewards.
-        target_actor_update_rate: float
-            how much to update target critic after each
-            iteration. Let's call target_critic_update_rate
-            alpha, target network T, and network N. Every
-            time N gets updated we execute:
-                T = (1-alpha)*T + alpha*N
-        target_critic_update_rate: float
-            analogous to target_actor_update_rate, but for
-            target_critic
-        """
+
         self._state_shapes = state_shapes
         self._action_size = action_size
         self._actor = actor
@@ -87,28 +53,17 @@ class DDPG:
         for s in self._state_shapes:
             state_batch_shapes.append(tuple([None] + list(s)))
 
-        self._rewards = tf.placeholder(tf.float32, (None,), name='inp_rewards')
-        self._given_action = tf.placeholder(tf.float32, (None, self._action_size),
-                                            name='inp_actions')
+        self._rewards = tf.placeholder(tf.float32, (None, ), name='inp_rewards')
+        self._given_action = tf.placeholder(tf.float32, (None, self._action_size), name='inp_actions')
         self._state_for_act = []
         self._state = []
         self._next_state = []
         for shape in state_batch_shapes:
-            self._state_for_act.append(
-                tf.placeholder(
-                    tf.float32,
-                    shape,
-                    name='inps_states_for_act'
-                )
-            )
-            self._state.append(
-                tf.placeholder(tf.float32, shape, name='inp_prev_state'))
-            self._next_state.append(
-                tf.placeholder(tf.float32, shape, name='inp_next_states'))
-        self._terminator = tf.placeholder(
-            tf.float32, (None,), name='inp_terminator')
-        self._is_weights = tf.placeholder(
-            tf.float32, (None,), name='importance_sampling_weights')
+            self._state_for_act.append(tf.placeholder(tf.float32, shape, name='inps_states_for_act'))
+            self._state.append(tf.placeholder(tf.float32, shape, name='inp_prev_state'))
+            self._next_state.append(tf.placeholder(tf.float32, shape, name='inp_next_states'))
+        self._terminator = tf.placeholder(tf.float32, (None, ), name='inp_terminator')
+        self._is_weights = tf.placeholder(tf.float32, (None, ), name='importance_sampling_weights')
 
     def _create_variables(self):
 
@@ -137,9 +92,6 @@ class DDPG:
 
             critic_gradients = self._critic_optimizer.compute_gradients(
                 self._critic_error, var_list=self._critic.variables())
-            
-            #capped_grads = [(tf.clip_by_value(grad, -self._grad_clip, self._grad_clip), var) 
-            #                for grad, var in critic_gradients]
 
             self._critic_update = self._critic_optimizer.apply_gradients(critic_gradients)
 
@@ -211,4 +163,3 @@ class DDPG:
 
     def target_network_update(self, sess):
         sess.run(self._update_all_targets)
-
