@@ -86,7 +86,7 @@ class DDPG:
             atoms_diff = target_atoms[:,None,:] - atoms[:,:,None]
             delta_atoms_diff = tf.where(atoms_diff<0, tf.ones_like(atoms_diff), tf.zeros_like(atoms_diff))
             
-            huber_weights = tf.abs(self._critic.tau[None,:,None] - delta_atoms_diff)
+            huber_weights = tf.abs(self._critic.tau[None,:,None] - delta_atoms_diff) / self._critic.num_atoms
 
             self._critic_error = self.huber_loss(atoms[:,:,None], target_atoms[:,None,:], huber_weights)
 

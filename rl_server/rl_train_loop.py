@@ -30,6 +30,7 @@ class RLTrainLoop():
                  batch_size=96,
                  experience_replay_buffer_size=1000000,
                  use_prioritized_buffer=True,
+                 use_synchronous_update=True,
                  n_step=1,
                  train_every_nth=4,
                  history_length=3,
@@ -53,6 +54,7 @@ class RLTrainLoop():
         self._hist_len = history_length
         self._beta = initial_beta
         self._use_prioritized_buffer = use_prioritized_buffer
+        self._use_synchronous_update = use_synchronous_update
         
         print (gpu_id)
 
@@ -82,25 +84,30 @@ class RLTrainLoop():
 
     def act_batch(self, states):
         actions = self._algo.act_batch(self._sess, states)
-        self.train_loop_step()
+        if self._use_synchronous_update:
+            self.train_loop_step()
         return actions
 
+    #def start_training(self):
+    #    pass
+        
     def start_training(self):
-        pass
-        # for asynchronous act
-        # def train_loop():
-        #     while True:
-        #         buffer_size = self.server_buffer.num_in_buffer
-        #         if buffer_size > self._start_learning_after:
-        #             # if (self._step_index % self._train_every_nth == 0):
-        #             self.train_step()
-        #             self._step_index += 1
-        #         elif buffer_size < self._start_learning_after and self._step_index % 10 == 0:
-        #             print('--- buffer size {}'.format(buffer_size))
-        #             time.sleep(1.0)
-        #
-        # th = Thread(target=train_loop)
-        # th.start()
+        if not self._use_synchronous_update:
+            # for asynchronous act
+            def train_loop():
+                while True:
+                    buffer_size = self.server_buffer.get_stored_in_buffer()
+                    if buffer_size > self._start_learning_after:
+                        if buffer_size > self._step_index * self._train_every_nth:
+                            self.train_step()
+                            self._step_index += 1
+                    elif buffer_size < self._start_learning_after and self._step_index % 10 == 0:
+                        print('--- buffer size {}'.format(buffer_size))
+                        time.sleep(1.0)
+            th = Thread(target=train_loop)
+            th.start()
+        else:
+            pass
 
     # for synchronous acts and trains
     def train_loop_step(self):
