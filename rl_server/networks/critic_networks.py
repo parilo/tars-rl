@@ -139,7 +139,7 @@ class QuantileCriticNetwork(CriticNetwork):
                     out = Concatenate(axis=1)([out, input_action])
                 out = dense_block(out, self.hiddens[i], self.activations[i])
             atoms = Dense(self.num_atoms, self.out_activation)(out)
-            q_values = Lambda(lambda x: tf.reduce_sum(x, axis=-1))(atoms)
+            q_values = Lambda(lambda x: tf.reduce_mean(x, axis=-1))(atoms)
             model = keras.models.Model(inputs=[input_state, input_action], outputs=[atoms, q_values])
         return model
 
@@ -152,6 +152,60 @@ class QuantileCriticNetwork(CriticNetwork):
                                          activations=self.activations,
                                          action_insert_block=self.act_insert_block,
                                          output_activation=self.out_activation,
-                                         num_atoms = self.num_atoms,
+                                         num_atoms=self.num_atoms,
                                          model=None,
                                          scope=scope)
+
+
+class CategoricalCriticNetwork(CriticNetwork):
+
+    def __init__(self, state_shape, action_size,
+                 hiddens = [[256, 128], [64, 32]],
+                 activations=['relu', 'tanh'],
+                 action_insert_block=0, num_atoms=51, v=(-10., 10.),
+                 output_activation=None, model=None, scope=None):
+
+        self.state_shape = state_shape
+        self.action_size = action_size
+        self.hiddens = hiddens
+        self.activations = activations
+        self.act_insert_block = action_insert_block
+
+        self.num_atoms = num_atoms
+        self.v_min, self.v_max = v
+        self.delta_z = (self.v_max - self.v_min) / (num_atoms - 1)
+        self.z = tf.lin_space(start=self.v_min, stop=self.v_max, num=num_atoms)
+
+        self.out_activation = output_activation
+        self.scope = scope or 'CategoricalCriticNetwork'
+        self.model = model or self.build_model()
+
+    def build_model(self):
+        input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
+        input_action = keras.layers.Input(shape=(self.action_size, ), name='action_input')
+        input_size = self.get_input_size(self.state_shape)
+        out = Reshape((input_size, ))(input_state)
+        with tf.variable_scope(self.scope):
+            for i in range(len(self.hiddens)):
+                if (i == self.act_insert_block):
+                    out = Concatenate(axis=1)([out, input_action])
+                out = dense_block(out, self.hiddens[i], self.activations[i])
+            logits = Dense(self.num_atoms, self.out_activation)(out)
+            probs = Lambda(lambda x: tf.nn.softmax(logits, axis=-1))(logits)
+            q_values = Lambda(lambda x: tf.reduce_sum(x*self.z, axis=-1))(probs)
+            model = keras.models.Model(inputs=[input_state, input_action], outputs=[probs, q_values])
+        return model
+
+    def copy(self, scope=None):
+        scope = scope or self.scope + "_copy"
+        with tf.variable_scope(scope):
+            return CategoricalCriticNetwork(state_shape=self.state_shape,
+                                            action_size=self.action_size,
+                                            hiddens=self.hiddens,
+                                            activations=self.activations,
+                                            action_insert_block=self.act_insert_block,
+                                            output_activation=self.out_activation,
+                                            num_atoms=self.num_atoms,
+                                            v=(self.v_min, self.v_max),
+                                            model=None,
+                                            scope=scope)

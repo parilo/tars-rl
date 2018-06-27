@@ -1,8 +1,11 @@
 {"history_len":       3, 
  "frame_skip":        4,
  "n_step":            1,
- "prio" :             0,
+ "prio":              0,
+ "sync":              1,
  "observation_size":  158,
  "action_size":       19,
  "batch_size":        256,
- "port":              8777}
+ "disc_factor":       0.99,
+ "port":              8777,
+ "gpu_id":            0}

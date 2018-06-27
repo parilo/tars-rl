@@ -40,6 +40,10 @@ for i in ['history_len', 'frame_skip', 'n_step', 'batch_size']:
     experiment_file = experiment_file + '-' + i + str(experiment_config[i])
 if experiment_config['prio']:
     experiment_file = experiment_file + '-prio'
+if experiment_config['sync']:
+    experiment_file = experiment_file + '-sync'
+else:
+    experiment_file = experiment_file + '-async'
 path_to_results = 'results/' + experiment_file + '-rewards.txt'
 
 if os.path.isfile(path_to_results):
