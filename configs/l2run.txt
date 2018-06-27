@@ -2,8 +2,7 @@
  "frame_skip":        2,
  "n_step":            1,
  "prio" :             0,
- "observation_size":  8,
- "action_size":       2,
+ "observation_size":  41,
+ "action_size":       18,
  "batch_size":        256,
  "port":              8777}
- 

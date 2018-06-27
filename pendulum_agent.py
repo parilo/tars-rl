@@ -8,7 +8,7 @@ import numpy as np
 import gym
 from rl_server.server.rl_client import RLClient
 from agent_replay_buffer import AgentBuffer
-from envs.lunar_lander import LunarLander
+from envs.pendulum import Pendulum
 
 # parse input arguments
 
@@ -29,7 +29,7 @@ args = parser.parse_args()
 
 ############################## Specify environment and experiment ##############################
 
-environment_name = 'lunar_lander'
+environment_name = 'pendulum'
 experiment_config = json.load(open('configs/' + environment_name + '.txt'))
 
 history_len = experiment_config['history_len']
@@ -44,8 +44,10 @@ path_to_results = 'results/' + experiment_file + '-rewards.txt'
 
 if os.path.isfile(path_to_results):
     os.remove(path_to_results)
+    
+port = experiment_config['port']
 
-env = LunarLander(frame_skip=frame_skip, visualize=args.visualize)
+env = Pendulum(frame_skip=frame_skip, visualize=args.visualize)
 observation_shapes = env.observation_shapes
 action_size = env.action_size
 
@@ -53,7 +55,7 @@ action_size = env.action_size
 
 buf_capacity = 1001
 
-rl_client = RLClient(port=8777+args.id)
+rl_client = RLClient(port=port+args.id)
 agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
 
 agent_buffer.push_init_observation([env.reset()])
@@ -74,7 +76,7 @@ while True:
         action = np.array(action_received) + np.random.normal(scale=0.02, size=action_size)
         action = np.clip(action, -1., 1.)
 
-    next_obs, reward, done, info = env.step(action)
+    next_obs, reward, done, info = env.step(action*2)
     transition = [[next_obs], action, reward, done]
     agent_buffer.push_transition(transition)
     next_state = agent_buffer.get_current_state(history_len=history_len)[0].ravel()

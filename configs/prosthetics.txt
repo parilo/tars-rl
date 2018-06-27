@@ -4,4 +4,5 @@
  "prio" :             0,
  "observation_size":  158,
  "action_size":       19,
- "batch_size":        256}
+ "batch_size":        256,
+ "port":              8777}

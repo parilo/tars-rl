@@ -5,7 +5,8 @@ import numpy as np
 
 class Pendulum:
 
-    def __init__(self, frame_skip=1):
+    def __init__(self, frame_skip=1, visualize=False):
+        self.visualize = visualize
         self.env = gym.make('Pendulum-v0')
         self.frame_skip = frame_skip
         self.observation_shapes = [(3,)]
@@ -21,6 +22,8 @@ class Pendulum:
         reward = 0
         for i in range(self.frame_skip):
             observation, r, done, info = self.env.step(action) 
+            if self.visualize:
+                self.env.render()
             reward += r*1e-2
             if done: break
         self.total_reward += reward

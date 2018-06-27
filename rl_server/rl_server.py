@@ -27,12 +27,14 @@ class RLServer:
                  start_learning_after=5000,
                  target_networks_update_period=500,
                  show_stats_period=20,
-                 save_model_period=10000):
+                 save_model_period=10000,
+                 init_port=8777):
 
         self._server_api = RLServerAPI(
             num_clients,
             observation_shapes,
-            state_shapes)
+            state_shapes,
+            init_port=init_port)
 
         self._train_loop = RLTrainLoop(
             observation_shapes=observation_shapes,
