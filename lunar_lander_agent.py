@@ -40,10 +40,16 @@ for i in ['history_len', 'frame_skip', 'n_step', 'batch_size']:
     experiment_file = experiment_file + '-' + i + str(experiment_config[i])
 if experiment_config['prio']:
     experiment_file = experiment_file + '-prio'
+if experiment_config['sync']:
+    experiment_file = experiment_file + '-sync'
+else:
+    experiment_file = experiment_file + '-async'
 path_to_results = 'results/' + experiment_file + '-rewards.txt'
 
 if os.path.isfile(path_to_results):
     os.remove(path_to_results)
+    
+port = experiment_config['port']
 
 env = LunarLander(frame_skip=frame_skip, visualize=args.visualize)
 observation_shapes = env.observation_shapes
@@ -53,7 +59,7 @@ action_size = env.action_size
 
 buf_capacity = 1001
 
-rl_client = RLClient(port=8777+args.id)
+rl_client = RLClient(port=port+args.id)
 agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
 
 agent_buffer.push_init_observation([env.reset()])

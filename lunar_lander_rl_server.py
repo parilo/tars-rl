@@ -7,10 +7,7 @@ import random
 import numpy as np
 from rl_server.rl_server import RLServer
 from rl_server.networks.actor_networks import ActorNetwork
-from rl_server.networks.critic_networks import CriticNetwork, DuelingCriticNetwork, QuantileCriticNetwork
-
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = str(3)
+from rl_server.networks.critic_networks import *
 
 seed = 1
 random.seed(seed)
@@ -27,22 +24,28 @@ action_size = experiment_config['action_size']
 use_prioritized_buffer = experiment_config['prio']
 batch_size = experiment_config['batch_size']
 prio = experiment_config['prio']
+use_synchronous_update = experiment_config['sync']
 port = experiment_config['port']
+gpu_id = experiment_config['gpu_id']
+disc_factor = experiment_config['disc_factor']
+
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
 
 if prio:
     from rl_server.algo.prioritized_ddpg import DDPG
 else:
-    from rl_server.algo.quantile_ddpg import DDPG
+    from rl_server.algo.categorical_ddpg import DDPG
 
 observation_shapes = [(obs_size,)]
 state_shapes = [(history_len, obs_size,)]
 
-critic = QuantileCriticNetwork(state_shapes[0], action_size, hiddens=[[64, 64]],
-                       activations=['relu'], output_activation=None,
-                       action_insert_block=0, scope='critic')
+critic = CategoricalCriticNetwork(state_shapes[0], action_size, hiddens=[[64], [64]],
+                       activations=['relu', 'relu'], output_activation=None,
+                       action_insert_block=0, num_atoms=51, v=(-5., 5.), scope='critic')
 
-actor = ActorNetwork(state_shapes[0], action_size, hiddens=[[32, 32]],
-                     activations=['tanh'], output_activation='tanh',
+actor = ActorNetwork(state_shapes[0], action_size, hiddens=[[32], [32]],
+                     activations=['relu', 'tanh'], output_activation='tanh',
                      scope='actor')
 
 def model_load_callback(sess, saver):
@@ -59,7 +62,7 @@ agent_algorithm = DDPG(state_shapes=state_shapes,
                        critic_optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),
                        n_step=n_step,
                        gradient_clip=1.0,
-                       discount_factor=0.99,
+                       discount_factor=disc_factor,
                        target_actor_update_rate=1.0,
                        target_critic_update_rate=1.0)
 
@@ -71,10 +74,11 @@ rl_server = RLServer(num_clients=40,
                      agent_algorithm=agent_algorithm,
                      action_dtype=tf.float32,
                      is_actions_space_continuous=True,
-                     gpu_id=3,
+                     gpu_id=gpu_id,
                      batch_size=batch_size,
-                     experience_replay_buffer_size=1000000,
+                     experience_replay_buffer_size=100000,
                      use_prioritized_buffer=use_prioritized_buffer,
+                     use_synchronous_update=use_synchronous_update,
                      train_every_nth=4,
                      history_length=history_len,
                      start_learning_after=5000,
