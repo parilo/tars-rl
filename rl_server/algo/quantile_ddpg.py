@@ -77,8 +77,6 @@ class DDPG:
             # right hand side of the Bellman equation
             self._next_action = tf.stop_gradient(self._target_actor(self._next_state))
             next_atoms = tf.stop_gradient(self._target_critic([self._next_state, self._next_action]))
-            #next_atoms, next_q_values = [tf.stop_gradient(val)
-            #                             for val in self._target_critic([self._next_state, self._next_action])]
             discount = self._gamma ** self._n_step
             target_atoms = self._rewards[:,None] + discount * (1 - self._terminator[:,None]) * next_atoms
 

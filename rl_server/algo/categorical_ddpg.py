@@ -77,15 +77,12 @@ class DDPG:
             # right hand side of the Bellman equation
             self._next_action = tf.stop_gradient(self._target_actor(self._next_state))
             next_probs = tf.stop_gradient(self._target_critic([self._next_state, self._next_action]))
-            
-            #next_probs, next_q_values = [tf.stop_gradient(val)
-            #                             for val in ]
+
             discount = self._gamma ** self._n_step
             target_atoms = self._rewards[:,None] + discount * (1 - self._terminator[:,None]) * self._critic.z
             tz = tf.clip_by_value(target_atoms, self._critic.v_min, self._critic.v_max)
             tz_z = tz[:,None,:] - self._critic.z[None,:,None]
             tz_z = tf.clip_by_value((1.0 - (tf.abs(tz_z) / self._critic.delta_z)), 0., 1.)
-
             target_probs = tf.einsum('bij,bj->bi', tz_z, next_probs)
 
         with tf.name_scope("critic_update"):
