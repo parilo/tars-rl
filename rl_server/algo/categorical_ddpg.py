@@ -72,22 +72,22 @@ class DDPG:
         with tf.name_scope("estimating_bellman_equation_sides"):
 
             # left hand side of the distributional Bellman equation
-            agent_atoms = self._critic([self._state, self._given_action])
+            agent_probs = self._critic([self._state, self._given_action])
 
             # right hand side of the Bellman equation
             self._next_action = tf.stop_gradient(self._target_actor(self._next_state))
-            next_atoms = tf.stop_gradient(self._target_critic([self._next_state, self._next_action]))
+            next_probs = tf.stop_gradient(self._target_critic([self._next_state, self._next_action]))
+
             discount = self._gamma ** self._n_step
-            target_atoms = self._rewards[:,None] + discount * (1 - self._terminator[:,None]) * next_atoms
+            target_atoms = self._rewards[:,None] + discount * (1 - self._terminator[:,None]) * self._critic.z
+            tz = tf.clip_by_value(target_atoms, self._critic.v_min, self._critic.v_max)
+            tz_z = tz[:,None,:] - self._critic.z[None,:,None]
+            tz_z = tf.clip_by_value((1.0 - (tf.abs(tz_z) / self._critic.delta_z)), 0., 1.)
+            target_probs = tf.einsum('bij,bj->bi', tz_z, next_probs)
 
         with tf.name_scope("critic_update"):
-            
-            atoms_diff = target_atoms[:,None,:] - agent_atoms[:,:,None]
-            delta_atoms_diff = tf.where(atoms_diff<0, tf.ones_like(atoms_diff), tf.zeros_like(atoms_diff))
-            
-            huber_weights = tf.abs(self._critic.tau[None,:,None] - delta_atoms_diff) / self._critic.num_atoms
 
-            self._critic_error = self.huber_loss(agent_atoms[:,:,None], target_atoms[:,None,:], huber_weights)
+            self._critic_error = -tf.reduce_sum(target_probs * tf.log(agent_probs+1e-6))
 
             critic_gradients = self._critic_optimizer.compute_gradients(
                 self._critic_error, var_list=self._critic.variables())
@@ -96,8 +96,8 @@ class DDPG:
 
         with tf.name_scope("actor_update"):
 
-            atoms = self._critic([self._state, self._actor(self._state)])
-            q_values = tf.reduce_mean(atoms, axis=-1)
+            probs = self._critic([self._state, self._actor(self._state)])
+            q_values = tf.reduce_sum(probs * self._critic.z, axis=-1)
             self._actor_error = -tf.reduce_mean(q_values)
 
             actor_gradients = self._actor_optimizer.compute_gradients(
@@ -124,7 +124,7 @@ class DDPG:
         loss = tf.where(tf.abs(err)<kappa,
                         0.5*tf.square(err),
                         kappa*(tf.abs(err)-0.5*kappa))
-        return tf.reduce_mean(tf.multiply(loss, weights))
+        return tf.reduce_sum(tf.multiply(loss, weights))
         
 
     def init(self, sess):

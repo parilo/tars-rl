@@ -139,8 +139,7 @@ class QuantileCriticNetwork(CriticNetwork):
                     out = Concatenate(axis=1)([out, input_action])
                 out = dense_block(out, self.hiddens[i], self.activations[i])
             atoms = Dense(self.num_atoms, self.out_activation)(out)
-            q_values = Lambda(lambda x: tf.reduce_mean(x, axis=-1))(atoms)
-            model = keras.models.Model(inputs=[input_state, input_action], outputs=[atoms, q_values])
+            model = keras.models.Model(inputs=[input_state, input_action], outputs=atoms)
         return model
 
     def copy(self, scope=None):
@@ -191,9 +190,8 @@ class CategoricalCriticNetwork(CriticNetwork):
                     out = Concatenate(axis=1)([out, input_action])
                 out = dense_block(out, self.hiddens[i], self.activations[i])
             logits = Dense(self.num_atoms, self.out_activation)(out)
-            probs = Lambda(lambda x: tf.nn.softmax(logits, axis=-1))(logits)
-            q_values = Lambda(lambda x: tf.reduce_sum(x*self.z, axis=-1))(probs)
-            model = keras.models.Model(inputs=[input_state, input_action], outputs=[probs, q_values])
+            probs = Lambda(lambda x: tf.nn.softmax(x, axis=-1))(logits)
+            model = keras.models.Model(inputs=[input_state, input_action], outputs=probs)
         return model
 
     def copy(self, scope=None):

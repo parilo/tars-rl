@@ -55,8 +55,6 @@ class RLTrainLoop():
         self._beta = initial_beta
         self._use_prioritized_buffer = use_prioritized_buffer
         self._use_synchronous_update = use_synchronous_update
-        
-        print (gpu_id)
 
         config = gpu_config(gpu_id)
         self._sess = tf.Session(config=config)
