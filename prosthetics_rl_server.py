@@ -1,64 +1,52 @@
 #!/usr/bin/env python
 
 import os
+import json
 import tensorflow as tf
 import random
 import numpy as np
 from rl_server.rl_server import RLServer
-from rl_server.dense_network import DenseNetwork
-from rl_server.dueling_dense_network import DuelingDenseNetwork
-from rl_server.algo.ddpg_prio_buf import DDPG
-
 from rl_server.networks.actor_networks import ActorNetwork
-from rl_server.networks.critic_networks import CriticNetwork, DuelingCriticNetwork
-
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = str(3)
+from rl_server.networks.critic_networks import *
 
 seed = 1
 random.seed(seed)
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-history_len = 2
+environment_name = 'prosthetics_new'
+experiment_config = json.load(open('configs/' + environment_name + '.txt'))
 
-# prosthetics
-action_size = 19
-observation_shapes = [(158,)]
-state_shapes = [(history_len, 158,)]
+history_len = experiment_config['history_len']
+n_step = experiment_config['n_step']
+obs_size = experiment_config['observation_size']
+action_size = experiment_config['action_size']
+use_prioritized_buffer = experiment_config['prio']
+batch_size = experiment_config['batch_size']
+prio = experiment_config['prio']
+use_synchronous_update = experiment_config['sync']
+port = experiment_config['port']
+gpu_id = experiment_config['gpu_id']
+disc_factor = experiment_config['disc_factor']
 
-# osim
-#action_size = 18
-#observation_shapes = [(41,)]
-#state_shapes = [(41*3,)]
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
 
-# pendulum
-#action_size = 1
-#observation_shapes = [(3,)]
-#state_shapes = [(history_len*3,)]
+if prio:
+    from rl_server.algo.prioritized_ddpg import DDPG
+else:
+    from rl_server.algo.categorical_ddpg import DDPG
 
-# lunar lander
-#action_size = 2
-#observation_shapes = [(8,)]
-#state_shapes = [(history_len*8,)]
+observation_shapes = [(obs_size,)]
+state_shapes = [(history_len, obs_size,)]
 
-critic_shapes = list(state_shapes)
-critic_shapes.append((action_size,))
-#critic = DenseNetwork(critic_shapes, 1, fully_connected=[400, 300], scope='critic')
-#actor = DenseNetwork(state_shapes, action_size, fully_connected=[300, 200], scope='actor')
+critic = CategoricalCriticNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
+                       activations=['relu', 'relu'], output_activation=None,
+                       action_insert_block=0, num_atoms=51, v=(-5., 5.), scope='critic')
 
-
-actor = ActorNetwork(state_shapes[0], action_size,
-                          hiddens=[[300], [200]], activations=['relu', 'tanh'],
-                          output_activation='sigmoid', scope='actor')
-critic = CriticNetwork(state_shapes[0], action_size,
-                            hiddens=[[400], [300]], activations=['relu', 'relu'],
-                            action_insert_block=1, scope='critic')
-
-                            
-                          
-#critic = DuelingDenseNetwork(critic_shapes, 1, scope='critic')
-#actor = DuelingDenseNetwork(state_shapes, action_size, scope='actor')
+actor = ActorNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
+                     activations=['relu', 'tanh'], output_activation='tanh',
+                     scope='actor')
 
 def model_load_callback(sess, saver):
     pass
@@ -72,7 +60,9 @@ agent_algorithm = DDPG(state_shapes=state_shapes,
                        critic=critic,
                        actor_optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),
                        critic_optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),
-                       discount_factor=0.99,
+                       n_step=n_step,
+                       gradient_clip=1.0,
+                       discount_factor=disc_factor,
                        target_actor_update_rate=1.0,
                        target_critic_update_rate=1.0)
 
@@ -84,16 +74,18 @@ rl_server = RLServer(num_clients=40,
                      agent_algorithm=agent_algorithm,
                      action_dtype=tf.float32,
                      is_actions_space_continuous=True,
-                     gpu_id=3,
-                     batch_size=256,
-                     experience_replay_buffer_size=1000000,
-                     use_prioritized_buffer=True,
+                     gpu_id=gpu_id,
+                     batch_size=batch_size,
+                     experience_replay_buffer_size=100000,
+                     use_prioritized_buffer=use_prioritized_buffer,
+                     use_synchronous_update=use_synchronous_update,
                      train_every_nth=4,
                      history_length=history_len,
                      start_learning_after=5000,
-                     target_networks_update_period=100,
-                     show_stats_period=1000,
-                     save_model_period=10000)
+                     target_networks_update_period=1000,
+                     show_stats_period=100,
+                     save_model_period=10000,
+                     init_port=port)
 
 rl_server.start()
 
