@@ -1,7 +1,8 @@
 import tensorflow as tf
 from tensorflow.python import keras
 from tensorflow.python.keras.models import Sequential
-from tensorflow.python.keras.layers import Dense, Reshape
+from tensorflow.python.keras.layers import Dense, Reshape, Lambda
+from tensorflow.python.keras.initializers import RandomUniform
 
 
 def dense_block(input_layer, hiddens, activation='relu'):
@@ -65,3 +66,48 @@ class ActorNetwork:
                                 output_activation=self.out_activation,
                                 model=model,
                                 scope=scope)
+
+
+class GMMActorNetwork(ActorNetwork):
+    
+    def __init__(self, state_shape, action_size,
+                 hiddens = [[256, 128], [64, 32]],
+                 activations=['relu', 'tanh'],
+                 num_components=1,
+                 output_activation=None, model=None, scope=None):
+
+        self.state_shape = state_shape
+        self.action_size = action_size
+        self.hiddens = hiddens
+        self.activations = activations
+        self.K = num_components
+        self.out_activation = output_activation
+        self.scope = scope or 'GMMActorNetwork'
+        self.model = model or self.build_model()
+
+    def build_model(self):
+        input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
+        input_size = self.get_input_size(self.state_shape)
+        out = Reshape((input_size, ))(input_state)
+        with tf.variable_scope(self.scope):
+            for i in range(len(self.hiddens)):
+                out = dense_block(out, self.hiddens[i], self.activations[i])
+            log_weight = Dense(self.K, None)(out)
+            mu = Dense(self.K * self.action_size, None)(out)
+            mu = Reshape((self.K, self.action_size))(mu)
+            log_std = Dense(self.K * self.action_size, None)(out)
+            log_std = Reshape((self.K, self.action_size))(log_std)
+            model = keras.models.Model(inputs=[input_state], outputs=[log_weight, mu, log_std])
+        return model
+
+    def copy(self, scope=None):
+        scope = scope or self.scope + "_copy"
+        with tf.variable_scope(scope):
+            return GMMActorNetwork(state_shape=self.state_shape,
+                                   action_size=self.action_size,
+                                   hiddens=self.hiddens,
+                                   activations=self.activations,
+                                   num_components=self.K,
+                                   output_activation=self.out_activation,
+                                   model=None,
+                                   scope=scope)
