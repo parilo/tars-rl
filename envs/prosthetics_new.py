@@ -23,20 +23,24 @@ class ProstheticsEnvWrap:
     def step(self, action):
         reward = 0
         for i in range(self.frame_skip):
-            observation, r, done, info = self.env.step(action, project=False)
+            observation, r, _, info = self.env.step(action, project=False)
+            done = self.is_done(observation)
             reward += r*1e-2
             if done: break
-        pelvis_y = observation["body_pos"]["pelvis"][1]
+
         observation = self.preprocess_obs(observation)
         self.total_reward += reward
-        
-        if done and pelvis_y>=0.6:
-            done = False
-        if self.time_step * self.frame_skip > 999:
-            done = True
-        
+
         self.time_step += 1
         return observation, reward, done, info
+    
+    def is_done(self, observation):
+        pelvis_y = observation["body_pos"]["pelvis"][1]
+        if (self.time_step * self.frame_skip > 999):
+            return True
+        elif pelvis_y < 0.6:
+            return True
+        return False
 
     def preprocess_obs(self, obs):
 
