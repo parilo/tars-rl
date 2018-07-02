@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.python import keras
 from tensorflow.python.keras.models import Sequential
 from tensorflow.python.keras.layers import Dense, Concatenate, Add, Reshape, Lambda
+from tensorflow.python.keras.initializers import RandomUniform
 
 
 def dense_block(input_layer, hiddens, activation='relu'):
@@ -30,7 +31,12 @@ class CriticNetwork:
 
     def build_model(self):
         input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
-        input_action = keras.layers.Input(shape=(self.action_size, ), name='action_input')
+        if self.act_insert_block == -1:
+            model_inputs = [input_state]
+        else:
+            input_action = keras.layers.Input(shape=(self.action_size, ), name='action_input')
+            model_inputs = [input_state, input_action]
+
         input_size = self.get_input_size(self.state_shape)
         out = Reshape((input_size, ))(input_state)
         with tf.variable_scope(self.scope):
@@ -39,7 +45,7 @@ class CriticNetwork:
                     out = Concatenate(axis=1)([out, input_action])
                 out = dense_block(out, self.hiddens[i], self.activations[i])
             out = Dense(1, self.out_activation)(out)
-            model = keras.models.Model(inputs=[input_state, input_action], outputs=out)
+            model = keras.models.Model(inputs=model_inputs, outputs=out)
         return model
 
     def get_input_size(self, shape):
@@ -49,9 +55,14 @@ class CriticNetwork:
             return shape[0] * shape[1]
 
     def __call__(self, inputs):
-        state_input = inputs[0][0]
-        action_input = inputs[1]
-        return self.model([state_input, action_input])
+        if self.act_insert_block == -1:
+            state_input = inputs[0]
+            model_input = state_input
+        else:
+            state_input = inputs[0][0]
+            action_input = inputs[1]
+            model_input = [state_input, action_input]
+        return self.model(model_input)
 
     def variables(self):
         return self.model.trainable_weights
