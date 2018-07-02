@@ -81,41 +81,7 @@ while True:
             action = env.get_random_action(resample=False)
     else:
         action_received = rl_client.act([state])
-
-#        result = rl_client.act_with_probs_batch([state])
-#        action_received = result[0][0]
-#        grad = result[2][0]
-        # if args.visualize:
-        #     print('{: f} {: f} {: f} {: f}'.format(
-        #         grad[0],
-        #         grad[1],
-        #         grad[2],
-        #         grad[3]
-        #     ))
-
-        # OU exploration
-        # action = np.array(action_received)
-        # action = np.array(action_received) + np.random.normal(scale=0.02, size=action_size)
-
-        # grad exploration
-#        if args.validation:
         action = np.array(action_received)
-#        else:
-#            action = np.array(action_received)
-#            random_action = env.get_random_action()
-
-#            # hard
-#            explore = np.where(np.abs(grad) > 0.02, 0., 1.)
-#            action = np.multiply(
-#                # explore with small differences if grad is big
-#                action + np.random.normal(scale=0.02, size=action_size),
-#                (1-explore)
-#            ) + np.multiply(random_action, explore)
-
-            # soft
-            # explore = 1. - np.clip(np.abs(grad), 0., 0.02) / 0.02
-            # action = np.multiply(action, (1. - explore)) + np.multiply(random_action, explore)
-
         action += np.random.normal(scale=0.02, size=action_size)
         action = np.clip(action, -1., 1.)
 
@@ -127,7 +93,6 @@ while True:
     if done:
         episode = agent_buffer.get_complete_episode()
         rl_client.store_episode(episode)
-        # if args.visualize:
         print('--- episode ended {} {} {}'.format(episode_index, env.time_step, env.get_total_reward()))
         with open(path_to_results, 'a') as f:
             f.write(str(args.id) + ' ' + str(episode_index) + ' ' + str(env.get_total_reward()) + '\n')
