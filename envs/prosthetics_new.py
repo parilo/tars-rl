@@ -10,7 +10,7 @@ class ProstheticsEnvWrap:
         self.env = ProstheticsEnv(visualize=visualize)
         self.env.change_model(model='3D', prosthetic=True, difficulty=0, seed=25)
         self.frame_skip = frame_skip
-        self.observation_shapes = [(294,)]
+        self.observation_shapes = [(333,)]
         self.action_size = 19
 
     def reset(self):
@@ -22,6 +22,7 @@ class ProstheticsEnvWrap:
 
     def step(self, action):
         reward = 0
+        action = np.clip(action, 0.0, 1.0)
         for i in range(self.frame_skip):
             observation, r, _, info = self.env.step(action, project=False)
             done = self.is_done(observation)
@@ -30,7 +31,6 @@ class ProstheticsEnvWrap:
 
         observation = self.preprocess_obs(observation)
         self.total_reward += reward
-
         self.time_step += 1
         return observation, reward, done, info
     
@@ -85,6 +85,12 @@ class ProstheticsEnvWrap:
         # 33 components -- linear accelerations of body parts
         for body_part in obs['body_acc_rot'].keys():
             res += obs['body_acc_rot'][body_part]
+        
+        # joints
+        for joint_val in ['joint_pos', 'joint_vel', 'joint_acc']:
+            for joint in ['ground_pelvis', 'hip_r', 'knee_r', 'ankle_r',
+                          'hip_l', 'knee_l', 'ankle_l']:
+                res += obs[joint_val][joint][:3]
 
         # muscles
         for muscle in obs['muscles'].keys():
@@ -101,6 +107,7 @@ class ProstheticsEnvWrap:
         res = np.array(res)
         res[67:102] *= acc_mult
         res[165:198] *= acc_mult
+        res[224:237] *= acc_mult
 
         return res.tolist()
 
