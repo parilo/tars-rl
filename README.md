@@ -40,6 +40,10 @@ model='3D', prosthetic=True, difficulty=0, seed=25
 2. Actions were not included until the **second hidden layer** of critic network.
 3. The final layer weights and biases of both the actor and critic were initialized from **Uniform[-3e-3, 3e-3]** to ensure the initial outputs for the policy and value etimates were near zero.
 4. Ornstein-Uhlenbeck process with **theta=0.15** and **sigma=0.2** for exploration.
+### NAF
+1. Angles were often converted to sine and cosine encoding.
+2. Actor and critic parameters are updated **5** times per each step of experience.
+3. Batch normalization is employed as in the original DDPG paper.
 ### Ape-X DPG
 1. The gradient used to update the **actor network** is clipped to [-1,1] element-wise.
 2. **Hard** target updates every 100 training batches.
