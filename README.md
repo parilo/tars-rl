@@ -35,6 +35,11 @@ model='3D', prosthetic=True, difficulty=0, seed=25
 
 # Hacks and hyperparameters from the literature
 
+### DDPG
+1. L2 weight decay (L2 regularization) of **0.01** for critic network.
+2. Actions were not included until the **second hidden layer** of critic network.
+3. The final layer weights and biases of both the actor and critic were initialized from **Uniform[-3e-3, 3e-3]** to ensure the initial outputs for the policy and value etimates were near zero.
+4. Ornstein-Uhlenbeck process with **theta=0.15** and **sigma=0.2** for exploration.
 ### Ape-X DPG
 1. The gradient used to update the **actor network** is clipped to [-1,1] element-wise.
 2. **Hard** target updates every 100 training batches.
