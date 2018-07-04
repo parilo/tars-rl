@@ -34,7 +34,9 @@ class ActorNetwork:
         with tf.variable_scope(self.scope):
             for i in range(len(self.hiddens)):
                 out = dense_block(out, self.hiddens[i], self.activations[i])
-            out = Dense(self.action_size, self.out_activation)(out)
+            out = Dense(self.action_size, self.out_activation,
+                        kernel_initializer=RandomUniform(-3e-3, 3e-3),
+                        bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
             model = keras.models.Model(inputs=[input_state], outputs=out)
         return model
     
@@ -92,11 +94,21 @@ class GMMActorNetwork(ActorNetwork):
         with tf.variable_scope(self.scope):
             for i in range(len(self.hiddens)):
                 out = dense_block(out, self.hiddens[i], self.activations[i])
-            log_weight = Dense(self.K, None)(out)
-            mu = Dense(self.K * self.action_size, None)(out)
+
+            log_weight = Dense(self.K, None,
+                               kernel_initializer=RandomUniform(-3e-3, 3e-3),
+                               bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
+
+            mu = Dense(self.K * self.action_size, None,
+                       kernel_initializer=RandomUniform(-3e-3, 3e-3),
+                       bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
             mu = Reshape((self.K, self.action_size))(mu)
-            log_std = Dense(self.K * self.action_size, None)(out)
+
+            log_std = Dense(self.K * self.action_size, None,
+                            kernel_initializer=RandomUniform(-3e-3, 3e-3),
+                            bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
             log_std = Reshape((self.K, self.action_size))(log_std)
+
             model = keras.models.Model(inputs=[input_state], outputs=[log_weight, mu, log_std])
         return model
 
