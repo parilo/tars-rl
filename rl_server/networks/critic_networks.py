@@ -44,7 +44,9 @@ class CriticNetwork:
                 if (i == self.act_insert_block):
                     out = Concatenate(axis=1)([out, input_action])
                 out = dense_block(out, self.hiddens[i], self.activations[i])
-            out = Dense(1, self.out_activation)(out)
+            out = Dense(1, self.out_activation,
+                        kernel_initializer=RandomUniform(-3e-3, 3e-3),
+                        bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
             model = keras.models.Model(inputs=model_inputs, outputs=out)
         return model
 
@@ -111,8 +113,12 @@ class DuelingCriticNetwork(CriticNetwork):
             for i in range(self.act_insert_block, len(self.hiddens)):
                 val = dense_block(val, self.hiddens[i], self.activations[i])
                 adv = dense_block(adv, self.hiddens[i], self.activations[i])
-            val = Dense(1, self.out_activation)(val)
-            adv = Dense(1, self.out_activation)(adv)
+            val = Dense(1, self.out_activation,
+                        kernel_initializer=RandomUniform(-3e-3, 3e-3),
+                        bias_initializer=RandomUniform(-3e-3, 3e-3))(val)
+            adv = Dense(1, self.out_activation,
+                        kernel_initializer=RandomUniform(-3e-3, 3e-3),
+                        bias_initializer=RandomUniform(-3e-3, 3e-3))(adv)
             out = Add()([val, adv])
             model = keras.models.Model(inputs=[input_state, input_action], outputs=out)
         return model
@@ -149,7 +155,9 @@ class QuantileCriticNetwork(CriticNetwork):
                 if (i == self.act_insert_block):
                     out = Concatenate(axis=1)([out, input_action])
                 out = dense_block(out, self.hiddens[i], self.activations[i])
-            atoms = Dense(self.num_atoms, self.out_activation)(out)
+            atoms = Dense(self.num_atoms, self.out_activation,
+                          kernel_initializer=RandomUniform(-3e-3, 3e-3),
+                          bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
             model = keras.models.Model(inputs=[input_state, input_action], outputs=atoms)
         return model
 

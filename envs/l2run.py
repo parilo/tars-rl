@@ -15,7 +15,7 @@ class ExtRunEnv(L2RunEnv):
     def reset(self):
         self.time_step = 0
         self.total_reward = 0
-        self.init_action = np.random.uniform(0., 1., size=self.action_size)
+        self.init_action = np.round(np.random.uniform(0., 0.7, size=self.action_size))
         obs = self.env.reset()
         return self.preprocess_obs(obs)
 
@@ -51,16 +51,16 @@ class ExtRunEnv(L2RunEnv):
         y = obs[2]
         a = obs[0]
         obs[[1, 24, 25]] = 0
-        obs[6:12] += a
+        obs[6:12] -= a
         obs[[18, 22, 26, 28, 30, 32, 34]] -= x
         obs[[19, 23, 27, 29, 31, 33, 35]] -= y
         obs[38] /= 100.0
-        return obs
+        return obs.copy()
 
     def get_total_reward(self):
         return self.total_reward
     
     def get_random_action(self, resample=True):
         if resample:
-            self.init_action = np.random.uniform(0., 1., size=self.action_size)
+            self.init_action = np.round(np.random.uniform(0., 0.7, size=self.action_size))
         return self.init_action
