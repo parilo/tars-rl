@@ -31,6 +31,7 @@ class BaseDDPG:
         self._gamma = tf.constant(discount_factor)
         self._target_actor_update_rate = tf.constant(target_actor_update_rate)
         self._target_critic_update_rate = tf.constant(target_critic_update_rate)
+        self._action_var = tf.Variable(tf.zeros((1, self._action_size)), dtype=tf.float32)
 
     @staticmethod
     def _update_target_network(source_network, target_network, update_rate):
@@ -63,6 +64,16 @@ class BaseDDPG:
 
     def _get_action_for_state(self):
         return self._actor(self._state_for_act)
+
+    def _get_q_values(self, state, action):
+        return self._critic([state, action])
+
+    def _get_gradients_for_action(self, action):
+        self._action_assign = tf.assign(self._action_var, action)
+        q_values = self._get_q_values(self._state_for_act, self._action_var)
+        actor_loss = -tf.reduce_mean(q_values)
+        return self._actor_optimizer.compute_gradients(
+            actor_loss, var_list=[self._action_var])
 
     def _get_critic_update(self):
 
@@ -107,6 +118,8 @@ class BaseDDPG:
 
         with tf.name_scope("taking_action"):
             self._actor_action = self._get_action_for_state()
+            self._gradient_for_action = self._get_gradients_for_action(self._actor_action)
+            print(self._gradient_for_action)
 
         with tf.name_scope("critic_update"):
             self._critic_loss, self._critic_update = self._get_critic_update()
@@ -128,6 +141,15 @@ class BaseDDPG:
         actions = sess.run(self._actor_action, feed_dict=feed_dict)
 
         return actions.tolist()
+
+    def act_with_gradient_batch(self, sess, states):
+        feed_dict = {}
+        for i in range(len(states)):
+            feed_dict[self._state_for_act[i]] = states[i]
+        actions, _ = sess.run([self._actor_action, self._action_assign], feed_dict=feed_dict)
+        grad = sess.run(self._gradient_for_action[0][0], feed_dict=feed_dict)
+
+        return actions.tolist(), grad.tolist()
 
     def train(self, sess, batch):
 
