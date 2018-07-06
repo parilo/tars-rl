@@ -25,6 +25,10 @@ class CategoricalDDPG(BaseDDPG):
         self._create_placeholders()
         self._create_variables()
 
+    def _get_q_values(self, states, actions):
+        probs = self._critic([states, actions])
+        return tf.reduce_sum(probs * self._critic.z, axis=-1)
+
     def _get_critic_update(self):
 
         # left hand side of the distributional Bellman equation

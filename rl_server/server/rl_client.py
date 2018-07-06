@@ -58,16 +58,16 @@ class RLClient:
         self._tcp_client.connect()
         self._tcp_lock = threading.Lock()
 
-    def act(self, state):
+    def act(self, state, mode='default'):
         """
             state is list of state parts
             in case you have many modalities in
             your state and want to process it
             differently in the NN
         """
-        return self.act_batch(state)[0]
+        return self.act_batch(state, mode)[0]
 
-    def act_batch(self, states):
+    def act_batch(self, states, mode='default'):
         """
             state is list of state parts
             in case you have many modalities in
@@ -76,7 +76,8 @@ class RLClient:
         """
         str_states = obs_to_string(states)
         req = serialize({'method': 'act_batch',
-                         'states': str_states})
+                         'states': str_states,
+                         'mode': mode})
         with self._tcp_lock:
             data = self._tcp_client.write_and_read_with_retries(req)
             return deserialize(data)
