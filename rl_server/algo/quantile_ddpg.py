@@ -22,6 +22,10 @@ class QuantileDDPG(BaseDDPG):
         self._create_placeholders()
         self._create_variables()
 
+    def _get_q_values(self, states, actions):
+        atoms = self._critic([states, actions])
+        return tf.reduce_mean(atoms, axis=-1)
+
     def _get_critic_update(self):
 
         # left hand side of the distributional Bellman equation
@@ -43,7 +47,7 @@ class QuantileDDPG(BaseDDPG):
             critic_loss, var_list=self._critic.variables())
         critic_update = self._critic_optimizer.apply_gradients(critic_gradients)
 
-        return critic_loss, critic_update
+        return [critic_loss, tf.reduce_mean(tf.reduce_sum(agent_atoms, axis=-1)**2)], critic_update
 
     def huber_loss(self, source, target, weights, kappa=1.0):
         err = tf.subtract(source, target)

@@ -90,7 +90,8 @@ class RLServerAPI:
 
         if method == 'act_batch':
             states = string_to_obs(req['states'], self._state_shapes)
-            response = self._act_batch_callback(states)
+            mode = req['mode']
+            response = self._act_batch_callback(states, mode)
 
         elif method == 'act_with_gradient_batch':
             states = string_to_obs(req['states'], self._state_shapes)

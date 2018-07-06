@@ -8,14 +8,15 @@ from threading import Lock, Thread
 
 
 def gpu_config(gpu_id):
-    if gpu_id == -1:
-        return tf.ConfigProto()
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
+    
+    config = tf.ConfigProto(device_count={'CPU': 1})
     config.intra_op_parallelism_threads = 1
     config.inter_op_parallelism_threads = 1
+    if gpu_id == -1:
+        return config
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+    config.gpu_options.allow_growth = True
     return config
 
 
@@ -80,8 +81,14 @@ class RLTrainLoop():
         if model_load_callback is not None:
             model_load_callback(self._sess, self._saver)
 
-    def act_batch(self, states):
-        actions = self._algo.act_batch(self._sess, states)
+    def act_batch(self, states, mode='default'):
+        if mode == 'default':
+            actions = self._algo.act_batch(self._sess, states)
+        if mode == 'sac_deterministic':
+            actions = self._algo.act_batch_deterministic(self._sess, states)
+        if mode == 'with_gradients':
+            # actually, here it will return actions and grads
+            actions = self._algo.act_batch_with_gradients(self._sess, states)
         if self._use_synchronous_update:
             self.train_loop_step()
         return actions
