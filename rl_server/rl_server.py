@@ -57,6 +57,7 @@ class RLServer:
         self._train_loop.set_algorithm(agent_algorithm)
         self._train_loop.init_vars(model_load_callback)
         self._server_api.set_act_batch_callback(self._train_loop.act_batch)
+        self._server_api.set_act_with_gradient_batch_callback(self._train_loop.act_with_gradient_batch)
         self._server_api.set_store_episode_callback(self._train_loop.store_episode)
 
     def start(self):

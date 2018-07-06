@@ -39,7 +39,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
 if prio:
     from rl_server.algo.prioritized_ddpg import DDPG
 else:
-    from rl_server.algo.categorical_ddpg import DDPG
+    from rl_server.algo.categorical_ddpg import CategoricalDDPG as DDPG
 
 observation_shapes = [(obs_size,)]
 state_shapes = [(history_len, obs_size,)]
