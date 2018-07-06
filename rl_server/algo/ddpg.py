@@ -74,6 +74,16 @@ class BaseDDPG:
         actor_loss = -tf.reduce_mean(q_values)
         return self._actor_optimizer.compute_gradients(actor_loss, var_list=[self._action_var])
 
+    def _get_q_values(self, state, action):
+        return self._critic([state, action])
+
+    def _get_gradients_for_action(self, action):
+        self._action_assign = tf.assign(self._action_var, action)
+        q_values = self._get_q_values(self._state_for_act, self._action_var)
+        actor_loss = -tf.reduce_mean(q_values)
+        return self._actor_optimizer.compute_gradients(
+            actor_loss, var_list=[self._action_var])
+
     def _get_critic_update(self):
 
         # left hand side of the Bellman equation

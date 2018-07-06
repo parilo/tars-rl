@@ -29,6 +29,10 @@ parser.add_argument('--visualize',
                     dest='visualize',
                     action='store_true',
                     default=False)
+parser.add_argument('--validation',
+                    dest='validation',
+                    action='store_true',
+                    default=False)
 args = parser.parse_args()
 
 ############################## Specify environment and experiment ##############################
@@ -49,6 +53,7 @@ if experiment_config['sync']:
 else:
     experiment_file = experiment_file + '-async'
 path_to_results = 'results/' + experiment_file + '-rewards.txt'
+path_to_results_validation = 'results/' + experiment_file + '-rewards-validation.txt'
 
 if os.path.isfile(path_to_results):
     os.remove(path_to_results)
@@ -70,6 +75,13 @@ agent_buffer.push_init_observation([env.reset()])
 
 episode_index = 0
 
+# exploration parameters for gradient exploration
+explore_start_temp = 0.1
+explore_end_temp = 0.01
+explore_episodes = 500
+explore_dt = (explore_start_temp - explore_end_temp) / explore_episodes
+explore_temp = explore_start_temp
+
 while True:
 
     state = agent_buffer.get_current_state(history_len=history_len)[0].ravel()
@@ -80,9 +92,16 @@ while True:
         else:
             action = env.get_random_action(resample=False)
     else:
-        action_received = rl_client.act([state])
+        result = rl_client.act_with_gradient_batch([state])
+        action_received = result[0][0]
+        grad = result[1][0]
+
         action = np.array(action_received)
-        action += np.random.normal(scale=0.02, size=action_size)
+        if not args.validation:
+            random_action = env.get_random_action()
+            explore = 1. - np.clip(np.abs(grad), 0., explore_temp) / explore_temp
+            action = np.multiply(action, (1. - explore)) + np.multiply(random_action, explore)
+
         action = np.clip(action, -1., 1.)
 
     next_obs, reward, done, info = env.step(action)
@@ -94,7 +113,7 @@ while True:
         episode = agent_buffer.get_complete_episode()
         rl_client.store_episode(episode)
         print('--- episode ended {} {} {}'.format(episode_index, env.time_step, env.get_total_reward()))
-        with open(path_to_results, 'a') as f:
+        with open(path_to_results_validation if args.validation else path_to_results, 'a') as f:
             f.write(str(args.id) + ' ' + str(episode_index) + ' ' + str(env.get_total_reward()) + '\n')
         episode_index += 1
         agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)

@@ -93,9 +93,12 @@ class RLTrainLoop():
             self.train_loop_step()
         return actions
 
-    #def start_training(self):
-    #    pass
-        
+    def act_with_gradient_batch(self, states):
+        results = self._algo.act_with_gradient_batch(self._sess, states)
+        if self._use_synchronous_update:
+            self.train_loop_step()
+        return results
+
     def start_training(self):
         if not self._use_synchronous_update:
             # for asynchronous act
@@ -116,7 +119,7 @@ class RLTrainLoop():
 
     # for synchronous acts and trains
     def train_loop_step(self):
-        
+
         with self._train_loop_step_lock:
 
             buffer_size = self.server_buffer.get_stored_in_buffer()

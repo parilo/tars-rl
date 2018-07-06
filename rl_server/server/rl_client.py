@@ -82,6 +82,20 @@ class RLClient:
             data = self._tcp_client.write_and_read_with_retries(req)
             return deserialize(data)
 
+    def act_with_gradient_batch(self, states):
+        """
+            state is list of state parts
+            in case you have many modalities in
+            your state and want to process it
+            differently in the NN
+        """
+        str_states = obs_to_string(states)
+        req = serialize({'method': 'act_with_gradient_batch',
+                         'states': str_states})
+        with self._tcp_lock:
+            data = self._tcp_client.write_and_read_with_retries(req)
+            return deserialize(data)
+
     def store_episode(self, episode):
         req = episode_to_req(episode, method='store_episode')
         with self._tcp_lock:
