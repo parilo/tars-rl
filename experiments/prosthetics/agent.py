@@ -38,7 +38,7 @@ experiment_config = json.load(open('config.txt'))
 history_len = experiment_config['history_len']
 frame_skip = experiment_config['frame_skip']
 
-experiment_file = ''
+experiment_file = 'sac'
 for i in ['history_len', 'frame_skip', 'n_step', 'batch_size']:
     experiment_file = experiment_file + '-' + i + str(experiment_config[i])
 if experiment_config['prio']:
@@ -69,20 +69,20 @@ agent_buffer.push_init_observation([env.reset()])
 
 episode_index = 0
 
-expl_sigma = 0.1 + 5e-3*args.id
+expl_sigma = 2e-2*(args.id % 4)
 
 while True:
 
     state = agent_buffer.get_current_state(history_len=history_len)[0].ravel()
 
     if (env.time_step < (20 / frame_skip) and args.random_start):
-        if env.time_step == (10 / frame_skip):
+        if env.time_step == (10 // frame_skip):
             action = env.get_random_action(resample=True)
         else:
             action = env.get_random_action(resample=False)
     else:
         action_received = rl_client.act([state])
-        action = np.array(action_received) + np.random.normal(scale=0.02, size=action_size)
+        action = np.array(action_received) + np.random.normal(scale=expl_sigma, size=action_size)
         action = np.clip(action, 0., 1.)
 
     next_obs, reward, done, info = env.step(action)

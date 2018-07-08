@@ -8,7 +8,7 @@ class ProstheticsEnvWrap:
 
     def __init__(self, frame_skip=1, visualize=False):
         self.env = ProstheticsEnv(visualize=visualize)
-        self.env.change_model(model='3D', prosthetic=True, difficulty=0, seed=25)
+        self.env.change_model(model='3D', prosthetic=True, difficulty=0, seed=np.random.randint(200))
         self.frame_skip = frame_skip
         self.observation_shapes = [(333,)]
         self.action_size = 19
@@ -16,7 +16,7 @@ class ProstheticsEnvWrap:
     def reset(self):
         self.time_step = 0
         self.total_reward = 0
-        self.init_action = np.round(np.random.uniform(0, 1.0, size=self.action_size))
+        self.init_action = np.round(np.random.uniform(0, 0.7, size=self.action_size))
         obs = self.env.reset(project=False)
         return self.preprocess_obs(obs)
 
@@ -26,7 +26,7 @@ class ProstheticsEnvWrap:
         for i in range(self.frame_skip):
             observation, r, _, info = self.env.step(action, project=False)
             done = self.is_done(observation)
-            reward += r*1e-2
+            reward += r*1e-1
             if done: break
 
         observation = self.preprocess_obs(observation)
@@ -116,5 +116,5 @@ class ProstheticsEnvWrap:
 
     def get_random_action(self, resample=True):
         if resample:
-            self.init_action = np.round(np.random.uniform(0, 1.0, size=self.action_size))
+            self.init_action = np.round(np.random.uniform(0, 0.7, size=self.action_size))
         return self.init_action
