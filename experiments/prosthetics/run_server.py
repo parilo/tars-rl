@@ -13,9 +13,9 @@ from rl_server.networks.actor_networks import ActorNetwork
 from rl_server.networks.critic_networks import *
 
 seed = 1
-random.seed(seed)
-np.random.seed(seed)
-tf.set_random_seed(seed)
+#random.seed(seed)
+#np.random.seed(seed)
+#tf.set_random_seed(seed)
 
 environment_name = 'prosthetics_new'
 experiment_config = json.load(open('config.txt'))
@@ -38,17 +38,20 @@ os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
 if prio:
     from rl_server.algo.prioritized_ddpg import DDPG
 else:
-    from rl_server.algo.categorical_ddpg import DDPG
+    from rl_server.algo.ddpg import DDPG
 
 observation_shapes = [(obs_size,)]
 state_shapes = [(history_len, obs_size,)]
 
-critic = CategoricalCriticNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
+#critic = CategoricalCriticNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
+#                       activations=['relu', 'relu'], output_activation=None,
+#                       action_insert_block=0, num_atoms=51, v=(-5., 5.), scope='critic')
+critic = CriticNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
                        activations=['relu', 'relu'], output_activation=None,
-                       action_insert_block=0, num_atoms=51, v=(-5., 5.), scope='critic')
+                       action_insert_block=0, scope='critic')
 
 actor = ActorNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
-                     activations=['relu', 'tanh'], output_activation='tanh',
+                     activations=['relu', 'relu'], output_activation='sigmoid',
                      scope='actor')
 
 def model_load_callback(sess, saver):
@@ -66,8 +69,8 @@ agent_algorithm = DDPG(state_shapes=state_shapes,
                        n_step=n_step,
                        gradient_clip=1.0,
                        discount_factor=disc_factor,
-                       target_actor_update_rate=1.0,
-                       target_critic_update_rate=1.0)
+                       target_actor_update_rate=1e-3,
+                       target_critic_update_rate=1e-3)
 
 rl_server = RLServer(num_clients=40,
                      action_size=action_size,
@@ -82,10 +85,10 @@ rl_server = RLServer(num_clients=40,
                      experience_replay_buffer_size=1000000,
                      use_prioritized_buffer=use_prioritized_buffer,
                      use_synchronous_update=use_synchronous_update,
-                     train_every_nth=4,
+                     train_every_nth=1,
                      history_length=history_len,
                      start_learning_after=5000,
-                     target_networks_update_period=1000,
+                     target_networks_update_period=1,
                      show_stats_period=100,
                      save_model_period=10000,
                      init_port=port)
