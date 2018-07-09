@@ -59,6 +59,7 @@ class RLTrainLoop():
 
         config = gpu_config(gpu_id)
         self._sess = tf.Session(config=config)
+        
         self._logger = tf.summary.FileWriter("logs")
 
         self.server_buffer = ServerBuffer(self._buffer_size, observation_shapes, action_size)
@@ -80,6 +81,7 @@ class RLTrainLoop():
         self._saver = tf.train.Saver(max_to_keep=None)
         if model_load_callback is not None:
             model_load_callback(self._sess, self._saver)
+        self._algo.target_network_init(self._sess)
 
     def act_batch(self, states, mode='default'):
         if mode == 'default':

@@ -1,31 +1,35 @@
 import tensorflow as tf
 from tensorflow.python import keras
-from tensorflow.python.keras.models import Sequential
-from tensorflow.python.keras.layers import Dense, Reshape, Lambda
+from tensorflow.python.keras.layers import Dense, Reshape, Lambda, Activation
 from tensorflow.python.keras.initializers import RandomUniform
+from .layer_norm import LayerNorm
 
 
-def dense_block(input_layer, hiddens, activation='relu'):
+def dense_block(input_layer, hiddens, activation='relu', layer_norm=False):
     out = input_layer 
     for num_units in hiddens:
-        out = Dense(num_units, activation)(out)
+        out = Dense(num_units, None)(out)
+        if layer_norm:
+            out = LayerNorm()(out)
+        out = Activation(activation)(out)
     return out
 
 
 class ActorNetwork:
 
     def __init__(self, state_shape, action_size,
-                 hiddens = [[256, 128], [64, 32]],
+                 hiddens = [[256, 128], [64, 32]], 
                  activations=['relu', 'tanh'],
-                 output_activation=None, model=None, scope=None):
+                 layer_norm=False, output_activation=None, scope=None):
 
         self.state_shape = state_shape
         self.action_size = action_size
         self.hiddens = hiddens
         self.activations = activations
+        self.layer_norm = layer_norm
         self.out_activation = output_activation
         self.scope = scope or 'ActorNetwork'
-        self.model = model or self.build_model()
+        self.model = self.build_model()
 
     def build_model(self):
         input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
@@ -33,7 +37,7 @@ class ActorNetwork:
         out = Reshape((input_size, ))(input_state)
         with tf.variable_scope(self.scope):
             for i in range(len(self.hiddens)):
-                out = dense_block(out, self.hiddens[i], self.activations[i])
+                out = dense_block(out, self.hiddens[i], self.activations[i], self.layer_norm)
             out = Dense(self.action_size, self.out_activation,
                         kernel_initializer=RandomUniform(-3e-3, 3e-3),
                         bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
@@ -57,35 +61,35 @@ class ActorNetwork:
         return self.model.trainable_weights
 
     def copy(self, scope=None):
+        """copy network architecture"""
         scope = scope or self.scope + "_copy"
         with tf.variable_scope(scope):
-            model = keras.models.model_from_json(self.model.to_json())
-            model.set_weights(self.model.get_weights())
             return ActorNetwork(state_shape=self.state_shape,
                                 action_size=self.action_size,
                                 hiddens=self.hiddens,
                                 activations=self.activations,
+                                layer_norm=self.layer_norm,
                                 output_activation=self.out_activation,
-                                model=model,
                                 scope=scope)
 
 
 class GMMActorNetwork(ActorNetwork):
     
     def __init__(self, state_shape, action_size,
-                 hiddens = [[256, 128], [64, 32]],
+                 hiddens = [[256, 128], [64, 32]], 
                  activations=['relu', 'tanh'],
                  num_components=1,
-                 output_activation=None, model=None, scope=None):
+                 layer_norm=False, output_activation=None, scope=None):
 
         self.state_shape = state_shape
         self.action_size = action_size
         self.hiddens = hiddens
         self.activations = activations
         self.K = num_components
+        self.layer_norm = layer_norm
         self.out_activation = output_activation
         self.scope = scope or 'GMMActorNetwork'
-        self.model = model or self.build_model()
+        self.model = self.build_model()
 
     def build_model(self):
         input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
@@ -93,7 +97,7 @@ class GMMActorNetwork(ActorNetwork):
         out = Reshape((input_size, ))(input_state)
         with tf.variable_scope(self.scope):
             for i in range(len(self.hiddens)):
-                out = dense_block(out, self.hiddens[i], self.activations[i])
+                out = dense_block(out, self.hiddens[i], self.activations[i], self.layer_norm)
 
             log_weight = Dense(self.K, None,
                                kernel_initializer=RandomUniform(-3e-3, 3e-3),
@@ -113,13 +117,14 @@ class GMMActorNetwork(ActorNetwork):
         return model
 
     def copy(self, scope=None):
+        """copy network architecture"""
         scope = scope or self.scope + "_copy"
         with tf.variable_scope(scope):
             return GMMActorNetwork(state_shape=self.state_shape,
                                    action_size=self.action_size,
                                    hiddens=self.hiddens,
                                    activations=self.activations,
+                                   layer_norm=self.layer_norm,
                                    num_components=self.K,
                                    output_activation=self.out_activation,
-                                   model=None,
                                    scope=scope)
