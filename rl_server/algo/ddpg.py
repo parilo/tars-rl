@@ -122,6 +122,12 @@ class BaseDDPG:
         update_targets = tf.group(target_actor_update, target_critic_update)
         return update_targets
 
+    def _get_targets_init(self):
+        target_actor_update = BaseDDPG._update_target_network(self._actor, self._target_actor, 1.0)
+        target_critic_update = BaseDDPG._update_target_network(self._critic, self._target_critic, 1.0)
+        update_targets = tf.group(target_actor_update, target_critic_update)
+        return update_targets
+
     def _create_variables(self):
 
         with tf.name_scope("taking_action"):
@@ -135,6 +141,7 @@ class BaseDDPG:
             self._actor_loss, self._actor_update = self._get_actor_update()
 
         with tf.name_scope("target_networks_update"):
+            self._targets_init = self._get_targets_init()
             self._targets_update = self._get_targets_update()
 
     def init(self, sess):
@@ -173,6 +180,9 @@ class BaseDDPG:
 
     def target_network_update(self, sess):
         sess.run(self._targets_update)
+        
+    def target_network_init(self, sess):
+        sess.run(self._targets_init)
 
 
 class DDPG(BaseDDPG):

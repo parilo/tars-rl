@@ -1,14 +1,17 @@
 import tensorflow as tf
 from tensorflow.python import keras
-from tensorflow.python.keras.models import Sequential
-from tensorflow.python.keras.layers import Dense, Concatenate, Add, Reshape, Lambda
+from tensorflow.python.keras.layers import Dense, Concatenate, Add, Reshape, Lambda, Activation
 from tensorflow.python.keras.initializers import RandomUniform
+from .layer_norm import LayerNorm
 
 
-def dense_block(input_layer, hiddens, activation='relu'):
+def dense_block(input_layer, hiddens, activation='relu', layer_norm=False):
     out = input_layer 
     for num_units in hiddens:
-        out = Dense(num_units, activation)(out)
+        out = Dense(num_units, None)(out)
+        if layer_norm:
+            out = LayerNorm()(out)
+        out = Activation(activation)(out)
     return out
 
 
@@ -18,7 +21,8 @@ class CriticNetwork:
                  hiddens = [[256, 128], [64, 32]],
                  activations=['relu', 'tanh'],
                  action_insert_block=0,
-                 output_activation=None, model=None, scope=None):
+                 layer_norm=False, output_activation=None,
+                 model=None, scope=None):
 
         self.state_shape = state_shape
         self.action_size = action_size
@@ -72,15 +76,13 @@ class CriticNetwork:
     def copy(self, scope=None):
         scope = scope or self.scope + "_copy"
         with tf.variable_scope(scope):
-            model = keras.models.model_from_json(self.model.to_json())
-            model.set_weights(self.model.get_weights())
             return CriticNetwork(state_shape=self.state_shape,
                                  action_size=self.action_size,
                                  hiddens=self.hiddens,
                                  activations=self.activations,
                                  action_insert_block=self.act_insert_block,
                                  output_activation=self.out_activation,
-                                 model=model,
+                                 model=None,
                                  scope=scope)
 
 
@@ -90,7 +92,8 @@ class DuelingCriticNetwork(CriticNetwork):
                  hiddens = [[256, 128], [64, 32]],
                  activations=['relu', 'tanh'],
                  action_insert_block=0,
-                 output_activation=None, model=None, scope=None):
+                 layer_norm=False, output_activation=None,
+                 model=None, scope=None):
         self.state_shape = state_shape
         self.action_size = action_size
         self.hiddens = hiddens
@@ -130,7 +133,8 @@ class QuantileCriticNetwork(CriticNetwork):
                  hiddens = [[256, 128], [64, 32]],
                  activations=['relu', 'tanh'],
                  action_insert_block=0, num_atoms=50,
-                 output_activation=None, model=None, scope=None):
+                 layer_norm=False, output_activation=None,
+                 model=None, scope=None):
 
         self.state_shape = state_shape
         self.action_size = action_size
@@ -181,7 +185,8 @@ class CategoricalCriticNetwork(CriticNetwork):
                  hiddens = [[256, 128], [64, 32]],
                  activations=['relu', 'tanh'],
                  action_insert_block=0, num_atoms=51, v=(-10., 10.),
-                 output_activation=None, model=None, scope=None):
+                 layer_norm=False, output_activation=None,
+                 model=None, scope=None):
 
         self.state_shape = state_shape
         self.action_size = action_size
