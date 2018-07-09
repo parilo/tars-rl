@@ -18,10 +18,9 @@ def dense_block(input_layer, hiddens, activation='relu', layer_norm=False):
 class ActorNetwork:
 
     def __init__(self, state_shape, action_size,
-                 hiddens = [[256, 128], [64, 32]],
+                 hiddens = [[256, 128], [64, 32]], 
                  activations=['relu', 'tanh'],
-                 layer_norm=False, output_activation=None,
-                 model=None, scope=None):
+                 layer_norm=False, output_activation=None, scope=None):
 
         self.state_shape = state_shape
         self.action_size = action_size
@@ -30,7 +29,7 @@ class ActorNetwork:
         self.layer_norm = layer_norm
         self.out_activation = output_activation
         self.scope = scope or 'ActorNetwork'
-        self.model = model or self.build_model()
+        self.model = self.build_model()
 
     def build_model(self):
         input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
@@ -62,6 +61,7 @@ class ActorNetwork:
         return self.model.trainable_weights
 
     def copy(self, scope=None):
+        """copy network architecture"""
         scope = scope or self.scope + "_copy"
         with tf.variable_scope(scope):
             return ActorNetwork(state_shape=self.state_shape,
@@ -70,18 +70,16 @@ class ActorNetwork:
                                 activations=self.activations,
                                 layer_norm=self.layer_norm,
                                 output_activation=self.out_activation,
-                                model=None,
                                 scope=scope)
 
 
 class GMMActorNetwork(ActorNetwork):
     
     def __init__(self, state_shape, action_size,
-                 hiddens = [[256, 128], [64, 32]],
+                 hiddens = [[256, 128], [64, 32]], 
                  activations=['relu', 'tanh'],
                  num_components=1,
-                 layer_norm=False, output_activation=None,
-                 model=None, scope=None):
+                 layer_norm=False, output_activation=None, scope=None):
 
         self.state_shape = state_shape
         self.action_size = action_size
@@ -91,7 +89,7 @@ class GMMActorNetwork(ActorNetwork):
         self.layer_norm = layer_norm
         self.out_activation = output_activation
         self.scope = scope or 'GMMActorNetwork'
-        self.model = model or self.build_model()
+        self.model = self.build_model()
 
     def build_model(self):
         input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
@@ -119,6 +117,7 @@ class GMMActorNetwork(ActorNetwork):
         return model
 
     def copy(self, scope=None):
+        """copy network architecture"""
         scope = scope or self.scope + "_copy"
         with tf.variable_scope(scope):
             return GMMActorNetwork(state_shape=self.state_shape,
@@ -128,5 +127,4 @@ class GMMActorNetwork(ActorNetwork):
                                    layer_norm=self.layer_norm,
                                    num_components=self.K,
                                    output_activation=self.out_activation,
-                                   model=None,
                                    scope=scope)

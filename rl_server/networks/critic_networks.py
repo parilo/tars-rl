@@ -21,8 +21,7 @@ class CriticNetwork:
                  hiddens = [[256, 128], [64, 32]],
                  activations=['relu', 'tanh'],
                  action_insert_block=0,
-                 layer_norm=False, output_activation=None,
-                 model=None, scope=None):
+                 layer_norm=False, output_activation=None, scope=None):
 
         self.state_shape = state_shape
         self.action_size = action_size
@@ -31,7 +30,7 @@ class CriticNetwork:
         self.act_insert_block = action_insert_block
         self.out_activation = output_activation
         self.scope = scope or 'CriticNetwork'
-        self.model = model or self.build_model()
+        self.model = self.build_model()
 
     def build_model(self):
         input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
@@ -74,6 +73,7 @@ class CriticNetwork:
         return self.model.trainable_weights
 
     def copy(self, scope=None):
+        """copy network architecture"""
         scope = scope or self.scope + "_copy"
         with tf.variable_scope(scope):
             return CriticNetwork(state_shape=self.state_shape,
@@ -82,7 +82,6 @@ class CriticNetwork:
                                  activations=self.activations,
                                  action_insert_block=self.act_insert_block,
                                  output_activation=self.out_activation,
-                                 model=None,
                                  scope=scope)
 
 
@@ -92,8 +91,8 @@ class DuelingCriticNetwork(CriticNetwork):
                  hiddens = [[256, 128], [64, 32]],
                  activations=['relu', 'tanh'],
                  action_insert_block=0,
-                 layer_norm=False, output_activation=None,
-                 model=None, scope=None):
+                 layer_norm=False, output_activation=None, scope=None):
+
         self.state_shape = state_shape
         self.action_size = action_size
         self.hiddens = hiddens
@@ -101,7 +100,7 @@ class DuelingCriticNetwork(CriticNetwork):
         self.act_insert_block = action_insert_block
         self.out_activation = output_activation
         self.scope = scope or 'DuelingCriticNetwork'
-        self.model = model or self.build_model()
+        self.model = self.build_model()
         
     def build_model(self):
         input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
@@ -132,9 +131,9 @@ class QuantileCriticNetwork(CriticNetwork):
     def __init__(self, state_shape, action_size,
                  hiddens = [[256, 128], [64, 32]],
                  activations=['relu', 'tanh'],
-                 action_insert_block=0, num_atoms=50,
-                 layer_norm=False, output_activation=None,
-                 model=None, scope=None):
+                 action_insert_block=0,
+                 num_atoms=50,
+                 layer_norm=False, output_activation=None, scope=None):
 
         self.state_shape = state_shape
         self.action_size = action_size
@@ -147,7 +146,7 @@ class QuantileCriticNetwork(CriticNetwork):
         self.tau = tf.lin_space(start=tau_min, stop=tau_max, num=num_atoms)
         self.out_activation = output_activation
         self.scope = scope or 'QuantileCriticNetwork'
-        self.model = model or self.build_model()
+        self.model = self.build_model()
 
     def build_model(self):
         input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
@@ -166,6 +165,7 @@ class QuantileCriticNetwork(CriticNetwork):
         return model
 
     def copy(self, scope=None):
+        """copy network architecture"""
         scope = scope or self.scope + "_copy"
         with tf.variable_scope(scope):
             return QuantileCriticNetwork(state_shape=self.state_shape,
@@ -175,7 +175,6 @@ class QuantileCriticNetwork(CriticNetwork):
                                          action_insert_block=self.act_insert_block,
                                          output_activation=self.out_activation,
                                          num_atoms=self.num_atoms,
-                                         model=None,
                                          scope=scope)
 
 
@@ -184,7 +183,8 @@ class CategoricalCriticNetwork(CriticNetwork):
     def __init__(self, state_shape, action_size,
                  hiddens = [[256, 128], [64, 32]],
                  activations=['relu', 'tanh'],
-                 action_insert_block=0, num_atoms=51, v=(-10., 10.),
+                 action_insert_block=0,
+                 num_atoms=51, v=(-10., 10.),
                  layer_norm=False, output_activation=None,
                  model=None, scope=None):
 
@@ -201,7 +201,7 @@ class CategoricalCriticNetwork(CriticNetwork):
 
         self.out_activation = output_activation
         self.scope = scope or 'CategoricalCriticNetwork'
-        self.model = model or self.build_model()
+        self.model = self.build_model()
 
     def build_model(self):
         input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
@@ -219,6 +219,7 @@ class CategoricalCriticNetwork(CriticNetwork):
         return model
 
     def copy(self, scope=None):
+        """copy network architecture"""
         scope = scope or self.scope + "_copy"
         with tf.variable_scope(scope):
             return CategoricalCriticNetwork(state_shape=self.state_shape,
@@ -229,5 +230,4 @@ class CategoricalCriticNetwork(CriticNetwork):
                                             output_activation=self.out_activation,
                                             num_atoms=self.num_atoms,
                                             v=(self.v_min, self.v_max),
-                                            model=None,
                                             scope=scope)
