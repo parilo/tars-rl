@@ -3,12 +3,17 @@ from tensorflow.python import keras
 from tensorflow.python.keras.layers import Dense, Reshape, Lambda, Activation
 from tensorflow.python.keras.initializers import RandomUniform
 from .layer_norm import LayerNorm
+from .noisy_dense import NoisyDense
 
 
-def dense_block(input_layer, hiddens, activation='relu', layer_norm=False):
+def dense_block(input_layer, hiddens, activation='relu', 
+                layer_norm=False, noisy_layer=False):
     out = input_layer 
     for num_units in hiddens:
-        out = Dense(num_units, None)(out)
+        if noisy_layer:
+            out = NoisyDense(num_units, None)(out)
+        else:
+            out = Dense(num_units, None)(out)
         if layer_norm:
             out = LayerNorm()(out)
         out = Activation(activation)(out)
@@ -20,13 +25,15 @@ class ActorNetwork:
     def __init__(self, state_shape, action_size,
                  hiddens = [[256, 128], [64, 32]], 
                  activations=['relu', 'tanh'],
-                 layer_norm=False, output_activation=None, scope=None):
+                 layer_norm=False, noisy_layer=False,
+                 output_activation=None, scope=None):
 
         self.state_shape = state_shape
         self.action_size = action_size
         self.hiddens = hiddens
         self.activations = activations
         self.layer_norm = layer_norm
+        self.noisy_layer = noisy_layer
         self.out_activation = output_activation
         self.scope = scope or 'ActorNetwork'
         self.model = self.build_model()
@@ -37,7 +44,8 @@ class ActorNetwork:
         out = Reshape((input_size, ))(input_state)
         with tf.variable_scope(self.scope):
             for i in range(len(self.hiddens)):
-                out = dense_block(out, self.hiddens[i], self.activations[i], self.layer_norm)
+                out = dense_block(out, self.hiddens[i], self.activations[i], 
+                                  self.layer_norm, self.noisy_layer)
             out = Dense(self.action_size, self.out_activation,
                         kernel_initializer=RandomUniform(-3e-3, 3e-3),
                         bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
@@ -69,6 +77,7 @@ class ActorNetwork:
                                 hiddens=self.hiddens,
                                 activations=self.activations,
                                 layer_norm=self.layer_norm,
+                                noisy_layer=self.noisy_layer,
                                 output_activation=self.out_activation,
                                 scope=scope)
 
@@ -79,7 +88,8 @@ class GMMActorNetwork(ActorNetwork):
                  hiddens = [[256, 128], [64, 32]], 
                  activations=['relu', 'tanh'],
                  num_components=1,
-                 layer_norm=False, output_activation=None, scope=None):
+                 layer_norm=False, noisy_layer=False,
+                 output_activation=None, scope=None):
 
         self.state_shape = state_shape
         self.action_size = action_size
@@ -87,6 +97,7 @@ class GMMActorNetwork(ActorNetwork):
         self.activations = activations
         self.K = num_components
         self.layer_norm = layer_norm
+        self.noisy_layer = noisy_layer
         self.out_activation = output_activation
         self.scope = scope or 'GMMActorNetwork'
         self.model = self.build_model()
@@ -97,7 +108,8 @@ class GMMActorNetwork(ActorNetwork):
         out = Reshape((input_size, ))(input_state)
         with tf.variable_scope(self.scope):
             for i in range(len(self.hiddens)):
-                out = dense_block(out, self.hiddens[i], self.activations[i], self.layer_norm)
+                out = dense_block(out, self.hiddens[i], self.activations[i],
+                                  self.layer_norm, self.noisy_layer)
 
             log_weight = Dense(self.K, None,
                                kernel_initializer=RandomUniform(-3e-3, 3e-3),
@@ -125,6 +137,7 @@ class GMMActorNetwork(ActorNetwork):
                                    hiddens=self.hiddens,
                                    activations=self.activations,
                                    layer_norm=self.layer_norm,
+                                   noisy_layer=self.noisy_layer,
                                    num_components=self.K,
                                    output_activation=self.out_activation,
                                    scope=scope)
