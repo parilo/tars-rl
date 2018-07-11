@@ -10,17 +10,9 @@ class LayerNorm(Layer):
         super(LayerNorm, self).__init__(**kwargs)
 
     def build(self, input_shape):
-
-        dim = input_shape[self.axis]
-        shape = (dim,)
-        self.gamma = self.add_weight(shape=shape,
-                                     name='gamma',
-                                     initializer='ones',
-                                     trainable=True)
-        self.beta = self.add_weight(shape=shape,
-                                    name='beta',
-                                    initializer='zeros',
-                                    trainable=True)
+        input_dim = input_shape[self.axis]
+        self.gamma = self.add_weight(shape=(input_dim,), initializer='ones', name='gamma')
+        self.beta = self.add_weight(shape=(input_dim,), initializer='zeros', name='beta')
         super(LayerNorm, self).build(input_shape)
 
     def call(self, x):
