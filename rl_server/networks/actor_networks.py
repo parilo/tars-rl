@@ -81,6 +81,15 @@ class ActorNetwork:
                                 output_activation=self.out_activation,
                                 scope=scope)
 
+    def get_info(self):
+        info = {}
+        info['architecture'] = 'standard'
+        info['hiddens'] = self.hiddens
+        info['activations'] = self.activations
+        info['layer_norm'] = self.layer_norm
+        info['noisy_layer'] = self.noisy_layer
+        info['output_activation'] = self.out_activation
+        return info
 
 class GMMActorNetwork(ActorNetwork):
     
@@ -141,3 +150,9 @@ class GMMActorNetwork(ActorNetwork):
                                    num_components=self.K,
                                    output_activation=self.out_activation,
                                    scope=scope)
+        
+    def get_info(self):
+        info = super(GMMActorNetwork, self).get_info()
+        info['architecture'] = 'GMM'
+        info['num_components'] = self.K
+        return info
