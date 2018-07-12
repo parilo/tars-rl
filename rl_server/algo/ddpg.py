@@ -28,7 +28,8 @@ class BaseDDPG:
         self._critic_optimizer = critic_optimizer
         self._n_step = n_step
         self._grad_clip = gradient_clip
-        self._gamma = tf.constant(discount_factor)
+        self._gamma = discount_factor
+        self._update_rates = [target_actor_update_rate, target_critic_update_rate]
         self._target_actor_update_rate = tf.constant(target_actor_update_rate)
         self._target_critic_update_rate = tf.constant(target_critic_update_rate)
         self._action_var = tf.Variable(tf.zeros((1, self._action_size)), dtype=tf.float32)
@@ -183,6 +184,17 @@ class BaseDDPG:
         
     def target_network_init(self, sess):
         sess.run(self._targets_init)
+        
+    def _get_info(self):
+        info = {}
+        info['algo'] = 'ddpg'
+        info['actor'] = self._actor.get_info()
+        info['critic'] = self._critic.get_info()
+        info['grad_clip'] = self._grad_clip
+        info['discount_factor'] = self._gamma
+        info['target_actor_update_rate'] = self._update_rates[0]
+        info['target_critic_update_rate'] = self._update_rates[1]
+        return info
 
 
 class DDPG(BaseDDPG):

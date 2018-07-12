@@ -39,7 +39,8 @@ class RLTrainLoop():
                  start_learning_after=5000,
                  target_networks_update_period=500,
                  show_stats_period=2000,
-                 save_model_period=10000):
+                 save_model_period=10000,
+                 ckpt_path='ckpt/'):
 
         self._observation_shapes = observation_shapes
         self._action_size = action_size
@@ -56,6 +57,7 @@ class RLTrainLoop():
         self._beta = initial_beta
         self._use_prioritized_buffer = use_prioritized_buffer
         self._use_synchronous_update = use_synchronous_update
+        self._ckpt_path = ckpt_path
 
         config = gpu_config(gpu_id)
         self._sess = tf.Session(config=config)
@@ -168,5 +170,5 @@ class RLTrainLoop():
             print(('trains: {} loss: {} stored: {}').format(self._step_index, loss, queue_size))
 
         if self._step_index % self._save_model_period == 0:
-            save_path = self._saver.save(self._sess, 'ckpt/model-{}.ckpt'.format(self._step_index))
+            save_path = self._saver.save(self._sess, self._ckpt_path+'model-{}.ckpt'.format(self._step_index))
             print("Model saved in file: %s" % save_path)

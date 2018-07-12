@@ -14,7 +14,6 @@ from agent_replay_buffer import AgentBuffer
 from envs.prosthetics_new import ProstheticsEnvWrap
 
 # parse input arguments
-
 parser = argparse.ArgumentParser(description='Train or test neural net motor controller')
 parser.add_argument('--random_start',
                     dest='random_start',
@@ -28,6 +27,10 @@ parser.add_argument('--visualize',
                     dest='visualize',
                     type=bool,
                     default=False)
+parser.add_argument('--experiment_name',
+                    dest='experiment_name',
+                    type=str,
+                    default='experiment')
 args = parser.parse_args()
 
 ############################## Specify environment and experiment ##############################
@@ -38,7 +41,7 @@ experiment_config = json.load(open('config.txt'))
 history_len = experiment_config['history_len']
 frame_skip = experiment_config['frame_skip']
 
-experiment_file = 'sac'
+experiment_file = ''
 for i in ['history_len', 'frame_skip', 'n_step', 'batch_size']:
     experiment_file = experiment_file + '-' + i + str(experiment_config[i])
 if experiment_config['prio']:
@@ -47,11 +50,16 @@ if experiment_config['sync']:
     experiment_file = experiment_file + '-sync'
 else:
     experiment_file = experiment_file + '-async'
-path_to_results = 'results/' + experiment_file + '-rewards.txt'
 
-#if os.path.isfile(path_to_results):
-#    os.remove(path_to_results)
-    
+if args.experiment_name == 'experiment':
+    path_to_experiment = 'results/' + experiment_file + '/'
+else:
+    path_to_experiment = 'results/' + args.experiment_name + '/'
+path_to_results = path_to_experiment + 'rewards.txt'
+
+if os.path.isfile(path_to_results):
+    os.remove(path_to_results)
+
 port = experiment_config['port']
 
 env = ProstheticsEnvWrap(frame_skip=frame_skip, visualize=args.visualize)
@@ -60,7 +68,7 @@ action_size = env.action_size
 
 ########################################## Train agent #########################################
 
-buf_capacity = 1001
+buf_capacity = 1010
 
 rl_client = RLClient(port=port+args.id)
 agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
@@ -69,7 +77,7 @@ agent_buffer.push_init_observation([env.reset()])
 
 episode_index = 0
 
-expl_sigma = 2e-2*(args.id % 4)
+expl_sigma = 5e-2*(args.id % 4)
 
 while True:
 
@@ -82,7 +90,7 @@ while True:
             action = env.get_random_action(resample=False)
     else:
         action_received = rl_client.act([state])
-        action = np.array(action_received) + np.random.normal(scale=expl_sigma, size=action_size)
+        action = np.array(action_received)# + np.random.normal(scale=expl_sigma, size=action_size)
         action = np.clip(action, 0., 1.)
 
     next_obs, reward, done, info = env.step(action)
