@@ -90,7 +90,7 @@ while True:
             action = env.get_random_action(resample=False)
     else:
         action_received = rl_client.act([state])
-        action = np.array(action_received)# + np.random.normal(scale=expl_sigma, size=action_size)
+        action = np.array(action_received) + np.random.normal(scale=expl_sigma, size=action_size)
         action = np.clip(action, 0., 1.)
 
     next_obs, reward, done, info = env.step(action)

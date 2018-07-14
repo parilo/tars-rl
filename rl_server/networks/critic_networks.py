@@ -33,9 +33,9 @@ class CriticNetwork:
         self.action_size = action_size
         self.hiddens = hiddens
         self.activations = activations
+        self.act_insert_block = action_insert_block
         self.layer_norm = layer_norm
         self.noisy_layer = noisy_layer
-        self.act_insert_block = action_insert_block
         self.out_activation = output_activation
         self.scope = scope or 'CriticNetwork'
         self.model = self.build_model()
@@ -89,9 +89,9 @@ class CriticNetwork:
                                  action_size=self.action_size,
                                  hiddens=self.hiddens,
                                  activations=self.activations,
+                                 action_insert_block=self.act_insert_block,
                                  layer_norm=self.layer_norm,
                                  noisy_layer=self.noisy_layer,
-                                 action_insert_block=self.act_insert_block,
                                  output_activation=self.out_activation,
                                  scope=scope)
 
