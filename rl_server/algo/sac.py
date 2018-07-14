@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.contrib.distributions import MultivariateNormalDiag as Normal
 from .ddpg import BaseDDPG
 
 
@@ -16,7 +17,7 @@ class SAC(BaseDDPG):
                  gradient_clip=1.0,
                  discount_factor=0.99,
                  temperature=1e-2,
-                 mean_and_std_reg=0.0,
+                 mu_and_sig_reg=0.0,
                  target_critic_v_update_rate=1.0):
 
         self._state_shapes = state_shapes
@@ -32,7 +33,7 @@ class SAC(BaseDDPG):
         self._grad_clip = gradient_clip
         self._gamma = discount_factor
         self._temp = temperature
-        self._mean_and_std_reg = mean_and_std_reg
+        self._mu_and_sig_reg = mu_and_sig_reg
         self._update_rates = [target_critic_v_update_rate]
         self._target_critic_v_update_rate = tf.constant(target_critic_v_update_rate)
 
@@ -41,12 +42,11 @@ class SAC(BaseDDPG):
 
     def _get_action_for_state(self):
         agent_log_weights, agent_mu, agent_log_std = self._actor(self._state_for_act)
-        agent_log_weights = tf.clip_by_value(agent_log_weights, -10., 2.)
-        #agent_mu = tf.clip_by_value(agent_mu, -3., 3.)
+        agent_log_weights = tf.maximum(agent_log_weights, -10.)
         agent_log_std = tf.clip_by_value(agent_log_std, -5., 2.)
         _, action = self.gmm_log_pi(agent_log_weights, agent_mu, agent_log_std)
         return action
-    
+
     def _get_det_action_for_state(self):
         """sample best action from gaussian means"""
         agent_log_weights, agent_mu, agent_log_std = self._actor(self._state_for_act)
@@ -69,7 +69,7 @@ class SAC(BaseDDPG):
         # right hand side of the Bellman equation
         next_v = self._target_critic_v(self._next_state)
         discount = self._gamma ** self._n_step
-        target_q = self._temp*self._rewards[:, None] + discount * (1 - self._terminator[:, None]) * next_v
+        target_q = self._rewards[:, None] + discount * (1 - self._terminator[:, None]) * next_v
 
         # critic q gradient and update rule
         critic_q_loss = 0.5 * tf.reduce_mean(tf.square(agent_q - tf.stop_gradient(target_q)))
@@ -77,21 +77,20 @@ class SAC(BaseDDPG):
             critic_q_loss, var_list=self._critic_q.variables())
         critic_q_update = self._critic_q_optimizer.apply_gradients(critic_q_gradients)
 
-        return [critic_q_loss, tf.reduce_mean(agent_q)], critic_q_update
+        return [critic_q_loss, tf.reduce_mean(agent_q**2)], critic_q_update
 
     def _get_actor_update(self):
 
         # estimating log pi
-        log_weights, mu, log_std = self._actor(self._state)
-        log_weights = tf.clip_by_value(log_weights, -10., 2.)
-        log_std = tf.clip_by_value(log_std, -5., 2.)
-        #mu = tf.clip_by_value(mu, -3., 3.)
-        log_pi, sampled_action = self.gmm_log_pi(log_weights, mu, log_std)
+        agent_log_weights, agent_mu, agent_log_sig = self._actor(self._state)
+        agent_log_sig = tf.clip_by_value(agent_log_sig, -5., 2.)
+        agent_log_weights = tf.maximum(agent_log_weights, -10.)
+        agent_log_pi, agent_action = self.gmm_log_pi(agent_log_weights, agent_mu, agent_log_sig)
 
         # critic v gradient and update rule
         agent_v = self._critic_v(self._state)
-        target_q = self._critic_q([self._state, sampled_action])
-        target_v = target_q - log_pi
+        target_q = self._critic_q([self._state, agent_action])
+        target_v = target_q - agent_log_pi
         critic_v_loss = 0.5 * tf.reduce_mean(tf.square(agent_v - tf.stop_gradient(target_v)))
         critic_v_gradients = self._critic_v_optimizer.compute_gradients(
             critic_v_loss, var_list=self._critic_v.variables())
@@ -99,34 +98,32 @@ class SAC(BaseDDPG):
 
         # actor gradient and update rule
         target_log_pi = target_q - agent_v
-        actor_loss = tf.reduce_mean(log_pi * (log_pi - tf.stop_gradient(target_log_pi)))
-        #actor_loss = 0.5 * tf.reduce_mean(tf.square(log_pi - tf.stop_gradient(target_log_pi)))
-        reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope=self._actor.scope)
-        reg_loss = self._mean_and_std_reg * tf.reduce_sum(reg_losses)
-        #actor_loss += self._mean_and_std_reg * reg_loss
-        #reg_loss = self._mean_and_std_reg * (tf.reduce_mean(mu**2) + tf.reduce_mean(log_std**2))
-        actor_loss += reg_loss
+        policy_loss = tf.reduce_mean(agent_log_pi * tf.stop_gradient(agent_log_pi - target_log_pi))
+        reg_loss = 0
+        reg_loss += self._mu_and_sig_reg * 0.5 * tf.reduce_mean(agent_mu**2)
+        reg_loss += self._mu_and_sig_reg * 0.5 * tf.reduce_mean(agent_log_sig**2)
+        actor_loss = policy_loss + reg_loss
 
         actor_gradients = self._actor_optimizer.compute_gradients(
             actor_loss, var_list=self._actor.variables())
-        actor_gradients_clip = [(tf.clip_by_value(grad, -self._grad_clip, self._grad_clip), var)
-                                for grad, var in actor_gradients]
-        actor_update = self._actor_optimizer.apply_gradients(actor_gradients_clip)
+        #actor_gradients_clip = [(tf.clip_by_value(grad, -self._grad_clip, self._grad_clip), var)
+        #                        for grad, var in actor_gradients]
+        actor_update = self._actor_optimizer.apply_gradients(actor_gradients)
 
-        return [actor_loss, critic_v_loss, tf.reduce_mean(log_std), 
-                tf.reduce_mean(mu), tf.reduce_max(sampled_action),
-                tf.reduce_mean(self.get_squash_correction(sampled_action))], tf.group(critic_v_update, actor_update)
+        return [tf.reduce_mean(agent_log_pi), 
+                tf.reduce_mean(agent_log_sig),
+                tf.reduce_mean(agent_mu)], tf.group(critic_v_update, actor_update)
 
     def _get_targets_update(self):
         update_targets = BaseDDPG._update_target_network(
             self._critic_v, self._target_critic_v, self._target_critic_v_update_rate)
         return update_targets
-    
+
     def _get_targets_init(self):
         update_targets = BaseDDPG._update_target_network(
             self._critic_v, self._target_critic_v, 1.0)
         return update_targets
-    
+
     def _create_variables(self):
 
         with tf.name_scope("taking_action"):
@@ -145,24 +142,25 @@ class SAC(BaseDDPG):
             self._targets_update = self._get_targets_update()
 
     def gmm_log_pi(self, log_weights, mu, log_std):
+
         sigma = tf.exp(log_std)
-        normal = tf.distributions.Normal(mu, sigma)
+        normal = Normal(mu, sigma)
 
-        z = normal.sample()
-        sample_w = tf.reshape(tf.multinomial(logits=log_weights, num_samples=1), (-1,))
-        onehot_w = tf.one_hot(sample_w, depth=self._actor.K)
-        chosen_z = tf.stop_gradient(tf.reduce_sum(z * onehot_w[:, :, None], axis=1))
-        action = self.squash_action(chosen_z)
+        # sample from GMM
+        sample_w = tf.stop_gradient(tf.multinomial(logits=log_weights, num_samples=1))
+        sample_z = tf.stop_gradient(normal.sample())
+        mask = tf.one_hot(sample_w[:, 0], depth=self._actor.K)
+        z = tf.reduce_sum(sample_z * mask[:, :, None], axis=1)
+        action = self.squash_action(z)
 
-        log_z = normal.log_prob(chosen_z[:, None, :])
-        powers = log_z + log_weights[:, :, None]
+        # calculate log policy
+        gauss_log_pi = normal.log_prob(z[:, None, :])
+        log_pi = tf.reduce_logsumexp(gauss_log_pi + log_weights, axis=-1)
+        log_pi -= tf.reduce_logsumexp(log_weights, axis=-1)
+        log_pi -= self.get_squash_correction(z)
+        log_pi *= self._temp
 
-        log_pi = tf.reduce_logsumexp(powers, axis=-1)
-        log_pi -= tf.reduce_logsumexp(log_weights, axis=-1, keepdims=True)
-        log_pi -= self.get_squash_correction(action)
-        #log_pi = tf.clip_by_value(log_pi, -50., 50.)
-        #log_pi *= self._temp
-        return log_pi, action
+        return log_pi[:, None], action
 
     def squash_action(self, action):
         if self._actor.out_activation == 'tanh':
@@ -171,19 +169,19 @@ class SAC(BaseDDPG):
             return tf.sigmoid(action)
         return action
 
-    def get_squash_correction(self, action):
+    def get_squash_correction(self, z):
         if self._actor.out_activation == 'tanh':
-            corr = tf.log(1 - action**2 + 1e-6)
-            corr = tf.reduce_sum(corr, axis=-1, keepdims=True)
-            corr = tf.clip_by_value(corr, -10., 10.)
+            zz = tf.stack((z, -z), axis=2)
+            corr = tf.log(4.) - 2*tf.reduce_logsumexp(zz, axis=-1)
+            corr = tf.reduce_sum(corr, axis=-1)
             return corr
         if self._actor.out_activation == 'sigmoid':
-            corr = tf.log(action * (1 - action) + 1e-6)
-            corr = tf.reduce_sum(corr, axis=-1, keepdims=True)
-            corr = tf.clip_by_value(corr, -10., 10.)
+            zz = tf.stack((tf.zeros_like(z), -z), axis=2)
+            corr = -z - 2*tf.reduce_logsumexp(zz, axis=-1)
+            corr = tf.reduce_sum(corr, axis=-1)
             return corr
         return 0
-    
+
     def act_batch_deterministic(self, sess, states):
         feed_dict = {}
         for i in range(len(states)):
@@ -201,5 +199,5 @@ class SAC(BaseDDPG):
         info['discount_factor'] = self._gamma
         info['target_critic_v_update_rate'] = self._update_rates[0]
         info['temperature'] = self._temp
-        info['regularization_coef'] = self._mean_and_std_reg
+        info['regularization_coef'] = self._mu_and_sig_reg
         return info

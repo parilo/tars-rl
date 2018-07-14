@@ -77,19 +77,19 @@ observation_shapes = [(obs_size,)]
 state_shapes = [(history_len, obs_size,)]
 
 actor = GMMActorNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
-                        layer_norm=True,
+                        layer_norm=False,
                         activations=['relu', 'relu'], output_activation='sigmoid',
-                        num_components=1, scope='actor')
+                        num_components=4, scope='actor')
 
 critic_v = CriticNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
-                         layer_norm=True,
+                         layer_norm=False,
                          activations=['relu', 'relu'], output_activation=None,
                          action_insert_block=-1, scope='critic_v')
 
 critic_q = CriticNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
-                         layer_norm=True,
+                         layer_norm=False,
                          activations=['relu', 'relu'], output_activation=None,
-                         action_insert_block=1, scope='critic_q')
+                         action_insert_block=0, scope='critic_q')
 
 def model_load_callback(sess, saver):
     pass
@@ -102,14 +102,14 @@ agent_algorithm = SAC(state_shapes=state_shapes,
                       actor=actor,
                       critic_v=critic_v,
                       critic_q=critic_q,
-                      actor_optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),
-                      critic_v_optimizer=tf.train.AdamOptimizer(learning_rate=1e-3),
-                      critic_q_optimizer=tf.train.AdamOptimizer(learning_rate=1e-3),
+                      actor_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
+                      critic_v_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
+                      critic_q_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
                       n_step=n_step,
                       gradient_clip=1.0,
                       discount_factor=disc_factor,
-                      temperature=10.,
-                      mean_and_std_reg=1.,
+                      temperature=1e-3,
+                      mu_and_sig_reg=1e-4,
                       target_critic_v_update_rate=1e-2)
 
 rl_server = RLServer(num_clients=40,

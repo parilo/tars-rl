@@ -31,8 +31,8 @@ for i in range(16):
 
 for i in range(0):
     ps.append(subprocess.Popen(
-        ['python', 'agent.py', '--random_start', '--id', str(agent_id)]
-    ))
+        ['python', 'agent.py', '--random_start', '--id', str(agent_id), 
+                                '--experiment_name', args.experiment_name]))
     agent_id += 1
 
 

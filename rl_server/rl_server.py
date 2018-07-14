@@ -29,7 +29,8 @@ class RLServer:
                  target_networks_update_period=500,
                  show_stats_period=20,
                  save_model_period=10000,
-                 init_port=8777):
+                 init_port=8777,
+                 ckpt_path='ckpt/'):
 
         self._server_api = RLServerAPI(
             num_clients,
@@ -52,7 +53,8 @@ class RLServer:
             start_learning_after=start_learning_after,
             target_networks_update_period=target_networks_update_period,
             show_stats_period=show_stats_period,
-            save_model_period=save_model_period)
+            save_model_period=save_model_period,
+            ckpt_path=ckpt_path)
 
         self._train_loop.set_algorithm(agent_algorithm)
         self._train_loop.init_vars(model_load_callback)
