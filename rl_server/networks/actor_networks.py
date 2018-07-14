@@ -129,12 +129,12 @@ class GMMActorNetwork(ActorNetwork):
                        bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
             mu = Reshape((self.K, self.action_size))(mu)
 
-            log_std = Dense(self.K * self.action_size, None,
+            log_sig = Dense(self.K * self.action_size, None,
                             kernel_initializer=RandomUniform(-3e-3, 3e-3),
                             bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
-            log_std = Reshape((self.K, self.action_size))(log_std)
+            log_sig = Reshape((self.K, self.action_size))(log_sig)
 
-            model = keras.models.Model(inputs=[input_state], outputs=[log_weight, mu, log_std])
+            model = keras.models.Model(inputs=[input_state], outputs=[log_weight, mu, log_sig])
         return model
 
     def copy(self, scope=None):
