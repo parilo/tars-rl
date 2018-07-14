@@ -14,7 +14,6 @@ from agent_replay_buffer import AgentBuffer
 from envs.lunar_lander import LunarLander
 
 # parse input arguments
-
 parser = argparse.ArgumentParser(description='Train or test neural net motor controller')
 parser.add_argument('--random_start',
                     dest='random_start',
@@ -28,6 +27,10 @@ parser.add_argument('--visualize',
                     dest='visualize',
                     type=bool,
                     default=False)
+parser.add_argument('--experiment_name',
+                    dest='experiment_name',
+                    type=str,
+                    default='experiment')
 args = parser.parse_args()
 
 ############################## Specify environment and experiment ##############################
@@ -47,7 +50,12 @@ if experiment_config['sync']:
     experiment_file = experiment_file + '-sync'
 else:
     experiment_file = experiment_file + '-async'
-path_to_results = 'results/' + experiment_file + '-rewards.txt'
+
+if args.experiment_name == 'experiment':
+    path_to_experiment = 'results/' + experiment_file + '/'
+else:
+    path_to_experiment = 'results/' + args.experiment_name + '/'
+path_to_results = path_to_experiment + 'rewards.txt'
 
 if os.path.isfile(path_to_results):
     os.remove(path_to_results)
@@ -80,7 +88,7 @@ while True:
             action = env.get_random_action(resample=False)
     else:
         action_received = rl_client.act([state])
-        action = np.array(action_received) + np.random.normal(scale=0.02, size=action_size)
+        action = np.array(action_received)# + np.random.normal(scale=0.02, size=action_size)
         action = np.clip(action, -1., 1.)
 
     next_obs, reward, done, info = env.step(action)

@@ -81,6 +81,15 @@ class ActorNetwork:
                                 output_activation=self.out_activation,
                                 scope=scope)
 
+    def get_info(self):
+        info = {}
+        info['architecture'] = 'standard'
+        info['hiddens'] = self.hiddens
+        info['activations'] = self.activations
+        info['layer_norm'] = self.layer_norm
+        info['noisy_layer'] = self.noisy_layer
+        info['output_activation'] = self.out_activation
+        return info
 
 class GMMActorNetwork(ActorNetwork):
     
@@ -120,12 +129,12 @@ class GMMActorNetwork(ActorNetwork):
                        bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
             mu = Reshape((self.K, self.action_size))(mu)
 
-            log_std = Dense(self.K * self.action_size, None,
+            log_sig = Dense(self.K * self.action_size, None,
                             kernel_initializer=RandomUniform(-3e-3, 3e-3),
                             bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
-            log_std = Reshape((self.K, self.action_size))(log_std)
+            log_sig = Reshape((self.K, self.action_size))(log_sig)
 
-            model = keras.models.Model(inputs=[input_state], outputs=[log_weight, mu, log_std])
+            model = keras.models.Model(inputs=[input_state], outputs=[log_weight, mu, log_sig])
         return model
 
     def copy(self, scope=None):
@@ -141,3 +150,9 @@ class GMMActorNetwork(ActorNetwork):
                                    num_components=self.K,
                                    output_activation=self.out_activation,
                                    scope=scope)
+        
+    def get_info(self):
+        info = super(GMMActorNetwork, self).get_info()
+        info['architecture'] = 'GMM'
+        info['num_components'] = self.K
+        return info

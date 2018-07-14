@@ -14,7 +14,6 @@ from agent_replay_buffer import AgentBuffer
 from envs.prosthetics_new import ProstheticsEnvWrap
 
 # parse input arguments
-
 parser = argparse.ArgumentParser(description='Train or test neural net motor controller')
 parser.add_argument('--random_start',
                     dest='random_start',
@@ -32,6 +31,10 @@ parser.add_argument('--validation',
                     dest='validation',
                     action='store_true',
                     default=False)
+parser.add_argument('--experiment_name',
+                    dest='experiment_name',
+                    type=str,
+                    default='experiment')
 args = parser.parse_args()
 
 ############################## Specify environment and experiment ##############################
@@ -42,7 +45,7 @@ experiment_config = json.load(open('config.txt'))
 history_len = experiment_config['history_len']
 frame_skip = experiment_config['frame_skip']
 
-experiment_file = 'cat-ge'
+experiment_file = ''
 for i in ['history_len', 'frame_skip', 'n_step', 'batch_size']:
     experiment_file = experiment_file + '-' + i + str(experiment_config[i])
 if experiment_config['prio']:
@@ -51,11 +54,18 @@ if experiment_config['sync']:
     experiment_file = experiment_file + '-sync'
 else:
     experiment_file = experiment_file + '-async'
-path_to_results = 'results/' + experiment_file + '-rewards.txt'
-path_to_results_validation = 'results/' + experiment_file + '-rewards-validation.txt'
 
-#if os.path.isfile(path_to_results):
-#    os.remove(path_to_results)
+if args.experiment_name == 'experiment':
+    path_to_experiment = 'results/' + experiment_file + '/'
+else:
+    path_to_experiment = 'results/' + args.experiment_name + '/'
+path_to_results = path_to_experiment + 'rewards.txt'
+path_to_results_validation = path_to_experiment + 'rewards-validation.txt'
+
+if not os.path.exists(path_to_experiment):
+    os.makedirs(path_to_experiment)
+if os.path.isfile(path_to_results):
+    os.remove(path_to_results)
 
 port = experiment_config['port']
 
@@ -81,7 +91,7 @@ explore_episodes = 500
 explore_dt = (explore_start_temp - explore_end_temp) / explore_episodes
 explore_temp = explore_start_temp
 
-expl_sigma = 2e-2*(args.id % 4)
+expl_sigma = 5e-2*(args.id % 4)
 
 while True:
 

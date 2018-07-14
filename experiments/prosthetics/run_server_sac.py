@@ -25,9 +25,9 @@ def load_info(path):
         return pickle.load(f)
 
 seed = 1
-random.seed(seed)
-np.random.seed(seed)
-tf.set_random_seed(seed)
+#random.seed(seed)
+#np.random.seed(seed)
+#tf.set_random_seed(seed)
 
 parser = argparse.ArgumentParser(description='Train or test neural net motor controller')
 parser.add_argument('--experiment_name',
@@ -36,7 +36,7 @@ parser.add_argument('--experiment_name',
                     default='experiment')
 args = parser.parse_args()
 
-environment_name = 'lunar_lander'
+environment_name = 'prosthetics_new'
 experiment_config = json.load(open('config.txt'))
 
 history_len = experiment_config['history_len']
@@ -76,20 +76,20 @@ from rl_server.algo.sac import SAC
 observation_shapes = [(obs_size,)]
 state_shapes = [(history_len, obs_size,)]
 
-actor = GMMActorNetwork(state_shapes[0], action_size, hiddens=[[256, 256]],
-                        activations=['relu'], output_activation='tanh',
-                        layer_norm=False, noisy_layer=False,
+actor = GMMActorNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
+                        layer_norm=False,
+                        activations=['relu', 'relu'], output_activation='sigmoid',
                         num_components=4, scope='actor')
 
-critic_v = CriticNetwork(state_shapes[0], action_size, hiddens=[[256, 256]],
-                         activations=['relu'], output_activation=None,
-                         layer_norm=False, noisy_layer=False,
+critic_v = CriticNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
+                         layer_norm=False,
+                         activations=['relu', 'relu'], output_activation=None,
                          action_insert_block=-1, scope='critic_v')
 
-critic_q = CriticNetwork(state_shapes[0], action_size, hiddens=[[256], [256]],
+critic_q = CriticNetwork(state_shapes[0], action_size, hiddens=[[400], [300]],
+                         layer_norm=False,
                          activations=['relu', 'relu'], output_activation=None,
-                         layer_norm=False, noisy_layer=False,
-                         action_insert_block=1, scope='critic_q')
+                         action_insert_block=0, scope='critic_q')
 
 def model_load_callback(sess, saver):
     pass
@@ -108,8 +108,8 @@ agent_algorithm = SAC(state_shapes=state_shapes,
                       n_step=n_step,
                       gradient_clip=1.0,
                       discount_factor=disc_factor,
-                      temperature=5e-3,
-                      mu_and_sig_reg=0.,
+                      temperature=1e-3,
+                      mu_and_sig_reg=1e-4,
                       target_critic_v_update_rate=1e-2)
 
 rl_server = RLServer(num_clients=40,
@@ -122,12 +122,12 @@ rl_server = RLServer(num_clients=40,
                      is_actions_space_continuous=True,
                      gpu_id=gpu_id,
                      batch_size=batch_size,
-                     experience_replay_buffer_size=100000,
+                     experience_replay_buffer_size=1000000,
                      use_prioritized_buffer=use_prioritized_buffer,
                      use_synchronous_update=use_synchronous_update,
                      train_every_nth=1,
                      history_length=history_len,
-                     start_learning_after=500,
+                     start_learning_after=5000,
                      target_networks_update_period=1,
                      show_stats_period=100,
                      save_model_period=10000,

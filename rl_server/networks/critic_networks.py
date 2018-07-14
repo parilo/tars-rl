@@ -33,9 +33,9 @@ class CriticNetwork:
         self.action_size = action_size
         self.hiddens = hiddens
         self.activations = activations
+        self.act_insert_block = action_insert_block
         self.layer_norm = layer_norm
         self.noisy_layer = noisy_layer
-        self.act_insert_block = action_insert_block
         self.out_activation = output_activation
         self.scope = scope or 'CriticNetwork'
         self.model = self.build_model()
@@ -89,11 +89,22 @@ class CriticNetwork:
                                  action_size=self.action_size,
                                  hiddens=self.hiddens,
                                  activations=self.activations,
+                                 action_insert_block=self.act_insert_block,
                                  layer_norm=self.layer_norm,
                                  noisy_layer=self.noisy_layer,
-                                 action_insert_block=self.act_insert_block,
                                  output_activation=self.out_activation,
                                  scope=scope)
+
+    def get_info(self):
+        info = {}
+        info['architecture'] = 'standard'
+        info['hiddens'] = self.hiddens
+        info['activations'] = self.activations
+        info['layer_norm'] = self.layer_norm
+        info['noisy_layer'] = self.noisy_layer
+        info['output_activation'] = self.out_activation
+        info['action_insert_block'] = self.act_insert_block
+        return info
 
 
 class DuelingCriticNetwork(CriticNetwork):
@@ -141,6 +152,10 @@ class DuelingCriticNetwork(CriticNetwork):
             out = Add()([val, adv])
             model = keras.models.Model(inputs=[input_state, input_action], outputs=out)
         return model
+
+    def get_info(self):
+        info = super(DuelingCriticNetwork, self).get_info()
+        info['architecture'] = 'dueling'
 
 
 class QuantileCriticNetwork(CriticNetwork):
@@ -202,6 +217,11 @@ class QuantileCriticNetwork(CriticNetwork):
                                          num_atoms=self.num_atoms,
                                          scope=scope)
 
+    def get_info(self):
+        info = super(QuantileCriticNetwork, self).get_info()
+        info['architecture'] = 'quantile'
+        info['num_atoms'] = self.num_atoms
+
 
 class CategoricalCriticNetwork(CriticNetwork):
 
@@ -261,3 +281,9 @@ class CategoricalCriticNetwork(CriticNetwork):
                                             num_atoms=self.num_atoms,
                                             v=(self.v_min, self.v_max),
                                             scope=scope)
+
+    def get_info(self):
+        info = super(CategoricalCriticNetwork, self).get_info()
+        info['architecture'] = 'categorical'
+        info['num_atoms'] = self.num_atoms
+        info['domain'] = (self.v_min, self.v_max)
