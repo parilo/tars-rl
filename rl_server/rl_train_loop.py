@@ -8,7 +8,7 @@ from threading import Lock, Thread
 
 
 def gpu_config(gpu_id):
-    
+
     config = tf.ConfigProto(device_count={'CPU': 1})
     config.intra_op_parallelism_threads = 1
     config.inter_op_parallelism_threads = 1
@@ -61,7 +61,7 @@ class RLTrainLoop():
 
         config = gpu_config(gpu_id)
         self._sess = tf.Session(config=config)
-        
+
         self._logger = tf.summary.FileWriter("logs")
 
         self.server_buffer = ServerBuffer(self._buffer_size, observation_shapes, action_size)
@@ -98,7 +98,7 @@ class RLTrainLoop():
         return actions
 
     def act_with_gradient_batch(self, states):
-        results = self._algo.act_with_gradient_batch(self._sess, states)
+        results = self._algo.act_batch_with_gradients(self._sess, states)
         if self._use_synchronous_update:
             self.train_loop_step()
         return results
