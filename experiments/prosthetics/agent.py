@@ -4,14 +4,15 @@ import sys
 sys.path.append('../../')
 
 import os
-import json
 import argparse
 import random
 import numpy as np
 import gym
+
 from rl_server.server.rl_client import RLClient
 from agent_replay_buffer import AgentBuffer
 from envs.prosthetics_new import ProstheticsEnvWrap
+from misc.experiment_config import ExperimentConfig
 
 # parse input arguments
 parser = argparse.ArgumentParser(description='Train or test neural net motor controller')
@@ -37,39 +38,8 @@ parser.add_argument('--experiment_name',
                     default='experiment')
 args = parser.parse_args()
 
-############################## Specify environment and experiment ##############################
-
-environment_name = 'prosthetics_new'
-experiment_config = json.load(open('config.txt'))
-
-history_len = experiment_config['history_len']
-frame_skip = experiment_config['frame_skip']
-
-experiment_file = ''
-for i in ['history_len', 'frame_skip', 'n_step', 'batch_size']:
-    experiment_file = experiment_file + '-' + i + str(experiment_config[i])
-if experiment_config['prio']:
-    experiment_file = experiment_file + '-prio'
-if experiment_config['sync']:
-    experiment_file = experiment_file + '-sync'
-else:
-    experiment_file = experiment_file + '-async'
-
-if args.experiment_name == 'experiment':
-    path_to_experiment = 'results/' + experiment_file + '/'
-else:
-    path_to_experiment = 'results/' + args.experiment_name + '/'
-path_to_results = path_to_experiment + 'rewards.txt'
-path_to_results_validation = path_to_experiment + 'rewards-validation.txt'
-
-if not os.path.exists(path_to_experiment):
-    os.makedirs(path_to_experiment)
-if os.path.isfile(path_to_results):
-    os.remove(path_to_results)
-
-port = experiment_config['port']
-
-env = ProstheticsEnvWrap(frame_skip=frame_skip, visualize=args.visualize)
+C = ExperimentConfig(env_name='prosthetics_new', experiment_name=args.experiment_name)
+env = ProstheticsEnvWrap(frame_skip=C.frame_skip, visualize=args.visualize)
 observation_shapes = env.observation_shapes
 action_size = env.action_size
 
@@ -77,9 +47,8 @@ action_size = env.action_size
 
 buf_capacity = 1010
 
-rl_client = RLClient(port=port+args.id)
+rl_client = RLClient(port=C.port+args.id)
 agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
-
 agent_buffer.push_init_observation([env.reset()])
 
 episode_index = 0
@@ -91,14 +60,14 @@ explore_episodes = 500
 explore_dt = (explore_start_temp - explore_end_temp) / explore_episodes
 explore_temp = explore_start_temp
 
-expl_sigma = 5e-2*(args.id % 4)
+expl_sigma = 5e-2 * (args.id % 4)
 
 while True:
 
-    state = agent_buffer.get_current_state(history_len=history_len)[0].ravel()
+    state = agent_buffer.get_current_state(history_len=C.history_len)[0].ravel()
 
-    if (env.time_step < (20 / frame_skip) and args.random_start):
-        if env.time_step == (10 // frame_skip):
+    if (env.time_step < (20 / C.frame_skip) and args.random_start):
+        if env.time_step == (10 // C.frame_skip):
             action = env.get_random_action(resample=True)
         else:
             action = env.get_random_action(resample=False)
@@ -123,14 +92,20 @@ while True:
     next_obs, reward, done, info = env.step(action)
     transition = [[next_obs], action, reward, done]
     agent_buffer.push_transition(transition)
-    next_state = agent_buffer.get_current_state(history_len=history_len)[0].ravel()
+    next_state = agent_buffer.get_current_state(history_len=C.history_len)[0].ravel()
 
     if done:
         episode = agent_buffer.get_complete_episode()
         rl_client.store_episode(episode)
         print('--- episode ended {} {} {}'.format(episode_index, env.time_step, env.get_total_reward()))
-        with open(path_to_results_validation if args.validation else path_to_results, 'a') as f:
+        
+        if args.validation:
+            path_to_rewards = C.path_to_rewards_test
+        else:
+            path_to_rewards = C.path_to_rewards_train
+        with open(path_to_rewards, 'a') as f:
             f.write(str(args.id) + ' ' + str(episode_index) + ' ' + str(env.get_total_reward()) + '\n')
+
         episode_index += 1
         agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
         agent_buffer.push_init_observation([env.reset()])
