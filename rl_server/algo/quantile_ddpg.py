@@ -47,7 +47,8 @@ class QuantileDDPG(BaseDDPG):
             critic_loss, var_list=self._critic.variables())
         critic_update = self._critic_optimizer.apply_gradients(critic_gradients)
 
-        return [critic_loss, tf.reduce_mean(tf.reduce_sum(agent_atoms, axis=-1)**2)], critic_update
+        average_q = tf.reduce_mean((tf.reduce_sum(agent_atoms, axis=-1) / self._critic.num_atoms)**2)
+        return [critic_loss, average_q], critic_update
 
     def huber_loss(self, source, target, weights, kappa=1.0):
         err = tf.subtract(source, target)

@@ -43,6 +43,9 @@ env = ProstheticsEnvWrap(frame_skip=C.frame_skip, visualize=args.visualize)
 observation_shapes = env.observation_shapes
 action_size = env.action_size
 
+if os.path.isfile(C.path_to_rewards_train):
+    os.remove(C.path_to_rewards_train)
+
 ########################################## Train agent #########################################
 
 buf_capacity = 1010
@@ -52,6 +55,8 @@ agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
 agent_buffer.push_init_observation([env.reset()])
 
 episode_index = 0
+time_step = 0
+random_actions = env.generate_random_actions(2000)
 
 # exploration parameters for gradient exploration
 explore_start_temp = 0.02
@@ -65,12 +70,9 @@ expl_sigma = 5e-2 * (args.id % 4)
 while True:
 
     state = agent_buffer.get_current_state(history_len=C.history_len)[0].ravel()
-
-    if (env.time_step < (20 / C.frame_skip) and args.random_start):
-        if env.time_step == (10 // C.frame_skip):
-            action = env.get_random_action(resample=True)
-        else:
-            action = env.get_random_action(resample=False)
+    
+    if episode_index < 6:
+        action = random_actions[time_step]
     else:
         # normal noise exploration
         action_received = rl_client.act([state])
@@ -86,13 +88,14 @@ while True:
         #     random_action = env.get_random_action()
         #     explore = 1. - np.clip(np.abs(grad), 0., explore_temp) / explore_temp
         #     action = np.multiply(action, (1. - explore)) + np.multiply(random_action, explore)
-
-        action = np.clip(action, 0., 1.)
+        # action = np.clip(action, 0., 1.)
 
     next_obs, reward, done, info = env.step(action)
     transition = [[next_obs], action, reward, done]
     agent_buffer.push_transition(transition)
     next_state = agent_buffer.get_current_state(history_len=C.history_len)[0].ravel()
+    
+    time_step += 1
 
     if done:
         episode = agent_buffer.get_complete_episode()
