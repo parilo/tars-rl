@@ -13,7 +13,8 @@ class ProstheticsEnvWrap:
                  death_penalty=0.0,
                  living_bonus=0.0,
                  side_deviation_penalty=0.0,
-                 crossing_legs_penalty=0.0):
+                 crossing_legs_penalty=0.0,
+                 bending_knees_bonus=0.0):
 
         self.env = ProstheticsEnv(visualize=visualize, integrator_accuracy=1e-3)
         self.env.change_model(model='3D', prosthetic=True, difficulty=0, seed=np.random.randint(200))
@@ -24,10 +25,11 @@ class ProstheticsEnvWrap:
 
         # reward shaping
         self.reward_scale = reward_scale
-        self.death_penalty = -np.abs(death_penalty)
+        self.death_penalty = np.abs(death_penalty)
         self.living_bonus = living_bonus
         self.side_dev_coef = side_deviation_penalty
         self.cross_legs_coef = crossing_legs_penalty
+        self.bending_knees_coef = bending_knees_bonus
 
     def reset(self):
         self.time_step = 0
@@ -64,13 +66,14 @@ class ProstheticsEnvWrap:
 
         # death penalty
         if self.time_step * self.frame_skip < self.max_ep_length:
-            reward += self.death_penalty
+            reward -= self.death_penalty
         else:
             reward += self.living_bonus
 
         # deviation from forward direction penalty
         vy, vz = state_desc['body_vel']['pelvis'][1:]
-        reward -= self.side_dev_coef * (vy ** 2 + vz ** 2)
+        side_dev_penalty = (vy ** 2 + vz ** 2)
+        reward -= self.side_dev_coef * side_dev_penalty
 
         # crossing legs penalty
         pelvis_xy = np.array(state_desc['body_pos']['pelvis'])
@@ -79,6 +82,12 @@ class ProstheticsEnvWrap:
         axis = np.array(state_desc['body_pos']['head']) - pelvis_xy
         cross_legs_penalty = np.sign(np.cross(left, right).dot(axis))
         reward -= self.cross_legs_coef * cross_legs_penalty
+
+        # bending knees bonus
+        r_knee_flexion = np.min(state_desc['joint_pos']['knee_r'][0], 0.)
+        l_knee_flexion = np.min(state_desc['joint_pos']['knee_l'][0], 0.)
+        bend_knees_bonus = np.abs(r_knee_flexion + l_knee_flexion)
+        reward += self.bending_knees_coef * bend_knees_bonus
 
         return reward
 
