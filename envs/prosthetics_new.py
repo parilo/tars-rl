@@ -16,6 +16,7 @@ class ProstheticsEnvWrap:
                  crossing_legs_penalty=0.0,
                  bending_knees_bonus=0.0):
 
+        self.vis = visualize
         self.env = ProstheticsEnv(visualize=visualize, integrator_accuracy=1e-3)
         self.env.change_model(model='3D', prosthetic=True, difficulty=0, seed=np.random.randint(200))
         self.frame_skip = frame_skip
@@ -80,12 +81,14 @@ class ProstheticsEnvWrap:
         left = np.array(state_desc['body_pos']['toes_l']) - pelvis_xy
         right = np.array(state_desc['body_pos']['pros_foot_r']) - pelvis_xy
         axis = np.array(state_desc['body_pos']['head']) - pelvis_xy
-        cross_legs_penalty = np.sign(np.cross(left, right).dot(axis))
-        reward -= self.cross_legs_coef * cross_legs_penalty
+        cross_legs_penalty = np.cross(left, right).dot(axis)
+        if cross_legs_penalty > 0:
+            cross_legs_penalty = 0.0
+        reward += self.cross_legs_coef * cross_legs_penalty
 
         # bending knees bonus
-        r_knee_flexion = np.min(state_desc['joint_pos']['knee_r'][0], 0.)
-        l_knee_flexion = np.min(state_desc['joint_pos']['knee_l'][0], 0.)
+        r_knee_flexion = np.minimum(state_desc['joint_pos']['knee_r'][0], 0.)
+        l_knee_flexion = np.minimum(state_desc['joint_pos']['knee_l'][0], 0.)
         bend_knees_bonus = np.abs(r_knee_flexion + l_knee_flexion)
         reward += self.bending_knees_coef * bend_knees_bonus
 
@@ -122,7 +125,7 @@ class ProstheticsEnvWrap:
         res += obs['misc']['mass_center_acc']
         # calculate angular coordinates of pelvis to switch
         # to the reference frame attached to the pelvis
-        rx, ry, rz = obs['body_pos_rot']['pelvis']   
+        rx, ry, rz = obs['body_pos_rot']['pelvis']
         # 30 components -- relative angular coordinates of body parts (except pelvis)
         for body_part in body_parts:
             if body_part != 'pelvis':
@@ -134,7 +137,7 @@ class ProstheticsEnvWrap:
         # 33 components -- linear accelerations of body parts
         for body_part in body_parts:
             res += obs['body_acc_rot'][body_part]
-        
+
         # joints
         for joint_val in ['joint_pos', 'joint_vel', 'joint_acc']:
             for joint in ['ground_pelvis', 'hip_r', 'knee_r', 'ankle_r',
@@ -142,10 +145,10 @@ class ProstheticsEnvWrap:
                 res += obs[joint_val][joint][:3]
 
         # muscles
-        muscles = ['abd_r', 'add_r', 'hamstrings_r', 'bifemsh_r', 
-           'glut_max_r', 'iliopsoas_r', 'rect_fem_r', 'vasti_r', 
-           'abd_l', 'add_l', 'hamstrings_l', 'bifemsh_l', 
-           'glut_max_l', 'iliopsoas_l', 'rect_fem_l', 'vasti_l', 
+        muscles = ['abd_r', 'add_r', 'hamstrings_r', 'bifemsh_r',
+           'glut_max_r', 'iliopsoas_r', 'rect_fem_r', 'vasti_r',
+           'abd_l', 'add_l', 'hamstrings_l', 'bifemsh_l',
+           'glut_max_l', 'iliopsoas_l', 'rect_fem_l', 'vasti_l',
            'gastroc_l', 'soleus_l', 'tib_ant_l']
         for muscle in muscles:
             res += [obs['muscles'][muscle]['activation']]
@@ -154,12 +157,12 @@ class ProstheticsEnvWrap:
         for muscle in muscles:
             res += [obs['muscles'][muscle]['fiber_force']*force_mult]
         forces = ['abd_r', 'add_r', 'hamstrings_r', 'bifemsh_r',
-          'glut_max_r', 'iliopsoas_r', 'rect_fem_r', 'vasti_r', 
-          'abd_l', 'add_l', 'hamstrings_l', 'bifemsh_l', 
-          'glut_max_l', 'iliopsoas_l', 'rect_fem_l', 'vasti_l', 
-          'gastroc_l', 'soleus_l', 'tib_ant_l', 'ankleSpring', 
-          'pros_foot_r_0', 'foot_l', 'HipLimit_r', 'HipLimit_l', 
-          'KneeLimit_r', 'KneeLimit_l', 'AnkleLimit_r', 'AnkleLimit_l', 
+          'glut_max_r', 'iliopsoas_r', 'rect_fem_r', 'vasti_r',
+          'abd_l', 'add_l', 'hamstrings_l', 'bifemsh_l',
+          'glut_max_l', 'iliopsoas_l', 'rect_fem_l', 'vasti_l',
+          'gastroc_l', 'soleus_l', 'tib_ant_l', 'ankleSpring',
+          'pros_foot_r_0', 'foot_l', 'HipLimit_r', 'HipLimit_l',
+          'KneeLimit_r', 'KneeLimit_l', 'AnkleLimit_r', 'AnkleLimit_l',
           'HipAddLimit_r', 'HipAddLimit_l',]
 
         # forces

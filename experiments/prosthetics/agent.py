@@ -39,12 +39,19 @@ parser.add_argument('--experiment_name',
 args = parser.parse_args()
 
 C = ExperimentConfig(env_name='prosthetics_new', experiment_name=args.experiment_name)
-env = ProstheticsEnvWrap(frame_skip=C.frame_skip, visualize=args.visualize)
+env = ProstheticsEnvWrap(
+    frame_skip=C.frame_skip,
+    visualize=args.visualize,
+    reward_scale=0.1,
+    crossing_legs_penalty=10.,
+    bending_knees_bonus=1.,
+    max_episode_length=1000
+)
 observation_shapes = env.observation_shapes
 action_size = env.action_size
 
-if os.path.isfile(C.path_to_rewards_train):
-    os.remove(C.path_to_rewards_train)
+# if os.path.isfile(C.path_to_rewards_train):
+#     os.remove(C.path_to_rewards_train)
 
 ########################################## Train agent #########################################
 
@@ -59,8 +66,8 @@ time_step = 0
 random_actions = env.generate_random_actions(2000)
 
 # exploration parameters for gradient exploration
-explore_start_temp = 0.02
-explore_end_temp = 0.02
+explore_start_temp = 0.01
+explore_end_temp = 0.01
 explore_episodes = 500
 explore_dt = (explore_start_temp - explore_end_temp) / explore_episodes
 explore_temp = explore_start_temp
@@ -70,38 +77,38 @@ expl_sigma = 5e-2 * (args.id % 4)
 while True:
 
     state = agent_buffer.get_current_state(history_len=C.history_len)[0].ravel()
-    
-    if episode_index < 6:
+
+    if episode_index < 0:
         action = random_actions[time_step]
     else:
         # normal noise exploration
-        action_received = rl_client.act([state])
-        action = np.array(action_received) + np.random.normal(scale=expl_sigma, size=action_size)
-        action = np.clip(action, 0., 1.)
+        # action_received = rl_client.act([state])
+        # action = np.array(action_received) + np.random.normal(scale=expl_sigma, size=action_size)
+        # action = np.clip(action, 0., 1.)
 
         # gradient exploration
-        # result = rl_client.act_with_gradient_batch([state])
-        # action_received = result[0][0]
-        # grad = result[1][0]
-        # action = np.array(action_received)
-        # if not args.validation:
-        #     random_action = env.get_random_action()
-        #     explore = 1. - np.clip(np.abs(grad), 0., explore_temp) / explore_temp
-        #     action = np.multiply(action, (1. - explore)) + np.multiply(random_action, explore)
-        # action = np.clip(action, 0., 1.)
+        result = rl_client.act_with_gradient_batch([state])
+        action_received = result[0][0]
+        grad = result[1][0]
+        action = np.array(action_received)
+        if not args.validation:
+            random_action = env.get_random_action()
+            explore = 1. - np.clip(np.abs(grad), 0., explore_temp) / explore_temp
+            action = np.multiply(action, (1. - explore)) + np.multiply(random_action, explore)
+        action = np.clip(action, 0., 1.)
 
     next_obs, reward, done, info = env.step(action)
     transition = [[next_obs], action, reward, done]
     agent_buffer.push_transition(transition)
     next_state = agent_buffer.get_current_state(history_len=C.history_len)[0].ravel()
-    
+
     time_step += 1
 
     if done:
         episode = agent_buffer.get_complete_episode()
         rl_client.store_episode(episode)
         print('--- episode ended {} {} {}'.format(episode_index, env.time_step, env.get_total_reward()))
-        
+
         if args.validation:
             path_to_rewards = C.path_to_rewards_test
         else:
