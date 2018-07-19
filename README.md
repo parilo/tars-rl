@@ -1,3 +1,6 @@
+# IMPORTANT
+Start carefully recording all results and conclusions.
+
 # nips2018_prosthetics_challenge
 Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.org/challenges/nips-2018-ai-for-prosthetics-challenge), [GitHub](https://github.com/stanfordnmbl/osim-rl)).
 
@@ -7,26 +10,28 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 1. Handy tool for storing and visualizing agents' performance (not good and handy yet)
 2. ~~Simple baselines to evaluate changes made in the code (pendulum and lunar lander)~~
 3. ~~Normalize input observations based on magnitude statistics~~
-4. Make SAC work in Prosthetics environment
+4. Make SAC work in Prosthetics environment (maximum reward is 600 now)
 
 ### Global TODO list
 1. Efficient distributed prioritized experience replay buffer
 2. ~~Learning with n-step returns~~
 3. ~~Implement other algorithms (SoftAC, Distributional Critic)~~
-4. Implement and test different exploration techniques (Ornstein-Uhlenbeck, gradient, curiosity, SIL)
-5. Test whether Layer normalization or Batch normalization improve training
+4. Implement and test different exploration techniques (Ornstein-Uhlenbeck, ~~gradient~~, curiosity, SIL)
+5. ~~Test whether Layer normalization or Batch normalization improve training~~ (Layer normalization is pretty ok, at least it does not do any harm)
+6. Save some episodes to disk and pretrain new policies (and critics) on them
 
 ### Ideas to try
 1. ~~Shift positions with respect to pelvis or center mass~~
-2. Penalize for dying (probably not a good idea)
-3. Smart reward shaping (e.g. give some reward for bending a knee or doing a step forward)
-4. Take previous action into consideration through residual connection (low priority)
+2. ~~Penalize for dying (probably not a good idea)~~ (not a good idea)
+3. ~~Smart reward shaping (e.g. give some reward for bending a knee or doing a step forward)~~ (good idea, without reward bending bonus, agent does not bend its knees)
+4. Take previous action into consideration through residual connection (lowest priority, weird idea)
 5. Train gaussian policy with reward equal to the absolute speed (in any direction) and use it as a prior for training policy for moving in particular direction (or along designated speed vector)
 6. Augment training data with rotations in (x,z) plane, especially important for round 2 of the competition
 7. Ensembles of actors and critics
 8. Implement and test Normalized Advantage Functions (NAF) algorithm
+9. Implement and test Latent Space Hierarchial Policies
 
-### Performance of different approaches
+### Performance of different approaches (START RECORDING PERFORMANCE!!!)
 ```python
 model='3D', prosthetic=True, difficulty=0, seed=25
 ```
@@ -60,12 +65,16 @@ model='3D', prosthetic=True, difficulty=0, seed=25
 ### Learning to Run challenge
 1. Learning to Run challenge: Synthesizing physiologically accurate motion using deep reinforcement learning ([pdf](https://arxiv.org/pdf/1804.00198.pdf)).
 2. Learning to Run challenge solutions: Adapting RL methods for neuromusculoskeletal environments ([pdf](https://arxiv.org/pdf/1804.00361.pdf)).
+3. Optimizing Locomotion Controllers Using Biologically-Based Actuators and Objectives (energy expenditure) ([pdf](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4523558/pdf/nihms641752.pdf)).
 ### Base Algorithms
 1. Continuous Control with Deep Reinforcement Learning (DDPG) ([pdf](https://arxiv.org/pdf/1509.02971.pdf)).
 2. A Distributional Perspective on Reinforcement Learning (C51) ([pdf](https://arxiv.org/pdf/1707.06887.pdf)).
 3. Distributional Reinforcement Learning with Quantile Regression (QR-DQN) ([pdf](https://arxiv.org/pdf/1710.10044.pdf)).
-4. Soft Actor-Critic: Off-Policy Maximum Entropy Deep RL with a Stochastic Actor (SAC) ([pdf](https://arxiv.org/pdf/1801.01290.pdf)).
+4. Soft Actor-Critic: Off-Policy Maximum Entropy Deep RL with a Stochastic Actor (SAC-GMM) ([pdf](https://arxiv.org/pdf/1801.01290.pdf)).
 5. Continuous Deep Q-Learning with Model-based Acceleration (NAF) ([pdf](http://proceedings.mlr.press/v48/gu16.pdf)).
+6. Latent Space Policies for Hierarchial Reinforcement Learning (SAC-LSP) ([pdf](https://arxiv.org/pdf/1804.02808.pdf)).
+7. Addressing Function Approximation Error in Actor-Critic Methods (TD3) ([pdf](https://arxiv.org/pdf/1802.09477.pdf)).
+8. Smoothed Action Value Functions for Learning Gaussian Policies (Smoothie) ([pdf](https://arxiv.org/pdf/1803.02348.pdf)).
 ### Distributed RL systems
 1. Distributed Prioritized Experience Replay (Ape-X) ([pdf](https://arxiv.org/pdf/1803.00933.pdf)).
 2. Distributed Distributional Deterministic Policy Gradients (D4PG) ([pdf](https://arxiv.org/pdf/1804.08617.pdf)).
