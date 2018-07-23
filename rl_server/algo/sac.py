@@ -36,6 +36,7 @@ class SAC(BaseDDPG):
         self._mu_and_sig_reg = mu_and_sig_reg
         self._update_rates = [target_critic_v_update_rate]
         self._target_critic_v_update_rate = tf.constant(target_critic_v_update_rate)
+        self._action_var = tf.Variable(tf.zeros((1, self._action_size)), dtype=tf.float32)
 
         self._create_placeholders()
         self._create_variables()
@@ -46,6 +47,9 @@ class SAC(BaseDDPG):
         agent_log_std = tf.clip_by_value(agent_log_std, -5., 2.)
         _, action = self.gmm_log_pi(agent_log_weights, agent_mu, agent_log_std)
         return action
+
+    def _get_q_values(self, states, actions):
+        return self._critic_q([states, actions])
 
     def _get_det_action_for_state(self):
         """sample best action from gaussian means"""
@@ -98,7 +102,7 @@ class SAC(BaseDDPG):
 
         # actor gradient and update rule
         target_log_pi = target_q - agent_v
-        policy_loss = tf.reduce_mean(agent_log_pi * tf.stop_gradient(agent_log_pi - target_log_pi))
+        policy_loss = tf.reduce_mean(agent_log_pi * tf.stop_gradient(agent_log_pi - target_log_pi)) / self._temp
         reg_loss = 0
         reg_loss += self._mu_and_sig_reg * 0.5 * tf.reduce_mean(agent_mu**2)
         reg_loss += self._mu_and_sig_reg * 0.5 * tf.reduce_mean(agent_log_sig**2)
@@ -106,9 +110,9 @@ class SAC(BaseDDPG):
 
         actor_gradients = self._actor_optimizer.compute_gradients(
             actor_loss, var_list=self._actor.variables())
-        #actor_gradients_clip = [(tf.clip_by_value(grad, -self._grad_clip, self._grad_clip), var)
-        #                        for grad, var in actor_gradients]
-        actor_update = self._actor_optimizer.apply_gradients(actor_gradients)
+        actor_gradients_clip = [(tf.clip_by_value(grad, -self._grad_clip, self._grad_clip), var)
+                                for grad, var in actor_gradients]
+        actor_update = self._actor_optimizer.apply_gradients(actor_gradients_clip)
 
         return [tf.reduce_mean(agent_log_pi), 
                 tf.reduce_mean(agent_log_sig),
@@ -129,6 +133,7 @@ class SAC(BaseDDPG):
         with tf.name_scope("taking_action"):
             self._actor_action = self._get_action_for_state()
             self._actor_action_det = self._get_det_action_for_state()
+            self._gradient_for_action = self._get_gradients_for_action(self._actor_action)
 
         with tf.name_scope("critic_update"):
             self._critic_loss, self._critic_update = self._get_critic_update()

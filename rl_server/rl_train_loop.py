@@ -8,7 +8,6 @@ from threading import Lock, Thread
 
 
 def gpu_config(gpu_id):
-
     config = tf.ConfigProto(device_count={'CPU': 1})
     config.intra_op_parallelism_threads = 1
     config.inter_op_parallelism_threads = 1
@@ -30,14 +29,14 @@ class RLTrainLoop():
                  gpu_id=0,
                  batch_size=96,
                  experience_replay_buffer_size=1000000,
-                 use_prioritized_buffer=True,
+                 use_prioritized_buffer=False,
                  use_synchronous_update=True,
                  n_step=1,
                  train_every_nth=4,
                  history_length=3,
                  initial_beta=0.4,
-                 start_learning_after=5000,
                  target_networks_update_period=500,
+                 start_learning_after=5000,
                  show_stats_period=2000,
                  save_model_period=10000,
                  ckpt_path='ckpt/'):
@@ -129,9 +128,11 @@ class RLTrainLoop():
             buffer_size = self.server_buffer.get_stored_in_buffer()
             if buffer_size > self._start_learning_after:
                 if buffer_size > self._step_index * self._train_every_nth:
-                    self.train_step()
-                    self._step_index += 1
-
+                    i = 0
+                    while i * self._train_every_nth < 1:
+                        self.train_step()
+                        self._step_index += 1
+                        i += 1
             elif buffer_size < self._start_learning_after:
                 print('--- buffer size {}'.format(buffer_size))
 
@@ -147,15 +148,15 @@ class RLTrainLoop():
 
         if self._use_prioritized_buffer:
 
-            batch, indices, is_weights = self.server_buffer.get_prioritized_batch(self._batch_size,
-                                                                                  history_len=self._hist_len,
-                                                                                  n_step=self._n_step,
-                                                                                  beta=self._beta)
+            prio_batch = self.server_buffer.get_prioritized_batch(self._batch_size,
+                                                                  history_len=self._hist_len,
+                                                                  n_step=self._n_step,
+                                                                  beta=self._beta)
+            batch, indices, is_weights = prio_batch
             loss = self._algo.train(self._sess, batch, is_weights)
-            td_errors = self._algo.get_td_errors(self._sess, batch)
+            td_errors = self._algo.get_td_errors(self._sess, batch).ravel()
             self.server_buffer.update_td_errors(indices, td_errors)
             self._beta = min(1.0, self._beta+1e-6)
-
         else:
             batch = self.server_buffer.get_batch(self._batch_size,
                                                  history_len=self._hist_len,
@@ -163,7 +164,6 @@ class RLTrainLoop():
             loss = self._algo.train(self._sess, batch)
 
         if self._step_index % self._target_networks_update_period == 0:
-            # print('--- target network update')
             self._algo.target_network_update(self._sess)
 
         if self._step_index % self._show_stats_period == 0:

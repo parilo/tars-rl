@@ -65,10 +65,10 @@ class BaseDDPG:
 
     def _get_action_for_state(self):
         return self._actor(self._state_for_act)
-    
+
     def _get_q_values(self, states, actions):
         return self._critic([states, actions])
-    
+
     def _get_gradients_for_action(self, action):
         self._action_assign = tf.assign(self._action_var, action)
         q_values = self._get_q_values(self._state_for_act, self._action_var)
@@ -102,7 +102,8 @@ class BaseDDPG:
             actor_loss, var_list=self._actor.variables())
         actor_gradients_clip = [(tf.clip_by_value(grad, -self._grad_clip, self._grad_clip), var)
                                 for grad, var in actor_gradients]
-        actor_update = self._actor_optimizer.apply_gradients(actor_gradients)
+        actor_update = self._actor_optimizer.apply_gradients(actor_gradients_clip)
+
         return actor_loss, actor_update
 
     def _get_targets_update(self):
