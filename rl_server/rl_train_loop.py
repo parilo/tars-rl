@@ -35,7 +35,8 @@ class RLTrainLoop():
                  train_every_nth=4,
                  history_length=3,
                  initial_beta=0.4,
-                 target_networks_update_period=500,
+                 target_critic_update_period=500,
+                 target_actor_update_period=500,
                  start_learning_after=5000,
                  show_stats_period=2000,
                  save_model_period=10000,
@@ -49,7 +50,8 @@ class RLTrainLoop():
         self._start_learning_after = start_learning_after
         self._n_step = n_step
         self._train_every_nth = train_every_nth
-        self._target_networks_update_period = target_networks_update_period
+        self._target_critic_update_period = target_critic_update_period
+        self._target_actor_update_period = target_actor_update_period
         self._show_stats_period = show_stats_period
         self._save_model_period = save_model_period
         self._hist_len = history_length
@@ -163,8 +165,11 @@ class RLTrainLoop():
                                                  n_step=self._n_step)
             loss = self._algo.train(self._sess, batch)
 
-        if self._step_index % self._target_networks_update_period == 0:
-            self._algo.target_network_update(self._sess)
+        if self._step_index % self._target_critic_update_period == 0:
+            self._algo.target_critic_update(self._sess)
+
+        if self._step_index % self._target_actor_update_period == 0:
+            self._algo.target_actor_update(self._sess)
 
         if self._step_index % self._show_stats_period == 0:
             print(('trains: {} loss: {} stored: {}').format(self._step_index, loss, queue_size))

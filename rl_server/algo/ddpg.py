@@ -106,13 +106,15 @@ class BaseDDPG:
 
         return actor_loss, actor_update
 
-    def _get_targets_update(self):
-        target_actor_update = BaseDDPG._update_target_network(
-            self._actor, self._target_actor, self._target_actor_update_rate)
+    def _get_target_critic_update(self):
         target_critic_update = BaseDDPG._update_target_network(
             self._critic, self._target_critic, self._target_critic_update_rate)
-        update_targets = tf.group(target_actor_update, target_critic_update)
-        return update_targets
+        return target_critic_update
+
+    def _get_target_actor_update(self):
+        target_actor_update = BaseDDPG._update_target_network(
+            self._actor, self._target_actor, self._target_actor_update_rate)
+        return target_actor_update
 
     def _get_targets_init(self):
         target_actor_update = BaseDDPG._update_target_network(self._actor, self._target_actor, 1.0)
@@ -134,7 +136,8 @@ class BaseDDPG:
 
         with tf.name_scope("target_networks_update"):
             self._targets_init = self._get_targets_init()
-            self._targets_update = self._get_targets_update()
+            self._target_actor_update = self._get_target_actor_update()
+            self._target_critic_update = self._get_target_critic_update()
 
     def init(self, sess):
         sess.run(tf.global_variables_initializer())
@@ -159,20 +162,21 @@ class BaseDDPG:
         feed_dict = {self._rewards: batch.r,
                      self._given_action: batch.a,
                      self._terminator: batch.done}
-
         for i in range(len(batch.s)):
             feed_dict[self._state[i]] = batch.s[i]
             feed_dict[self._next_state[i]] = batch.s_[i]
-
         loss, _, _ = sess.run([self._critic_loss,
                                self._critic_update,
                                self._actor_update],
                               feed_dict=feed_dict)
         return loss
 
-    def target_network_update(self, sess):
-        sess.run(self._targets_update)
+    def target_actor_update(self, sess):
+        sess.run(self._target_actor_update)
         
+    def target_critic_update(self, sess):
+        sess.run(self._target_critic_update)
+
     def target_network_init(self, sess):
         sess.run(self._targets_init)
         

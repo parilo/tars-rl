@@ -10,7 +10,7 @@ import random
 import numpy as np
 
 from rl_server.rl_server import RLServer
-from rl_server.algo.sac import SAC
+from rl_server.algo.td3 import TD3
 from rl_server.networks.actor_networks import *
 from rl_server.networks.critic_networks import *
 from misc.experiment_config import ExperimentConfig
@@ -27,7 +27,7 @@ parser.add_argument('--experiment_name',
                     default='experiment')
 args = parser.parse_args()
 
-C = ExperimentConfig(env_name='lunar_lander', experiment_name=args.experiment_name)
+C = ExperimentConfig(env_name='prosthetics_new', experiment_name=args.experiment_name)
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = str(C.gpu_id)
@@ -35,20 +35,19 @@ os.environ["CUDA_VISIBLE_DEVICES"] = str(C.gpu_id)
 observation_shapes = [(C.obs_size,)]
 state_shapes = [(C.history_len, C.obs_size,)]
 
-actor = GMMActorNetwork(state_shapes[0], C.action_size, hiddens=[[256, 256]],
-                        activations=['relu'], output_activation='tanh',
+actor = ActorNetwork(state_shapes[0], C.action_size, hiddens=[[256, 256]],
+                     activations=['relu'], output_activation='sigmoid',
+                     layer_norm=True, noisy_layer=False, scope='actor')
+
+critic1 = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[256], [256]],
+                        activations=['relu', 'relu'],
                         layer_norm=True, noisy_layer=False,
-                        num_components=4, scope='actor')
+                        action_insert_block=0, scope='critic1')
 
-critic_v = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[256, 256]],
-                         activations=['relu'], output_activation=None,
-                         layer_norm=True, noisy_layer=False,
-                         action_insert_block=-1, scope='critic_v')
-
-critic_q = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[256], [256]],
-                         activations=['relu', 'relu'], output_activation=None,
-                         layer_norm=True, noisy_layer=False,
-                         action_insert_block=1, scope='critic_q')
+critic2 = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[256], [256]],
+                        activations=['relu', 'relu'],
+                        layer_norm=True, noisy_layer=False,
+                        action_insert_block=0, scope='critic2')
 
 def model_load_callback(sess, saver):
     pass
@@ -56,20 +55,22 @@ def model_load_callback(sess, saver):
     # saver.restore(sess,
     # '/path/to/checkpoint/model-4800000.ckpt')
 
-agent_algorithm = SAC(state_shapes=state_shapes,
+agent_algorithm = TD3(state_shapes=state_shapes,
                       action_size=C.action_size,
                       actor=actor,
-                      critic_v=critic_v,
-                      critic_q=critic_q,
+                      critic1=critic1,
+                      critic2=critic2,
                       actor_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
-                      critic_v_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
-                      critic_q_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
+                      critic1_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
+                      critic2_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
                       n_step=C.n_step,
                       gradient_clip=1.0,
+                      action_noise_std=0.2,
+                      action_noise_clip=0.5,
                       discount_factor=C.disc_factor,
-                      temperature=5e-3,
-                      mu_and_sig_reg=0.,
-                      target_critic_v_update_rate=1e-2)
+                      target_actor_update_rate=5e-3,
+                      target_critic1_update_rate=5e-3,
+                      target_critic2_update_rate=5e-3)
 
 rl_server = RLServer(num_clients=40,
                      action_size=C.action_size,
@@ -81,14 +82,14 @@ rl_server = RLServer(num_clients=40,
                      is_actions_space_continuous=True,
                      gpu_id=C.gpu_id,
                      batch_size=C.batch_size,
-                     experience_replay_buffer_size=100000,
+                     experience_replay_buffer_size=1000000,
                      use_prioritized_buffer=C.use_prioritized_buffer,
                      use_synchronous_update=C.use_synchronous_update,
                      train_every_nth=1,
                      history_length=C.history_len,
-                     start_learning_after=500,
+                     start_learning_after=5000,
                      target_critic_update_period=1,
-                     target_actor_update_period=1,
+                     target_actor_update_period=2,
                      show_stats_period=100,
                      save_model_period=10000,
                      init_port=C.port,

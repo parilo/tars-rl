@@ -118,10 +118,10 @@ class SAC(BaseDDPG):
                 tf.reduce_mean(agent_log_sig),
                 tf.reduce_mean(agent_mu)], tf.group(critic_v_update, actor_update)
 
-    def _get_targets_update(self):
-        update_targets = BaseDDPG._update_target_network(
+    def _get_target_critic_update(self):
+        target_critic_update = BaseDDPG._update_target_network(
             self._critic_v, self._target_critic_v, self._target_critic_v_update_rate)
-        return update_targets
+        return target_critic_update
 
     def _get_targets_init(self):
         update_targets = BaseDDPG._update_target_network(
@@ -144,7 +144,7 @@ class SAC(BaseDDPG):
 
         with tf.name_scope("target_networks_update"):
             self._targets_init = self._get_targets_init()
-            self._targets_update = self._get_targets_update()
+            self._target_critic_update = self._get_target_critic_update()
 
     def gmm_log_pi(self, log_weights, mu, log_std):
 
@@ -193,6 +193,9 @@ class SAC(BaseDDPG):
             feed_dict[self._state_for_act[i]] = states[i]
         actions = sess.run(self._actor_action_det, feed_dict=feed_dict)
         return actions.tolist()
+
+    def target_actor_update(self, sess):
+        pass
 
     def _get_info(self):
         info = {}

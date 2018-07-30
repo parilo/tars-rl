@@ -48,15 +48,12 @@ actor = ActorNetwork(state_shapes[0], C.action_size, hiddens=[[400], [300]],
 def model_load_callback(sess, saver):
     pass
     # examples of loading checkpoint
-    # saver.restore(sess,
-    # '/path/to/checkpoint/model-4800000.ckpt')
+    #saver.restore(sess, C.path_to_ckpt+'model-3180000.ckpt')
 
 agent_algorithm = DDPG(state_shapes=state_shapes,
                        action_size=C.action_size,
                        actor=actor,
                        critic=critic,
-                       #actor_optimizer=tf.train.MomentumOptimizer(learning_rate=1e-4, momentum=0.95, use_nesterov=True),
-                       #critic_optimizer=tf.train.MomentumOptimizer(learning_rate=1e-4, momentum=0.95, use_nesterov=True),
                        actor_optimizer=tf.train.AdamOptimizer(learning_rate=5e-5),
                        critic_optimizer=tf.train.AdamOptimizer(learning_rate=5e-5),
                        n_step=C.n_step,
@@ -75,13 +72,14 @@ rl_server = RLServer(num_clients=40,
                      is_actions_space_continuous=True,
                      gpu_id=C.gpu_id,
                      batch_size=C.batch_size,
-                     experience_replay_buffer_size=5000000,
+                     experience_replay_buffer_size=1000000,
                      use_prioritized_buffer=C.use_prioritized_buffer,
                      use_synchronous_update=C.use_synchronous_update,
                      train_every_nth=1,
                      history_length=C.history_len,
                      start_learning_after=5000,
-                     target_networks_update_period=2,
+                     target_critic_update_period=1,
+                     target_actor_update_period=1,
                      show_stats_period=100,
                      save_model_period=10000,
                      init_port=C.port,

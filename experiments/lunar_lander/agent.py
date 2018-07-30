@@ -65,10 +65,11 @@ while True:
     state = agent_buffer.get_current_state(history_len=C.history_len)[0].ravel()
     
     if args.validation:
-        action_received = rl_client.act([state], mode='sac_deterministic')
+        action = rl_client.act([state])
+        #action = rl_client.act([state], mode='sac_deterministic')
     else:
         action_received = rl_client.act([state])
-    action = np.array(action_received)# + np.random.normal(scale=0.02, size=action_size)
+        action = np.array(action_received) + np.random.normal(scale=0.02, size=action_size)
     action = np.clip(action, -1., 1.)
 
     next_obs, reward, done, info = env.step(action)

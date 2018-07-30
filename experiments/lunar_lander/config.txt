@@ -2,10 +2,10 @@
  "frame_skip":        2,
  "n_step":            1,
  "prio":              0,
- "sync":              1,
+ "sync":              0,
  "observation_size":  8,
  "action_size":       2,
  "batch_size":        256,
  "disc_factor":       0.99,
- "port":              8777,
- "gpu_id":            3}
+ "port":              7577,
+ "gpu_id":            4}

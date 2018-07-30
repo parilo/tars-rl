@@ -10,7 +10,7 @@ import random
 import numpy as np
 
 from rl_server.rl_server import RLServer
-from rl_server.algo.sac import SAC
+from rl_server.algo.quantile_ddpg import QuantileDDPG as DDPG
 from rl_server.networks.actor_networks import *
 from rl_server.networks.critic_networks import *
 from misc.experiment_config import ExperimentConfig
@@ -35,41 +35,32 @@ os.environ["CUDA_VISIBLE_DEVICES"] = str(C.gpu_id)
 observation_shapes = [(C.obs_size,)]
 state_shapes = [(C.history_len, C.obs_size,)]
 
-actor = GMMActorNetwork(state_shapes[0], C.action_size, hiddens=[[256, 256]],
-                        activations=['relu'], output_activation='tanh',
-                        layer_norm=True, noisy_layer=False,
-                        num_components=4, scope='actor')
+critic = QuantileCriticNetwork(state_shapes[0], C.action_size, hiddens=[[256], [256]],
+                               layer_norm=True, noisy_layer=False,
+                               activations=['relu', 'relu'], output_activation=None,
+                               action_insert_block=1, num_atoms=128, scope='critic')
 
-critic_v = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[256, 256]],
-                         activations=['relu'], output_activation=None,
-                         layer_norm=True, noisy_layer=False,
-                         action_insert_block=-1, scope='critic_v')
-
-critic_q = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[256], [256]],
-                         activations=['relu', 'relu'], output_activation=None,
-                         layer_norm=True, noisy_layer=False,
-                         action_insert_block=1, scope='critic_q')
+actor = ActorNetwork(state_shapes[0], C.action_size, hiddens=[[256], [256]],
+                     layer_norm=True, noisy_layer=False,
+                     activations=['relu', 'relu'], output_activation='tanh',
+                     scope='actor')
 
 def model_load_callback(sess, saver):
     pass
     # examples of loading checkpoint
-    # saver.restore(sess,
-    # '/path/to/checkpoint/model-4800000.ckpt')
+    #saver.restore(sess, 'ckpt/model-2460000.ckpt')
 
-agent_algorithm = SAC(state_shapes=state_shapes,
-                      action_size=C.action_size,
-                      actor=actor,
-                      critic_v=critic_v,
-                      critic_q=critic_q,
-                      actor_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
-                      critic_v_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
-                      critic_q_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
-                      n_step=C.n_step,
-                      gradient_clip=1.0,
-                      discount_factor=C.disc_factor,
-                      temperature=5e-3,
-                      mu_and_sig_reg=0.,
-                      target_critic_v_update_rate=1e-2)
+agent_algorithm = DDPG(state_shapes=state_shapes,
+                       action_size=C.action_size,
+                       actor=actor,
+                       critic=critic,
+                       actor_optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),
+                       critic_optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),
+                       n_step=C.n_step,
+                       gradient_clip=1.0,
+                       discount_factor=C.disc_factor,
+                       target_actor_update_rate=5e-3,
+                       target_critic_update_rate=5e-3)
 
 rl_server = RLServer(num_clients=40,
                      action_size=C.action_size,
@@ -81,14 +72,14 @@ rl_server = RLServer(num_clients=40,
                      is_actions_space_continuous=True,
                      gpu_id=C.gpu_id,
                      batch_size=C.batch_size,
-                     experience_replay_buffer_size=100000,
+                     experience_replay_buffer_size=1000000,
                      use_prioritized_buffer=C.use_prioritized_buffer,
                      use_synchronous_update=C.use_synchronous_update,
                      train_every_nth=1,
                      history_length=C.history_len,
                      start_learning_after=500,
                      target_critic_update_period=1,
-                     target_actor_update_period=1,
+                     target_actor_update_period=2,
                      show_stats_period=100,
                      save_model_period=10000,
                      init_port=C.port,
