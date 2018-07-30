@@ -36,18 +36,18 @@ observation_shapes = [(C.obs_size,)]
 state_shapes = [(C.history_len, C.obs_size,)]
 
 actor = GMMActorNetwork(state_shapes[0], C.action_size, hiddens=[[400], [300]],
-                        layer_norm=True,
                         activations=['relu', 'relu'], output_activation='sigmoid',
+                        layer_norm=True, noisy_layer=False,
                         num_components=4, scope='actor')
 
 critic_v = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[400], [300]],
-                         layer_norm=True,
                          activations=['relu', 'relu'], output_activation=None,
+                         layer_norm=True, noisy_layer=False,
                          action_insert_block=-1, scope='critic_v')
 
 critic_q = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[400], [300]],
-                         layer_norm=True,
                          activations=['relu', 'relu'], output_activation=None,
+                         layer_norm=True, noisy_layer=False,
                          action_insert_block=1, scope='critic_q')
 
 def model_load_callback(sess, saver):
@@ -81,13 +81,14 @@ rl_server = RLServer(num_clients=40,
                      is_actions_space_continuous=True,
                      gpu_id=C.gpu_id,
                      batch_size=C.batch_size,
-                     experience_replay_buffer_size=5000000,
+                     experience_replay_buffer_size=1000000,
                      use_prioritized_buffer=C.use_prioritized_buffer,
                      use_synchronous_update=C.use_synchronous_update,
                      train_every_nth=1,
                      history_length=C.history_len,
                      start_learning_after=1000,
-                     target_networks_update_period=1,
+                     target_critic_update_period=1,
+                     target_actor_update_period=1,
                      show_stats_period=100,
                      save_model_period=10000,
                      init_port=C.port,

@@ -92,15 +92,12 @@ class TD3(BaseDDPG):
         actor_update = self._actor_optimizer.apply_gradients(actor_gradients)
         return actor_loss, actor_update
 
-    def _get_targets_update(self):
-        target_actor_update = BaseDDPG._update_target_network(
-            self._actor, self._target_actor, self._target_actor_update_rate)
+    def _get_target_critic_update(self):
         target_critic1_update = BaseDDPG._update_target_network(
             self._critic1, self._target_critic1, self._target_critic1_update_rate)
         target_critic2_update = BaseDDPG._update_target_network(
             self._critic2, self._target_critic2, self._target_critic2_update_rate)
-        update_targets = tf.group(target_actor_update, target_critic1_update, target_critic2_update)
-        return update_targets
+        return tf.group(target_critic1_update, target_critic2_update)
 
     def _get_targets_init(self):
         target_actor_update = BaseDDPG._update_target_network(self._actor, self._target_actor, 1.0)
