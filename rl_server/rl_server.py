@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 
 import tensorflow as tf
-import random
-import numpy as np
 from rl_server.server.rl_server_api import RLServerAPI
-from rl_server.rl_train_loop import RLTrainLoop
+from rl_server.rl_train_loop import TFRLTrainer as RLTrainer
 
 
 class RLServer:
@@ -39,11 +37,9 @@ class RLServer:
             state_shapes,
             init_port=init_port)
 
-        self._train_loop = RLTrainLoop(
+        self._train_loop = RLTrainer(
             observation_shapes=observation_shapes,
             action_size=action_size,
-            action_dtype=action_dtype,
-            is_actions_space_continuous=is_actions_space_continuous,
             gpu_id=gpu_id,
             batch_size=batch_size,
             experience_replay_buffer_size=experience_replay_buffer_size,
@@ -56,12 +52,12 @@ class RLServer:
             target_actor_update_period=target_actor_update_period,
             show_stats_period=show_stats_period,
             save_model_period=save_model_period,
-            ckpt_path=ckpt_path)
+            save_path=ckpt_path)
 
         self._train_loop.set_algorithm(agent_algorithm)
-        self._train_loop.init_vars(model_load_callback)
+        self._train_loop.init()
         self._server_api.set_act_batch_callback(self._train_loop.act_batch)
-        self._server_api.set_act_with_gradient_batch_callback(self._train_loop.act_with_gradient_batch)
+        # self._server_api.set_act_with_gradient_batch_callback(self._train_loop.act_with_gradient_batch)
         self._server_api.set_store_episode_callback(self._train_loop.store_episode)
 
     def start(self):

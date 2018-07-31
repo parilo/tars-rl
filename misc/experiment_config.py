@@ -47,7 +47,7 @@ class ExperimentConfig:
 
     def save_info(self, info):
         if not os.path.exists(self.path_to_experiment):
-            os.mkdir(self.path_to_experiment)
+            os.makedirs(self.path_to_experiment)
         with open(self.path_to_experiment + 'info.pkl', 'wb') as f:
             pickle.dump(info, f, pickle.HIGHEST_PROTOCOL)
 
