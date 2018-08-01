@@ -66,7 +66,7 @@ agent_algorithm = SAC(state_shapes=state_shapes,
                       critic_q_optimizer=tf.train.AdamOptimizer(learning_rate=3e-4),
                       n_step=C.n_step,
                       gradient_clip=1.0,
-                      discount_factor=C.disc_factor,
+                      discount_factor=C.gamma,
                       temperature=1e-2,
                       #mu_and_sig_reg=1e-4,
                       target_critic_v_update_rate=1e-2)

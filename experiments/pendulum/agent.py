@@ -33,7 +33,7 @@ args = parser.parse_args()
 ############################## Specify environment and experiment ##############################
 
 environment_name = 'pendulum'
-experiment_config = json.load(open('config.txt'))
+experiment_config = json.load(open('config.yml'))
 
 history_len = experiment_config['history_len']
 frame_skip = experiment_config['frame_skip']

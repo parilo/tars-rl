@@ -104,3 +104,7 @@ ENV/
 
 logs/
 ckpt/
+
+.idea/
+*/results/
+experiments/lunar_lander/results/

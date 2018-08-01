@@ -67,7 +67,7 @@ agent_algorithm = TD3(state_shapes=state_shapes,
                       gradient_clip=1.0,
                       action_noise_std=0.2,
                       action_noise_clip=0.5,
-                      discount_factor=C.disc_factor,
+                      discount_factor=C.gamma,
                       target_actor_update_rate=5e-3,
                       target_critic1_update_rate=5e-3,
                       target_critic2_update_rate=5e-3)
