@@ -80,36 +80,36 @@ class DDPG:
         next_observations = self.to_tensor(next_observations)
         done = self.to_tensor(done.astype(np.float32)).unsqueeze(1)
 
-        next_v_values = self._target_critic(
+        # actor loss
+        policy_loss = -torch.mean(
+            self._critic(observations, self._actor(observations)))
+
+        # critic loss
+        next_qvalues = self._target_critic(
             next_observations,
-            self._target_actor(next_observations),
+            self._target_actor(next_observations).detach(),
         )
 
-        reward_predicted = (1 - done) * self._gamma ** self._n_step * next_v_values
-        td_target = rewards + reward_predicted
+        gamma = self._gamma ** self._n_step
+        expected_qvalues = (1 - done) * gamma * next_qvalues
+        td_target = rewards + expected_qvalues
 
-        # Critic update
-        self._critic.zero_grad()
+        qvalues = self._critic(observations, actions)
+        value_loss = self._criterion(qvalues, td_target.detach())
 
-        v_values = self._critic(observations, actions)
-        value_loss = self._criterion(v_values, td_target)
-        value_loss.backward()
-
-        torch.nn.utils.clip_grad_norm_(
-            self._critic.parameters(), self._grad_clip)
-        self._critic_optimizer.step()
-
-        # Actor update
+        # actor update
         self._actor.zero_grad()
-
-        policy_loss = -self._critic(observations, self._actor(observations))
-
-        policy_loss = torch.mean(policy_loss)
         policy_loss.backward()
-
         torch.nn.utils.clip_grad_norm_(
             self._actor.parameters(),  self._grad_clip)
         self._actor_optimizer.step()
+
+        # critic update
+        self._critic.zero_grad()
+        value_loss.backward()
+        torch.nn.utils.clip_grad_norm_(
+            self._critic.parameters(), self._grad_clip)
+        self._critic_optimizer.step()
 
         # metrics = {
         #     "value_loss": value_loss,
