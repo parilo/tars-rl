@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import tensorflow as tf
 from rl_server.server.rl_server_api import RLServerAPI
 from rl_server.rl_train_loop import TFRLTrainer as RLTrainer
 
@@ -12,11 +11,7 @@ class RLServer:
                  action_size,
                  observation_shapes,
                  state_shapes,
-                 model_load_callback,
                  agent_algorithm,
-                 action_dtype=tf.float32,
-                 is_actions_space_continuous=True,
-                 gpu_id=0,
                  batch_size=256,
                  experience_replay_buffer_size=1000000,
                  use_prioritized_buffer=True,
@@ -40,7 +35,6 @@ class RLServer:
         self._train_loop = RLTrainer(
             observation_shapes=observation_shapes,
             action_size=action_size,
-            gpu_id=gpu_id,
             batch_size=batch_size,
             experience_replay_buffer_size=experience_replay_buffer_size,
             use_prioritized_buffer=use_prioritized_buffer,
@@ -57,7 +51,8 @@ class RLServer:
         self._train_loop.set_algorithm(agent_algorithm)
         self._train_loop.init()
         self._server_api.set_act_batch_callback(self._train_loop.act_batch)
-        # self._server_api.set_act_with_gradient_batch_callback(self._train_loop.act_with_gradient_batch)
+        # self._server_api.set_act_with_gradient_batch_callback(
+        #     self._train_loop.act_with_gradient_batch)
         self._server_api.set_store_episode_callback(self._train_loop.store_episode)
 
     def start(self):

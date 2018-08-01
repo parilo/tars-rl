@@ -18,7 +18,7 @@ seed = 1
 #tf.set_random_seed(seed)
 
 environment_name = 'prosthetics_new'
-experiment_config = json.load(open('config.txt'))
+experiment_config = json.load(open('config.yml'))
 
 history_len = experiment_config['history_len']
 n_step = experiment_config['n_step']

@@ -30,7 +30,6 @@ class RLTrainer:
             self,
             observation_shapes,
             action_size,
-            gpu_id=0,
             batch_size=96,
             experience_replay_buffer_size=1000000,
             use_prioritized_buffer=False,
@@ -62,7 +61,6 @@ class RLTrainer:
         self._use_prioritized_buffer = use_prioritized_buffer
         self._use_synchronous_update = use_synchronous_update
         self._save_path = save_path
-        self._gpu_id = gpu_id
 
         self.server_buffer = ServerBuffer(
             self._buffer_size, observation_shapes, action_size)
