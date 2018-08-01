@@ -5,14 +5,13 @@ sys.path.append('../../')
 
 import os
 import argparse
-import tensorflow as tf
 import random
 import numpy as np
 
-from rl_server.rl_server import RLServer
-from rl_server.algo.sac import SAC
-from rl_server.networks.actor_networks import *
-from rl_server.networks.critic_networks import *
+from rl_server.tensorflow.rl_server import RLServer
+from rl_server.tensorflow.algo.sac import SAC
+from rl_server.tensorflow.networks.actor_networks import *
+from rl_server.tensorflow.networks.critic_networks import *
 from misc.experiment_config import ExperimentConfig
 
 seed = 1

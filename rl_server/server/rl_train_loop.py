@@ -1,7 +1,7 @@
 import os
 import tensorflow as tf
 import time
-from .server_replay_buffer import ServerBuffer
+from rl_server.server.server_replay_buffer import ServerBuffer
 from threading import Lock, Thread
 import multiprocessing
 

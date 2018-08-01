@@ -108,3 +108,5 @@ ckpt/
 .idea/
 */results/
 experiments/lunar_lander/results/
+
+*.ipynb

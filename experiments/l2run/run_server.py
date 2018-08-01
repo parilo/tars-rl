@@ -5,12 +5,11 @@ sys.path.append('../../')
 
 import os
 import json
-import tensorflow as tf
 import random
 import numpy as np
-from rl_server.rl_server import RLServer
-from rl_server.networks.actor_networks import *
-from rl_server.networks.critic_networks import *
+from rl_server.tensorflow.rl_server import RLServer
+from rl_server.tensorflow.networks.actor_networks import *
+from rl_server.tensorflow.networks.critic_networks import *
 
 seed = 1
 random.seed(seed)
@@ -36,10 +35,10 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
 
 if prio:
-    from rl_server.algo.prioritized_ddpg import DDPG
+    from rl_server.tensorflow.algo.prioritized_ddpg import DDPG
 else:
     #from rl_server.algo.ddpg import DDPG
-    from rl_server.algo.quantile_ddpg import QuantileDDPG as DDPG
+    from rl_server.tensorflow.algo.quantile_ddpg import QuantileDDPG as DDPG
 
 observation_shapes = [(obs_size,)]
 state_shapes = [(history_len, obs_size,)]
