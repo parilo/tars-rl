@@ -10,7 +10,7 @@ gamma: 0.99
 batch_size: 256
 
 # Buffer
-use_prioritized_buffer: true
+use_prioritized_buffer: false
 
 # Trainer
 use_synchronous_update: false

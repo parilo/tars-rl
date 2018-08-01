@@ -1,5 +1,4 @@
 import random
-import time
 import numpy as np
 from collections import namedtuple
 from threading import RLock

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from rl_server.server.rl_server_api import RLServerAPI
-from rl_server.rl_train_loop import TFRLTrainer as RLTrainer
+from rl_server.server.rl_train_loop import RLTrainer
 
 
 class RLServer:
@@ -51,9 +51,8 @@ class RLServer:
         self._train_loop.set_algorithm(agent_algorithm)
         self._train_loop.init()
         self._server_api.set_act_batch_callback(self._train_loop.act_batch)
-        # self._server_api.set_act_with_gradient_batch_callback(
-        #     self._train_loop.act_with_gradient_batch)
-        self._server_api.set_store_episode_callback(self._train_loop.store_episode)
+        self._server_api.set_store_episode_callback(
+            self._train_loop.store_episode)
 
     def start(self):
         print('--- starting rl server')
