@@ -30,13 +30,14 @@ class DDPG:
             self,
             state_shapes,
             action_size,
-            actor,
-            critic,
-            actor_optimizer,
-            critic_optimizer,
             n_step=1,
-            gradient_clip=1.0,
             gamma=0.99,
+            actor=None,
+            critic=None,
+            actor_optimizer=None,
+            critic_optimizer=None,
+            actor_grad_clip=1.0,
+            critic_grad_clip=None,
             target_actor_update_rate=1.0,
             target_critic_update_rate=1.0):
         self._device = torch.device(
@@ -50,7 +51,8 @@ class DDPG:
         self._actor_optimizer = actor_optimizer
         self._critic_optimizer = critic_optimizer
         self._n_step = n_step
-        self._grad_clip = gradient_clip
+        self._actor_grad_clip = actor_grad_clip
+        self._critic_grad_clip = critic_grad_clip
         self._gamma = gamma
         self._target_actor_update_rate = target_actor_update_rate
         self._target_critic_update_rate = target_critic_update_rate
@@ -100,15 +102,17 @@ class DDPG:
         # actor update
         self._actor.zero_grad()
         policy_loss.backward()
-        torch.nn.utils.clip_grad_norm_(
-            self._actor.parameters(),  self._grad_clip)
+        if self._actor_grad_clip is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self._actor.parameters(),  self._actor_grad_clip)
         self._actor_optimizer.step()
 
         # critic update
         self._critic.zero_grad()
         value_loss.backward()
-        torch.nn.utils.clip_grad_norm_(
-            self._critic.parameters(), self._grad_clip)
+        if self._critic_grad_clip is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self._critic.parameters(), self._critic_grad_clip)
         self._critic_optimizer.step()
 
         # metrics = {
@@ -134,7 +138,8 @@ class DDPG:
         info['algo'] = 'ddpg'
         info['actor'] = self._actor.get_info()
         info['critic'] = self._critic.get_info()
-        info['grad_clip'] = self._grad_clip
+        info['actor_grad_clip'] = self._actor_grad_clip
+        info['critic_grad_clip'] = self._critic_grad_clip
         info['discount_factor'] = self._gamma
         info['target_actor_update_rate'] = self._target_actor_update_rate
         info['target_critic_update_rate'] = self._target_critic_update_rate

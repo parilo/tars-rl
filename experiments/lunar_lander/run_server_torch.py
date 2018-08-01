@@ -56,7 +56,7 @@ agent_algorithm = DDPG(
     actor_optimizer=torch.optim.Adam(actor.parameters(), lr=3e-4),
     critic_optimizer=torch.optim.Adam(critic.parameters(), lr=3e-4),
     n_step=config.n_step,
-    gradient_clip=1.0,
+    actor_grad_clip=1.0,
     gamma=config.gamma,
     target_actor_update_rate=1e-2,
     target_critic_update_rate=1e-2)
