@@ -133,3 +133,9 @@ class TD3(BaseAlgo):
         loss = value_loss + value_loss2 + policy_loss
         loss = loss.item()
         return loss
+
+    def _get_info(self):
+        info = super(TD3, self)._get_info()
+        info['algo'] = 'TD3'
+        info['critic2'] = self._critic2.get_info()
+        return info

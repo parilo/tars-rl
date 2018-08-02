@@ -93,3 +93,8 @@ class DDPG(BaseAlgo):
         loss = value_loss + policy_loss
         loss = loss.item()
         return loss
+
+    def _get_info(self):
+        info = super(DDPG, self)._get_info()
+        info['algo'] = 'DDPG'
+        return info

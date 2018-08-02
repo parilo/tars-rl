@@ -73,7 +73,7 @@ class QuantileDDPG(BaseAlgo):
         gamma = self._gamma ** self._n_step
         target_atoms = rewards + (1 - done) * gamma * next_atoms
 
-        atoms_diff = (target_atoms[:, None, :] - agent_atoms[:, :, None])
+        atoms_diff = target_atoms[:, None, :] - agent_atoms[:, :, None]
         delta_atoms_diff = atoms_diff.lt(0).to(torch.float32).detach()
         huber_weights = torch.abs(
             self.tau[None, :, None] - delta_atoms_diff) / self.num_atoms
@@ -105,3 +105,9 @@ class QuantileDDPG(BaseAlgo):
         loss = value_loss + policy_loss
         loss = loss.item()
         return loss
+
+    def _get_info(self):
+        info = super(QuantileDDPG, self)._get_info()
+        info['algo'] = 'QuantileDDPG'
+        info['num_atoms'] = self._critic.n_atoms
+        return info
