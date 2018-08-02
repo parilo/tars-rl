@@ -66,6 +66,7 @@ class Critic(nn.Module):
             activation_fn=torch.nn.ReLU, norm_fn=None, bias=True,
             out_activation=None):
         super().__init__()
+        self.n_atoms = n_atoms
 
         n_observation = reduce(lambda x, y: x * y, observation_shape)
 

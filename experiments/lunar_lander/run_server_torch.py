@@ -12,6 +12,8 @@ import torch.nn as nn
 from rl_server.torch.rl_server import RLServer
 from rl_server.torch.networks.agents import Actor, Critic
 from rl_server.torch.algorithms.ddpg import DDPG
+#from rl_server.torch.algorithms.quantile_ddpg import QuantileDDPG as DDPG
+#from rl_server.torch.algorithms.categorical_ddpg import CategoricalDDPG as DDPG
 from misc.experiment_config import ExperimentConfig
 
 seed = 1
@@ -46,7 +48,8 @@ critic = Critic(
     hiddens=[256, 256], layer_fn=nn.Linear, norm_fn=None,
     bias=False, activation_fn=nn.ReLU,
     concat_at=1, n_atoms=1, out_activation=None)
-
+# for qunatile: n_atoms=128, out_activatiomn=None
+# for categorical: n_atoms=51, out_activation=lambda: nn.Softmax(dim=1)
 
 agent_algorithm = DDPG(
     state_shapes=state_shapes,
