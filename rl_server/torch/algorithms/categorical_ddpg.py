@@ -102,3 +102,9 @@ class CategoricalDDPG(BaseAlgo):
         loss = value_loss + policy_loss
         loss = loss.item()
         return loss
+
+    def _get_info(self):
+        info = super(CategoricalDDPG, self)._get_info()
+        info['algo'] = 'CategoricalDDPG'
+        info['num_atoms'] = self._critic.n_atoms
+        return info
