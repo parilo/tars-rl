@@ -30,14 +30,10 @@ class CategoricalDDPG(BaseAlgo):
         delta_z = (v_max - v_min) / (num_atoms - 1)
         z = torch.linspace(start=v_min, end=v_max, steps=num_atoms)
 
-        self.num_atoms = torch.tensor(
-            num_atoms, dtype=torch.float32, device=self._device)
-        self.v_min = torch.tensor(
-            v_min, dtype=torch.float32, device=self._device)
-        self.v_max = torch.tensor(
-            v_max, dtype=torch.float32, device=self._device)
-        self.delta_z = torch.tensor(
-            delta_z, dtype=torch.float32, device=self._device)
+        self.num_atoms = num_atoms
+        self.v_min = v_min
+        self.v_max = v_max
+        self.delta_z = delta_z
         self.z = self.to_tensor(z)
 
     def train(self, batch, actor_update=True, critic_update=True):

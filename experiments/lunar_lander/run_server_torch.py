@@ -12,8 +12,8 @@ import torch.nn as nn
 from rl_server.torch.rl_server import RLServer
 from rl_server.torch.networks.agents import Actor, Critic
 from rl_server.torch.algorithms.ddpg import DDPG
-#from rl_server.torch.algorithms.quantile_ddpg import QuantileDDPG as DDPG
-#from rl_server.torch.algorithms.categorical_ddpg import CategoricalDDPG as DDPG
+from rl_server.torch.algorithms.quantile_ddpg import QuantileDDPG
+from rl_server.torch.algorithms.categorical_ddpg import CategoricalDDPG
 from misc.experiment_config import ExperimentConfig
 
 seed = 1
@@ -28,6 +28,8 @@ parser.add_argument(
     dest='experiment_name',
     type=str,
     default='experiment')
+parser.add_argument(
+    "--agent", default="ddpg", choices=["ddpg", "categorical", "quantile"])
 args = parser.parse_args()
 
 config = ExperimentConfig(
@@ -43,15 +45,31 @@ actor = Actor(
     hiddens=[256, 256], layer_fn=nn.Linear, norm_fn=None,
     bias=False, activation_fn=nn.ReLU, out_activation=nn.Tanh)
 
-critic = Critic(
-    observation_shape=state_shapes[0], n_action=config.action_size,
-    hiddens=[256, 256], layer_fn=nn.Linear, norm_fn=None,
-    bias=False, activation_fn=nn.ReLU,
-    concat_at=1, n_atoms=1, out_activation=None)
-# for qunatile: n_atoms=128, out_activatiomn=None
-# for categorical: n_atoms=51, out_activation=lambda: nn.Softmax(dim=1)
+if args.agent == "ddpg":
+    critic = Critic(
+        observation_shape=state_shapes[0], n_action=config.action_size,
+        hiddens=[256, 256], layer_fn=nn.Linear, norm_fn=None,
+        bias=False, activation_fn=nn.ReLU,
+        concat_at=1, n_atoms=1, out_activation=None)
+    DDPG_algorith = DDPG
+elif args.agent == "categorical":
+    critic = Critic(
+        observation_shape=state_shapes[0], n_action=config.action_size,
+        hiddens=[256, 256], layer_fn=nn.Linear, norm_fn=None,
+        bias=False, activation_fn=nn.ReLU,
+        concat_at=1, n_atoms=51, out_activation=lambda: nn.Softmax(dim=1))
+    DDPG_algorith = CategoricalDDPG
+elif args.agent == "quantile":
+    critic = Critic(
+        observation_shape=state_shapes[0], n_action=config.action_size,
+        hiddens=[256, 256], layer_fn=nn.Linear, norm_fn=None,
+        bias=False, activation_fn=nn.ReLU,
+        concat_at=1, n_atoms=101, out_activation=None)
+    DDPG_algorith = QuantileDDPG
+else:
+    raise NotImplementedError
 
-agent_algorithm = DDPG(
+agent_algorithm = DDPG_algorith(
     state_shapes=state_shapes,
     action_size=config.action_size,
     actor=actor,

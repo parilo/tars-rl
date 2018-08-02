@@ -45,8 +45,7 @@ class QuantileDDPG(BaseAlgo):
         tau_max = 1 - tau_min
         tau = torch.linspace(start=tau_min, end=tau_max, steps=num_atoms)
         self.tau = self.to_tensor(tau)
-        self.num_atoms = torch.tensor(
-            num_atoms, dtype=torch.float32, device=self._device)
+        self.num_atoms = num_atoms
 
     def train(self, batch, actor_update=True, critic_update=True):
         states, actions, rewards, next_states, done = (
