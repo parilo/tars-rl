@@ -4,22 +4,7 @@ import torch.nn as nn
 from .base_algo import BaseAlgo
 
 
-class HuberLoss(nn.Module):
-    def __init__(self, clip_delta):
-        super(HuberLoss, self).__init__()
-        self.clip_delta = clip_delta
-
-    def forward(self, y_pred, y_true):
-        td_error = y_true - y_pred
-        td_error_abs = torch.abs(td_error)
-        quadratic_part = torch.clamp(td_error_abs, max=self.clip_delta)
-        linear_part = td_error_abs - quadratic_part
-        loss = 0.5 * quadratic_part ** 2 + self.clip_delta * linear_part
-        loss = torch.mean(loss)
-        return loss
-
-
-class DDPG(BaseAlgo):
+class CategoricalDDPG(BaseAlgo):
     def __init__(
             self,
             state_shapes,
@@ -28,17 +13,28 @@ class DDPG(BaseAlgo):
             critic,
             actor_optimizer,
             critic_optimizer,
+            values_range=(-10., 10.),
             n_step=1,
             actor_grad_clip=1.0,
             critic_grad_clip=None,
             gamma=0.99,
             target_actor_update_rate=1.0,
             target_critic_update_rate=1.0):
-        super(DDPG, self).__init__(
+        super(CategoricalDDPG, self).__init__(
             state_shapes, action_size, actor, critic, actor_optimizer,
             critic_optimizer, n_step, actor_grad_clip, critic_grad_clip,
             gamma, target_actor_update_rate, target_critic_update_rate)
-        self._criterion = HuberLoss(1.0)
+
+        num_atoms = self._critic.n_atoms
+        v_min, v_max = values_range
+        delta_z = (v_max - v_min) / (num_atoms - 1)
+        z = torch.linspace(start=v_min, end=v_max, steps=num_atoms)
+
+        self.num_atoms = num_atoms
+        self.v_min = v_min
+        self.v_max = v_max
+        self.delta_z = delta_z
+        self.z = self.to_tensor(z)
 
     def train(self, batch, actor_update=True, critic_update=True):
         states, actions, rewards, next_states, done = (
@@ -53,20 +49,29 @@ class DDPG(BaseAlgo):
         done = self.to_tensor(done.astype(np.float32)).unsqueeze(1)
 
         # actor loss
-        policy_loss = -torch.mean(
-            self._critic(states, self._actor(states)))
+        q_values = torch.sum(
+            self._critic(states, self._actor(states)) * self.z, dim=-1)
+        policy_loss = -torch.mean(q_values)
 
         # critic loss
-        next_q_values = self._target_critic(
+        agent_probs = self._critic(states, actions)
+        next_probs = self._target_critic(
             next_states,
             self._target_actor(next_states).detach(),
         )
 
         gamma = self._gamma ** self._n_step
-        td_target = rewards + (1 - done) * gamma * next_q_values
+        target_atoms = rewards + (1 - done) * gamma * self.z
 
-        q_values = self._critic(states, actions)
-        value_loss = self._criterion(q_values, td_target.detach())
+        tz = torch.clamp(target_atoms, self.v_min, self.v_max)
+        tz_z = tz[:, None, :] - self.z[None, :, None]
+        tz_z = torch.clamp(
+            (1.0 - (torch.abs(tz_z) / self.delta_z)), 0., 1.)
+        target_probs = torch.einsum(
+            'bij,bj->bi', (tz_z, next_probs)).detach()
+
+        value_loss = -torch.sum(
+            target_probs * torch.log(agent_probs + 1e-6))
 
         # actor update
         if actor_update:
@@ -95,6 +100,7 @@ class DDPG(BaseAlgo):
         return loss
 
     def _get_info(self):
-        info = super(DDPG, self)._get_info()
-        info['algo'] = 'DDPG'
+        info = super(CategoricalDDPG, self)._get_info()
+        info['algo'] = 'CategoricalDDPG'
+        info['num_atoms'] = self._critic.n_atoms
         return info

@@ -4,22 +4,22 @@ import torch.nn as nn
 from .base_algo import BaseAlgo
 
 
-class HuberLoss(nn.Module):
+class WeightedHuberLoss(nn.Module):
     def __init__(self, clip_delta):
-        super(HuberLoss, self).__init__()
+        super(WeightedHuberLoss, self).__init__()
         self.clip_delta = clip_delta
 
-    def forward(self, y_pred, y_true):
+    def forward(self, y_pred, y_true, weights):
         td_error = y_true - y_pred
         td_error_abs = torch.abs(td_error)
         quadratic_part = torch.clamp(td_error_abs, max=self.clip_delta)
         linear_part = td_error_abs - quadratic_part
         loss = 0.5 * quadratic_part ** 2 + self.clip_delta * linear_part
-        loss = torch.mean(loss)
+        loss = torch.mean(loss * weights)
         return loss
 
 
-class DDPG(BaseAlgo):
+class QuantileDDPG(BaseAlgo):
     def __init__(
             self,
             state_shapes,
@@ -34,11 +34,18 @@ class DDPG(BaseAlgo):
             gamma=0.99,
             target_actor_update_rate=1.0,
             target_critic_update_rate=1.0):
-        super(DDPG, self).__init__(
+        super(QuantileDDPG, self).__init__(
             state_shapes, action_size, actor, critic, actor_optimizer,
             critic_optimizer, n_step, actor_grad_clip, critic_grad_clip,
             gamma, target_actor_update_rate, target_critic_update_rate)
-        self._criterion = HuberLoss(1.0)
+        self._criterion = WeightedHuberLoss(1.0)
+
+        num_atoms = self._critic.n_atoms
+        tau_min = 1 / (2 * num_atoms)
+        tau_max = 1 - tau_min
+        tau = torch.linspace(start=tau_min, end=tau_max, steps=num_atoms)
+        self.tau = self.to_tensor(tau)
+        self.num_atoms = num_atoms
 
     def train(self, batch, actor_update=True, critic_update=True):
         states, actions, rewards, next_states, done = (
@@ -57,16 +64,21 @@ class DDPG(BaseAlgo):
             self._critic(states, self._actor(states)))
 
         # critic loss
-        next_q_values = self._target_critic(
+        agent_atoms = self._critic(states, actions)
+        next_atoms = self._target_critic(
             next_states,
-            self._target_actor(next_states).detach(),
-        )
+            self._target_actor(next_states),
+        ).detach()
 
         gamma = self._gamma ** self._n_step
-        td_target = rewards + (1 - done) * gamma * next_q_values
+        target_atoms = rewards + (1 - done) * gamma * next_atoms
 
-        q_values = self._critic(states, actions)
-        value_loss = self._criterion(q_values, td_target.detach())
+        atoms_diff = target_atoms[:, None, :] - agent_atoms[:, :, None]
+        delta_atoms_diff = atoms_diff.lt(0).to(torch.float32).detach()
+        huber_weights = torch.abs(
+            self.tau[None, :, None] - delta_atoms_diff) / self.num_atoms
+        value_loss = self._criterion(
+            agent_atoms[:, :, None], target_atoms[:, None, :], huber_weights)
 
         # actor update
         if actor_update:
@@ -95,6 +107,7 @@ class DDPG(BaseAlgo):
         return loss
 
     def _get_info(self):
-        info = super(DDPG, self)._get_info()
-        info['algo'] = 'DDPG'
+        info = super(QuantileDDPG, self)._get_info()
+        info['algo'] = 'QuantileDDPG'
+        info['num_atoms'] = self._critic.n_atoms
         return info
