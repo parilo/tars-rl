@@ -9,7 +9,9 @@ import random
 import numpy as np
 
 from rl_server.tensorflow.rl_server import RLServer
-from rl_server.tensorflow.algo.prioritized_ddpg import PrioritizedDDPG as DDPG
+from rl_server.tensorflow.algo.ddpg import DDPG
+#from rl_server.tensorflow.algo.quantile_ddpg import QuantileDDPG as DDPG
+#from rl_server.tensorflow.algo.categorical_ddpg import CategoricalDDPG as DDPG
 from rl_server.tensorflow.networks.actor_networks import *
 from rl_server.tensorflow.networks.critic_networks import *
 from misc.experiment_config import ExperimentConfig
@@ -39,6 +41,14 @@ critic = CriticNetwork(
     state_shapes[0], config.action_size, hiddens=[[256], [256]],
     activations=['relu', 'relu'], output_activation=None,
     action_insert_block=1, scope='critic')
+#critic = QuantileCriticNetwork(
+#    state_shapes[0], config.action_size, hiddens=[[256], [256]],
+#    activations=['relu', 'relu'], output_activation=None,
+#    num_atoms=128, action_insert_block=1, scope='critic')
+#critic = CategoricalCriticNetwork(
+#    state_shapes[0], config.action_size, hiddens=[[256], [256]],
+#    activations=['relu', 'relu'], output_activation=None,
+#    num_atoms=51, v=(-10., 10.), action_insert_block=1, scope='critic')
 
 actor = ActorNetwork(
     state_shapes[0], config.action_size, hiddens=[[256], [256]],
