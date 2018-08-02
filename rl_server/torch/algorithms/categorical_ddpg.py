@@ -25,7 +25,7 @@ class CategoricalDDPG(BaseAlgo):
             critic_optimizer, n_step, actor_grad_clip, critic_grad_clip,
             gamma, target_actor_update_rate, target_critic_update_rate)
 
-        num_atoms  = self._critic.n_atoms
+        num_atoms = self._critic.n_atoms
         v_min, v_max = values_range
         delta_z = (v_max - v_min) / (num_atoms - 1)
         z = torch.linspace(start=v_min, end=v_max, steps=num_atoms)

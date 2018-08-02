@@ -39,7 +39,7 @@ class DDPG(BaseAlgo):
             critic_optimizer, n_step, actor_grad_clip, critic_grad_clip,
             gamma, target_actor_update_rate, target_critic_update_rate)
         self._criterion = HuberLoss(1.0)
-                                   
+
     def train(self, batch, actor_update=True, critic_update=True):
         states, actions, rewards, next_states, done = (
             list(map(

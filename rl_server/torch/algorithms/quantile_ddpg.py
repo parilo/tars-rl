@@ -39,9 +39,9 @@ class QuantileDDPG(BaseAlgo):
             critic_optimizer, n_step, actor_grad_clip, critic_grad_clip,
             gamma, target_actor_update_rate, target_critic_update_rate)
         self._criterion = WeightedHuberLoss(1.0)
-        
-        num_atoms  = self._critic.n_atoms
-        tau_min = 1 / (2 * num_atoms) 
+
+        num_atoms = self._critic.n_atoms
+        tau_min = 1 / (2 * num_atoms)
         tau_max = 1 - tau_min
         tau = torch.linspace(start=tau_min, end=tau_max, steps=num_atoms)
         self.tau = self.to_tensor(tau)
@@ -74,9 +74,10 @@ class QuantileDDPG(BaseAlgo):
         gamma = self._gamma ** self._n_step
         target_atoms = rewards + (1 - done) * gamma * next_atoms
 
-        atoms_diff = (target_atoms[:, None, :] - agent_atoms[:, :, None]).detach()
-        delta_atoms_diff = atoms_diff.lt(0).to(torch.float32)
-        huber_weights = torch.abs(self.tau[None, :, None] - delta_atoms_diff) / self.num_atoms
+        atoms_diff = (target_atoms[:, None, :] - agent_atoms[:, :, None])
+        delta_atoms_diff = atoms_diff.lt(0).to(torch.float32).detach()
+        huber_weights = torch.abs(
+            self.tau[None, :, None] - delta_atoms_diff) / self.num_atoms
         value_loss = self._criterion(
             agent_atoms[:, :, None], target_atoms[:, None, :], huber_weights)
 
