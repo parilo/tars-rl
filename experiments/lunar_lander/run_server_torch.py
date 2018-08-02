@@ -14,6 +14,7 @@ from rl_server.torch.networks.agents import Actor, Critic
 from rl_server.torch.algorithms.ddpg import DDPG
 #from rl_server.torch.algorithms.quantile_ddpg import QuantileDDPG as DDPG
 #from rl_server.torch.algorithms.categorical_ddpg import CategoricalDDPG as DDPG
+#from rl_server.torch.algorithms.td3 import TD3 as DDPG
 from misc.experiment_config import ExperimentConfig
 
 seed = 1
@@ -50,14 +51,21 @@ critic = Critic(
     concat_at=1, n_atoms=1, out_activation=None)
 # for qunatile: n_atoms=128, out_activatiomn=None
 # for categorical: n_atoms=51, out_activation=lambda: nn.Softmax(dim=1)
+#critic2 = Critic(
+#    observation_shape=state_shapes[0], n_action=config.action_size,
+#    hiddens=[256, 256], layer_fn=nn.Linear, norm_fn=None,
+#    bias=False, activation_fn=nn.ReLU,
+#    concat_at=1, n_atoms=1, out_activation=None)
 
 agent_algorithm = DDPG(
     state_shapes=state_shapes,
     action_size=config.action_size,
     actor=actor,
     critic=critic,
+    #critic2=critic2,
     actor_optimizer=torch.optim.Adam(actor.parameters(), lr=3e-4),
     critic_optimizer=torch.optim.Adam(critic.parameters(), lr=3e-4),
+    #critic2_optimizer=torch.optim.Adam(critic2.parameters(), lr=3e-4),
     n_step=config.n_step,
     actor_grad_clip=1.0,
     gamma=config.gamma,
