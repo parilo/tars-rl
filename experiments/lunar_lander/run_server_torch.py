@@ -14,6 +14,7 @@ from rl_server.torch.networks.agents import Actor, Critic
 from rl_server.torch.algorithms.ddpg import DDPG
 from rl_server.torch.algorithms.quantile_ddpg import QuantileDDPG
 from rl_server.torch.algorithms.categorical_ddpg import CategoricalDDPG
+from rl_server.torch.algorithms.td3 import TD3
 from misc.experiment_config import ExperimentConfig
 
 seed = 1
@@ -29,7 +30,8 @@ parser.add_argument(
     type=str,
     default='experiment')
 parser.add_argument(
-    "--agent", default="ddpg", choices=["ddpg", "categorical", "quantile"])
+    "--agent", default="ddpg",
+    choices=["ddpg", "categorical", "quantile", "td3"])
 args = parser.parse_args()
 
 config = ExperimentConfig(
@@ -64,23 +66,52 @@ elif args.agent == "quantile":
         observation_shape=state_shapes[0], n_action=config.action_size,
         hiddens=[256, 256], layer_fn=nn.Linear, norm_fn=None,
         bias=False, activation_fn=nn.ReLU,
-        concat_at=1, n_atoms=101, out_activation=None)
+        concat_at=1, n_atoms=128, out_activation=None)
     DDPG_algorith = QuantileDDPG
+elif args.agent == "td3":
+    critic = Critic(
+        observation_shape=state_shapes[0], n_action=config.action_size,
+        hiddens=[256, 256], layer_fn=nn.Linear, norm_fn=None,
+        bias=False, activation_fn=nn.ReLU,
+        concat_at=1, n_atoms=1, out_activation=None)
+    critic2 = Critic(
+        observation_shape=state_shapes[0], n_action=config.action_size,
+        hiddens=[256, 256], layer_fn=nn.Linear, norm_fn=None,
+        bias=False, activation_fn=nn.ReLU,
+        concat_at=1, n_atoms=1, out_activation=None)
+    DDPG_algorith = TD3
 else:
     raise NotImplementedError
 
-agent_algorithm = DDPG_algorith(
-    state_shapes=state_shapes,
-    action_size=config.action_size,
-    actor=actor,
-    critic=critic,
-    actor_optimizer=torch.optim.Adam(actor.parameters(), lr=3e-4),
-    critic_optimizer=torch.optim.Adam(critic.parameters(), lr=3e-4),
-    n_step=config.n_step,
-    actor_grad_clip=1.0,
-    gamma=config.gamma,
-    target_actor_update_rate=1e-2,
-    target_critic_update_rate=1e-2)
+
+if args.agent == "td3":
+    agent_algorithm = DDPG_algorith(
+        state_shapes=state_shapes,
+        action_size=config.action_size,
+        actor=actor,
+        critic=critic,
+        critic2=critic2,
+        actor_optimizer=torch.optim.Adam(actor.parameters(), lr=3e-4),
+        critic_optimizer=torch.optim.Adam(critic.parameters(), lr=3e-4),
+        critic2_optimizer=torch.optim.Adam(critic2.parameters(), lr=3e-4),
+        n_step=config.n_step,
+        actor_grad_clip=1.0,
+        gamma=config.gamma,
+        target_actor_update_rate=1e-2,
+        target_critic_update_rate=1e-2)
+else:
+    agent_algorithm = DDPG_algorith(
+        state_shapes=state_shapes,
+        action_size=config.action_size,
+        actor=actor,
+        critic=critic,
+        actor_optimizer=torch.optim.Adam(actor.parameters(), lr=3e-4),
+        critic_optimizer=torch.optim.Adam(critic.parameters(), lr=3e-4),
+        n_step=config.n_step,
+        actor_grad_clip=1.0,
+        gamma=config.gamma,
+        target_actor_update_rate=1e-2,
+        target_critic_update_rate=1e-2)
 
 rl_server = RLServer(
     num_clients=40,
