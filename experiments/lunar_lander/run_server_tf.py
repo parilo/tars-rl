@@ -2,7 +2,7 @@
 
 import sys
 
-sys.path.append('../../')
+sys.path.append("../../")
 
 import argparse
 import random
@@ -22,16 +22,16 @@ np.random.seed(seed)
 tf.set_random_seed(seed)
 
 parser = argparse.ArgumentParser(
-    description='Train or test neural net motor controller')
+    description="Train or test neural net motor controller")
 parser.add_argument(
-    '--experiment_name',
-    dest='experiment_name',
+    "--experiment_name",
+    dest="experiment_name",
     type=str,
-    default='experiment')
+    default="experiment")
 args = parser.parse_args()
 
 config = ExperimentConfig(
-    env_name='lunar_lander',
+    env_name="lunar_lander",
     experiment_name=args.experiment_name)
 
 observation_shapes = [(config.obs_size,)]
@@ -39,21 +39,21 @@ state_shapes = [(config.history_len, config.obs_size,)]
 
 critic = CriticNetwork(
     state_shapes[0], config.action_size, hiddens=[[256], [256]],
-    activations=['relu', 'relu'], output_activation=None,
-    action_insert_block=1, scope='critic')
+    activations=["relu", "relu"], output_activation=None,
+    action_insert_block=1, scope="critic")
 #critic = QuantileCriticNetwork(
 #    state_shapes[0], config.action_size, hiddens=[[256], [256]],
-#    activations=['relu', 'relu'], output_activation=None,
-#    num_atoms=128, action_insert_block=1, scope='critic')
+#    activations=["relu", "relu"], output_activation=None,
+#    num_atoms=128, action_insert_block=1, scope="critic")
 #critic = CategoricalCriticNetwork(
 #    state_shapes[0], config.action_size, hiddens=[[256], [256]],
-#    activations=['relu', 'relu'], output_activation=None,
-#    num_atoms=51, v=(-10., 10.), action_insert_block=1, scope='critic')
+#    activations=["relu", "relu"], output_activation=None,
+#    num_atoms=51, v=(-10., 10.), action_insert_block=1, scope="critic")
 
 actor = ActorNetwork(
     state_shapes[0], config.action_size, hiddens=[[256], [256]],
-    activations=['relu', 'relu'], output_activation='tanh',
-    scope='actor')
+    activations=["relu", "relu"], output_activation="tanh",
+    scope="actor")
 
 agent_algorithm = DDPG(
     state_shapes=state_shapes,

@@ -8,7 +8,7 @@ import numpy as np
 import gym
 
 import sys
-sys.path.append('../../')
+sys.path.append("../../")
 
 from rl_server.server.rl_client import RLClient
 from agent_replay_buffer import AgentBuffer
@@ -16,49 +16,49 @@ from envs.bipedal_walker import BipedalWalker
 
 # parse input arguments
 
-parser = argparse.ArgumentParser(description='Train or test neural net motor controller')
-parser.add_argument('--random_start',
-                    dest='random_start',
-                    action='store_true',
+parser = argparse.ArgumentParser(description="Train or test neural net motor controller")
+parser.add_argument("--random_start",
+                    dest="random_start",
+                    action="store_true",
                     default=False)
-parser.add_argument('--id',
-                    dest='id',
+parser.add_argument("--id",
+                    dest="id",
                     type=int,
                     default=0)
-parser.add_argument('--visualize',
-                    dest='visualize',
-                    action='store_true',
+parser.add_argument("--visualize",
+                    dest="visualize",
+                    action="store_true",
                     default=False)
-parser.add_argument('--validation',
-                    dest='validation',
-                    action='store_true',
+parser.add_argument("--validation",
+                    dest="validation",
+                    action="store_true",
                     default=False)
 args = parser.parse_args()
 
 ############################## Specify environment and experiment ##############################
 
-environment_name = 'bipedal_walker'
-experiment_config = json.load(open('config.yml'))
+environment_name = "bipedal_walker"
+experiment_config = json.load(open("config.yml"))
 
-history_len = experiment_config['history_len']
-frame_skip = experiment_config['frame_skip']
+history_len = experiment_config["history_len"]
+frame_skip = experiment_config["frame_skip"]
 
 experiment_file = environment_name
-for i in ['history_len', 'frame_skip', 'n_step', 'batch_size']:
-    experiment_file = experiment_file + '-' + i + str(experiment_config[i])
-if experiment_config['prio']:
-    experiment_file = experiment_file + '-prio'
-if experiment_config['sync']:
-    experiment_file = experiment_file + '-sync'
+for i in ["history_len", "frame_skip", "n_step", "batch_size"]:
+    experiment_file = experiment_file + "-" + i + str(experiment_config[i])
+if experiment_config["prio"]:
+    experiment_file = experiment_file + "-prio"
+if experiment_config["sync"]:
+    experiment_file = experiment_file + "-sync"
 else:
-    experiment_file = experiment_file + '-async'
-path_to_results = 'results/' + experiment_file + '-rewards.txt'
-path_to_results_validation = 'results/' + experiment_file + '-rewards-validation.txt'
+    experiment_file = experiment_file + "-async"
+path_to_results = "results/" + experiment_file + "-rewards.txt"
+path_to_results_validation = "results/" + experiment_file + "-rewards-validation.txt"
 
 if os.path.isfile(path_to_results):
     os.remove(path_to_results)
 
-port = experiment_config['port']
+port = experiment_config["port"]
 
 env = BipedalWalker(frame_skip=frame_skip, visualize=args.visualize)
 observation_shapes = env.observation_shapes
@@ -112,9 +112,9 @@ while True:
     if done:
         episode = agent_buffer.get_complete_episode()
         rl_client.store_episode(episode)
-        print('--- episode ended {} {} {}'.format(episode_index, env.time_step, env.get_total_reward()))
-        with open(path_to_results_validation if args.validation else path_to_results, 'a') as f:
-            f.write(str(args.id) + ' ' + str(episode_index) + ' ' + str(env.get_total_reward()) + '\n')
+        print("--- episode ended {} {} {}".format(episode_index, env.time_step, env.get_total_reward()))
+        with open(path_to_results_validation if args.validation else path_to_results, "a") as f:
+            f.write(str(args.id) + " " + str(episode_index) + " " + str(env.get_total_reward()) + "\n")
         episode_index += 1
         agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
         agent_buffer.push_init_observation([env.reset()])

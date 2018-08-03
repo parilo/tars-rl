@@ -25,7 +25,7 @@ class SAC(BaseDDPG):
         self._actor = actor
         self._critic_v = critic_v
         self._critic_q = critic_q
-        self._target_critic_v = self._critic_v.copy(scope='target_critic_v')
+        self._target_critic_v = self._critic_v.copy(scope="target_critic_v")
         self._actor_optimizer = actor_optimizer
         self._critic_v_optimizer = critic_v_optimizer
         self._critic_q_optimizer = critic_q_optimizer
@@ -168,19 +168,19 @@ class SAC(BaseDDPG):
         return log_pi[:, None], action
 
     def squash_action(self, action):
-        if self._actor.out_activation == 'tanh':
+        if self._actor.out_activation == "tanh":
             return tf.tanh(action)
-        if self._actor.out_activation == 'sigmoid':
+        if self._actor.out_activation == "sigmoid":
             return tf.sigmoid(action)
         return action
 
     def get_squash_correction(self, z):
-        if self._actor.out_activation == 'tanh':
+        if self._actor.out_activation == "tanh":
             zz = tf.stack((z, -z), axis=2)
             corr = tf.log(4.) - 2*tf.reduce_logsumexp(zz, axis=-1)
             corr = tf.reduce_sum(corr, axis=-1)
             return corr
-        if self._actor.out_activation == 'sigmoid':
+        if self._actor.out_activation == "sigmoid":
             zz = tf.stack((tf.zeros_like(z), -z), axis=2)
             corr = -z - 2*tf.reduce_logsumexp(zz, axis=-1)
             corr = tf.reduce_sum(corr, axis=-1)
@@ -199,13 +199,13 @@ class SAC(BaseDDPG):
 
     def _get_info(self):
         info = {}
-        info['algo'] = 'sac'
-        info['actor'] = self._actor.get_info()
-        info['critic_v'] = self._critic_v.get_info()
-        info['critic_q'] = self._critic_q.get_info()
-        info['grad_clip'] = self._grad_clip
-        info['discount_factor'] = self._gamma
-        info['target_critic_v_update_rate'] = self._update_rates[0]
-        info['temperature'] = self._temp
-        info['regularization_coef'] = self._mu_and_sig_reg
+        info["algo"] = "sac"
+        info["actor"] = self._actor.get_info()
+        info["critic_v"] = self._critic_v.get_info()
+        info["critic_q"] = self._critic_q.get_info()
+        info["grad_clip"] = self._grad_clip
+        info["discount_factor"] = self._gamma
+        info["target_critic_v_update_rate"] = self._update_rates[0]
+        info["temperature"] = self._temp
+        info["regularization_coef"] = self._mu_and_sig_reg
         return info

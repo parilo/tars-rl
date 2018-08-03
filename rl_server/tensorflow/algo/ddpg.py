@@ -22,8 +22,8 @@ class BaseDDPG:
         self._action_size = action_size
         self._actor = actor
         self._critic = critic
-        self._target_actor = actor.copy(scope='target_actor')
-        self._target_critic = critic.copy(scope='target_critic')
+        self._target_actor = actor.copy(scope="target_actor")
+        self._target_critic = critic.copy(scope="target_critic")
         self._actor_optimizer = actor_optimizer
         self._critic_optimizer = critic_optimizer
         self._n_step = n_step
@@ -52,16 +52,16 @@ class BaseDDPG:
         for s in self._state_shapes:
             state_batch_shapes.append(tuple([None] + list(s)))
 
-        self._rewards = tf.placeholder(tf.float32, (None, ), name='inp_rewards')
-        self._given_action = tf.placeholder(tf.float32, (None, self._action_size), name='inp_actions')
+        self._rewards = tf.placeholder(tf.float32, (None, ), name="inp_rewards")
+        self._given_action = tf.placeholder(tf.float32, (None, self._action_size), name="inp_actions")
         self._state_for_act = []
         self._state = []
         self._next_state = []
         for shape in state_batch_shapes:
-            self._state_for_act.append(tf.placeholder(tf.float32, shape, name='inps_states_for_act'))
-            self._state.append(tf.placeholder(tf.float32, shape, name='inp_prev_state'))
-            self._next_state.append(tf.placeholder(tf.float32, shape, name='inp_next_states'))
-        self._terminator = tf.placeholder(tf.float32, (None, ), name='inp_terminator')
+            self._state_for_act.append(tf.placeholder(tf.float32, shape, name="inps_states_for_act"))
+            self._state.append(tf.placeholder(tf.float32, shape, name="inp_prev_state"))
+            self._next_state.append(tf.placeholder(tf.float32, shape, name="inp_next_states"))
+        self._terminator = tf.placeholder(tf.float32, (None, ), name="inp_terminator")
 
     def _get_action_for_state(self):
         return self._actor(self._state_for_act)
@@ -182,13 +182,13 @@ class BaseDDPG:
         
     def _get_info(self):
         info = {}
-        info['algo'] = 'ddpg'
-        info['actor'] = self._actor.get_info()
-        info['critic'] = self._critic.get_info()
-        info['grad_clip'] = self._grad_clip
-        info['discount_factor'] = self._gamma
-        info['target_actor_update_rate'] = self._update_rates[0]
-        info['target_critic_update_rate'] = self._update_rates[1]
+        info["algo"] = "ddpg"
+        info["actor"] = self._actor.get_info()
+        info["critic"] = self._critic.get_info()
+        info["grad_clip"] = self._grad_clip
+        info["discount_factor"] = self._gamma
+        info["target_actor_update_rate"] = self._update_rates[0]
+        info["target_critic_update_rate"] = self._update_rates[1]
         return info
 
 

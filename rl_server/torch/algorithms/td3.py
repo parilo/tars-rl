@@ -136,6 +136,6 @@ class TD3(BaseAlgo):
 
     def _get_info(self):
         info = super(TD3, self)._get_info()
-        info['algo'] = 'TD3'
-        info['critic2'] = self._critic2.get_info()
+        info["algo"] = "TD3"
+        info["critic2"] = self._critic2.get_info()
         return info

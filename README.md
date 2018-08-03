@@ -7,7 +7,7 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 # Work progress
 
 ### Small but important things
-1. Handy tool for storing and visualizing agents' performance (not good and handy yet)
+1. Handy tool for storing and visualizing agents" performance (not good and handy yet)
 2. ~~Simple baselines to evaluate changes made in the code (pendulum and lunar lander)~~
 3. ~~Normalize input observations based on magnitude statistics~~
 4. Make SAC work in Prosthetics environment (maximum reward is 600 now)
@@ -33,7 +33,7 @@ Repository for NIPS 2018 prosthetics challenge ([CrowdAI](https://www.crowdai.or
 
 ### Performance of different approaches (START RECORDING PERFORMANCE!!!)
 ```python
-model='3D', prosthetic=True, difficulty=0, seed=25
+model="3D", prosthetic=True, difficulty=0, seed=25
 ```
 | Approach | Experiment info | 5K episodes | 10K episodes | 15K episodes | 20K episodes |
 |-|-|-|-|-|-|

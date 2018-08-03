@@ -18,7 +18,7 @@ class ProstheticsEnvWrap:
 
         self.vis = visualize
         self.env = ProstheticsEnv(visualize=visualize, integrator_accuracy=1e-3)
-        self.env.change_model(model='3D', prosthetic=True, difficulty=0, seed=np.random.randint(200))
+        self.env.change_model(model="3D", prosthetic=True, difficulty=0, seed=np.random.randint(200))
         self.frame_skip = frame_skip
         self.observation_shapes = [(333,)]
         self.action_size = 19
@@ -72,23 +72,23 @@ class ProstheticsEnvWrap:
             reward += self.living_bonus
 
         # deviation from forward direction penalty
-        vy, vz = state_desc['body_vel']['pelvis'][1:]
+        vy, vz = state_desc["body_vel"]["pelvis"][1:]
         side_dev_penalty = (vy ** 2 + vz ** 2)
         reward -= self.side_dev_coef * side_dev_penalty
 
         # crossing legs penalty
-        pelvis_xy = np.array(state_desc['body_pos']['pelvis'])
-        left = np.array(state_desc['body_pos']['toes_l']) - pelvis_xy
-        right = np.array(state_desc['body_pos']['pros_foot_r']) - pelvis_xy
-        axis = np.array(state_desc['body_pos']['head']) - pelvis_xy
+        pelvis_xy = np.array(state_desc["body_pos"]["pelvis"])
+        left = np.array(state_desc["body_pos"]["toes_l"]) - pelvis_xy
+        right = np.array(state_desc["body_pos"]["pros_foot_r"]) - pelvis_xy
+        axis = np.array(state_desc["body_pos"]["head"]) - pelvis_xy
         cross_legs_penalty = np.cross(left, right).dot(axis)
         if cross_legs_penalty > 0:
             cross_legs_penalty = 0.0
         reward += self.cross_legs_coef * cross_legs_penalty
 
         # bending knees bonus
-        r_knee_flexion = np.minimum(state_desc['joint_pos']['knee_r'][0], 0.)
-        l_knee_flexion = np.minimum(state_desc['joint_pos']['knee_l'][0], 0.)
+        r_knee_flexion = np.minimum(state_desc["joint_pos"]["knee_r"][0], 0.)
+        l_knee_flexion = np.minimum(state_desc["joint_pos"]["knee_l"][0], 0.)
         bend_knees_bonus = np.abs(r_knee_flexion + l_knee_flexion)
         reward += self.bending_knees_coef * bend_knees_bonus
 
@@ -102,72 +102,72 @@ class ProstheticsEnvWrap:
         acc_mult = 1e-2
 
         # body parts
-        body_parts = ['pelvis', 'femur_r', 'pros_tibia_r', 'pros_foot_r', 'femur_l',
-                      'tibia_l', 'talus_l', 'calcn_l', 'toes_l', 'torso', 'head']
+        body_parts = ["pelvis", "femur_r", "pros_tibia_r", "pros_foot_r", "femur_l",
+                      "tibia_l", "talus_l", "calcn_l", "toes_l", "torso", "head"]
         # calculate linear coordinates of pelvis to switch
         # to the reference frame attached to the pelvis
-        x, y, z = obs['body_pos']['pelvis']
+        x, y, z = obs["body_pos"]["pelvis"]
         # 30 components -- relative linear coordinates of body parts (except pelvis)
         for body_part in body_parts:
-            if body_part != 'pelvis':
-                x_, y_, z_ = obs['body_pos'][body_part]
+            if body_part != "pelvis":
+                x_, y_, z_ = obs["body_pos"][body_part]
                 res += [x_-x, y_-y, z_-z]
         # 2 components -- relative linear coordinates of center mass
-        x_, y_ = obs['misc']['mass_center_pos']
+        x_, y_ = obs["misc"]["mass_center_pos"]
         res += [x_-x, y_-y]
         # 35 components -- linear velocities of body parts (and center mass)
         for body_part in body_parts:
-            res += obs['body_vel'][body_part]
-        res += obs['misc']['mass_center_vel']
+            res += obs["body_vel"][body_part]
+        res += obs["misc"]["mass_center_vel"]
         # 35 components -- linear accelerations of body parts (and center mass)
         for body_part in body_parts:
-            res += obs['body_acc'][body_part]
-        res += obs['misc']['mass_center_acc']
+            res += obs["body_acc"][body_part]
+        res += obs["misc"]["mass_center_acc"]
         # calculate angular coordinates of pelvis to switch
         # to the reference frame attached to the pelvis
-        rx, ry, rz = obs['body_pos_rot']['pelvis']
+        rx, ry, rz = obs["body_pos_rot"]["pelvis"]
         # 30 components -- relative angular coordinates of body parts (except pelvis)
         for body_part in body_parts:
-            if body_part != 'pelvis':
-                rx_, ry_, rz_ = obs['body_pos_rot'][body_part]
+            if body_part != "pelvis":
+                rx_, ry_, rz_ = obs["body_pos_rot"][body_part]
                 res += [rx_-rx, ry_-ry, rz_-rz]
         # 33 components -- linear velocities of body parts
         for body_part in body_parts:
-            res += obs['body_vel_rot'][body_part]
+            res += obs["body_vel_rot"][body_part]
         # 33 components -- linear accelerations of body parts
         for body_part in body_parts:
-            res += obs['body_acc_rot'][body_part]
+            res += obs["body_acc_rot"][body_part]
 
         # joints
-        for joint_val in ['joint_pos', 'joint_vel', 'joint_acc']:
-            for joint in ['ground_pelvis', 'hip_r', 'knee_r', 'ankle_r',
-                          'hip_l', 'knee_l', 'ankle_l']:
+        for joint_val in ["joint_pos", "joint_vel", "joint_acc"]:
+            for joint in ["ground_pelvis", "hip_r", "knee_r", "ankle_r",
+                          "hip_l", "knee_l", "ankle_l"]:
                 res += obs[joint_val][joint][:3]
 
         # muscles
-        muscles = ['abd_r', 'add_r', 'hamstrings_r', 'bifemsh_r',
-           'glut_max_r', 'iliopsoas_r', 'rect_fem_r', 'vasti_r',
-           'abd_l', 'add_l', 'hamstrings_l', 'bifemsh_l',
-           'glut_max_l', 'iliopsoas_l', 'rect_fem_l', 'vasti_l',
-           'gastroc_l', 'soleus_l', 'tib_ant_l']
+        muscles = ["abd_r", "add_r", "hamstrings_r", "bifemsh_r",
+           "glut_max_r", "iliopsoas_r", "rect_fem_r", "vasti_r",
+           "abd_l", "add_l", "hamstrings_l", "bifemsh_l",
+           "glut_max_l", "iliopsoas_l", "rect_fem_l", "vasti_l",
+           "gastroc_l", "soleus_l", "tib_ant_l"]
         for muscle in muscles:
-            res += [obs['muscles'][muscle]['activation']]
-            res += [obs['muscles'][muscle]['fiber_length']]
-            res += [obs['muscles'][muscle]['fiber_velocity']]
+            res += [obs["muscles"][muscle]["activation"]]
+            res += [obs["muscles"][muscle]["fiber_length"]]
+            res += [obs["muscles"][muscle]["fiber_velocity"]]
         for muscle in muscles:
-            res += [obs['muscles'][muscle]['fiber_force']*force_mult]
-        forces = ['abd_r', 'add_r', 'hamstrings_r', 'bifemsh_r',
-          'glut_max_r', 'iliopsoas_r', 'rect_fem_r', 'vasti_r',
-          'abd_l', 'add_l', 'hamstrings_l', 'bifemsh_l',
-          'glut_max_l', 'iliopsoas_l', 'rect_fem_l', 'vasti_l',
-          'gastroc_l', 'soleus_l', 'tib_ant_l', 'ankleSpring',
-          'pros_foot_r_0', 'foot_l', 'HipLimit_r', 'HipLimit_l',
-          'KneeLimit_r', 'KneeLimit_l', 'AnkleLimit_r', 'AnkleLimit_l',
-          'HipAddLimit_r', 'HipAddLimit_l',]
+            res += [obs["muscles"][muscle]["fiber_force"]*force_mult]
+        forces = ["abd_r", "add_r", "hamstrings_r", "bifemsh_r",
+          "glut_max_r", "iliopsoas_r", "rect_fem_r", "vasti_r",
+          "abd_l", "add_l", "hamstrings_l", "bifemsh_l",
+          "glut_max_l", "iliopsoas_l", "rect_fem_l", "vasti_l",
+          "gastroc_l", "soleus_l", "tib_ant_l", "ankleSpring",
+          "pros_foot_r_0", "foot_l", "HipLimit_r", "HipLimit_l",
+          "KneeLimit_r", "KneeLimit_l", "AnkleLimit_r", "AnkleLimit_l",
+          "HipAddLimit_r", "HipAddLimit_l",]
 
         # forces
         for force in forces:
-            f = obs['forces'][force]
+            f = obs["forces"][force]
             if len(f) == 1: res+= [f[0]*force_mult]
 
         res = np.array(res)

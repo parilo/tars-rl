@@ -29,17 +29,17 @@ def string_to_obs(strings, obs_shapes):
 def req_to_episode(req, obs_shapes):
     """ Preprocess deserealized request to obtain episode.
     """
-    observations = string_to_obs(req['observations'], obs_shapes)
-    actions = np.array(req['actions'], dtype=np.float32)
-    rewards = np.array(req['rewards'], dtype=np.float32)
-    dones = np.array(req['dones'], dtype=np.bool)
+    observations = string_to_obs(req["observations"], obs_shapes)
+    actions = np.array(req["actions"], dtype=np.float32)
+    rewards = np.array(req["rewards"], dtype=np.float32)
+    dones = np.array(req["dones"], dtype=np.bool)
     return [observations, actions, rewards, dones]
 
 
 class RLServerAPI:
 
     def __init__(self, num_clients, observation_shapes, state_shapes,
-                 ip_address='0.0.0.0', init_port=8777, network_timeout=120):
+                 ip_address="0.0.0.0", init_port=8777, network_timeout=120):
         """ Class for RL Server which interacts with multiple RL Clients.
 
         Parameters
@@ -47,9 +47,9 @@ class RLServerAPI:
         num_clients: int
             maximal number of clients
         observation_shapes: list of tuples [obs_shape_1, ..., obs_shape_n]
-            which corresponds to observations' shapes
+            which corresponds to observations" shapes
         state_shapes: list of tuples [state_shape_1, ..., state_shape_n]
-            which corresponds to states' shapes
+            which corresponds to states" shapes
         ip_address: str
             ip address of the server
         init_port: int
@@ -86,20 +86,20 @@ class RLServerAPI:
     def agent_listener(self, request):
 
         req = deserialize(request)
-        method = req['method']
+        method = req["method"]
 
-        if method == 'act_batch':
-            states = string_to_obs(req['states'], self._state_shapes)
-            mode = req['mode']
+        if method == "act_batch":
+            states = string_to_obs(req["states"], self._state_shapes)
+            mode = req["mode"]
             response = self._act_batch_callback(states, mode)
 
-        elif method == 'act_with_gradient_batch':
-            states = string_to_obs(req['states'], self._state_shapes)
+        elif method == "act_with_gradient_batch":
+            states = string_to_obs(req["states"], self._state_shapes)
             response = self._act_with_gradient_batch_callback(states)
 
-        elif method == 'store_episode':
+        elif method == "store_episode":
             episode = req_to_episode(req, self._observation_shapes)
             self._store_episode_callback(episode)
-            response = ''
+            response = ""
 
         return serialize(response)

@@ -23,12 +23,21 @@ def out_init(layer):
             nn.init.uniform_(layer.bias.data, -v, v)
 
 
+def name2nn(name):
+    if name is None:
+        return None
+    return name if isinstance(name, nn.Module) else nn.__dict__[name]
+
+
 class Actor(nn.Module):
     def __init__(
             self, observation_shape, n_action, hiddens, layer_fn,
-            activation_fn=torch.nn.ReLU, norm_fn=None, bias=True,
+            activation_fn=nn.ReLU, norm_fn=None, bias=True,
             out_activation=nn.Sigmoid):
         super().__init__()
+        layer_fn = name2nn(layer_fn)
+        activation_fn = name2nn(activation_fn)
+        out_activation = name2nn(out_activation)
 
         n_observation = reduce(lambda x, y: x*y, observation_shape)
 
@@ -63,9 +72,13 @@ class Critic(nn.Module):
     def __init__(
             self, observation_shape, n_action, hiddens, layer_fn,
             concat_at=1, n_atoms=1,
-            activation_fn=torch.nn.ReLU, norm_fn=None, bias=True,
+            activation_fn=nn.ReLU, norm_fn=None, bias=True,
             out_activation=None):
         super().__init__()
+        layer_fn = name2nn(layer_fn)
+        activation_fn = name2nn(activation_fn)
+        out_activation = name2nn(out_activation)
+
         self.n_atoms = n_atoms
 
         n_observation = reduce(lambda x, y: x * y, observation_shape)

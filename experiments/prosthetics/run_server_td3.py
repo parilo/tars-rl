@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-sys.path.append('../../')
+sys.path.append("../../")
 
 import os
 import argparse
@@ -19,14 +19,14 @@ random.seed(seed)
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-parser = argparse.ArgumentParser(description='Train or test neural net motor controller')
-parser.add_argument('--experiment_name',
-                    dest='experiment_name',
+parser = argparse.ArgumentParser(description="Train or test neural net motor controller")
+parser.add_argument("--experiment_name",
+                    dest="experiment_name",
                     type=str,
-                    default='experiment')
+                    default="experiment")
 args = parser.parse_args()
 
-C = ExperimentConfig(env_name='prosthetics_new', experiment_name=args.experiment_name)
+C = ExperimentConfig(env_name="prosthetics_new", experiment_name=args.experiment_name)
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = str(C.gpu_id)
@@ -35,24 +35,24 @@ observation_shapes = [(C.obs_size,)]
 state_shapes = [(C.history_len, C.obs_size,)]
 
 actor = ActorNetwork(state_shapes[0], C.action_size, hiddens=[[256, 256]],
-                     activations=['relu'], output_activation='sigmoid',
-                     layer_norm=True, noisy_layer=False, scope='actor')
+                     activations=["relu"], output_activation="sigmoid",
+                     layer_norm=True, noisy_layer=False, scope="actor")
 
 critic1 = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[256], [256]],
-                        activations=['relu', 'relu'],
+                        activations=["relu", "relu"],
                         layer_norm=True, noisy_layer=False,
-                        action_insert_block=0, scope='critic1')
+                        action_insert_block=0, scope="critic1")
 
 critic2 = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[256], [256]],
-                        activations=['relu', 'relu'],
+                        activations=["relu", "relu"],
                         layer_norm=True, noisy_layer=False,
-                        action_insert_block=0, scope='critic2')
+                        action_insert_block=0, scope="critic2")
 
 def model_load_callback(sess, saver):
     pass
     # examples of loading checkpoint
     # saver.restore(sess,
-    # '/path/to/checkpoint/model-4800000.ckpt')
+    # "/path/to/checkpoint/model-4800000.ckpt")
 
 agent_algorithm = TD3(state_shapes=state_shapes,
                       action_size=C.action_size,

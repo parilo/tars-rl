@@ -24,7 +24,7 @@ class RLServer:
                  show_stats_period=20,
                  save_model_period=10000,
                  init_port=8777,
-                 ckpt_path='ckpt/'):
+                 ckpt_path="ckpt/"):
 
         self._server_api = RLServerAPI(
             num_clients,
@@ -46,7 +46,7 @@ class RLServer:
             target_actor_update_period=target_actor_update_period,
             show_stats_period=show_stats_period,
             save_model_period=save_model_period,
-            save_path=ckpt_path)
+            logdir=ckpt_path)
 
         self._train_loop.set_algorithm(agent_algorithm)
         self._train_loop.init()
@@ -56,6 +56,6 @@ class RLServer:
         self._server_api.set_store_episode_callback(self._train_loop.store_episode)
 
     def start(self):
-        print('--- starting rl server')
+        print("--- starting rl server")
         self._server_api.start_server()
         self._train_loop.start_training()

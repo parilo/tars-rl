@@ -68,7 +68,7 @@ class CategoricalDDPG(BaseAlgo):
         tz_z = torch.clamp(
             (1.0 - (torch.abs(tz_z) / self.delta_z)), 0., 1.)
         target_probs = torch.einsum(
-            'bij,bj->bi', (tz_z, next_probs)).detach()
+            "bij,bj->bi", (tz_z, next_probs)).detach()
 
         value_loss = -torch.sum(
             target_probs * torch.log(agent_probs + 1e-6))
@@ -101,6 +101,6 @@ class CategoricalDDPG(BaseAlgo):
 
     def _get_info(self):
         info = super(CategoricalDDPG, self)._get_info()
-        info['algo'] = 'CategoricalDDPG'
-        info['num_atoms'] = self._critic.n_atoms
+        info["algo"] = "CategoricalDDPG"
+        info["num_atoms"] = self._critic.n_atoms
         return info

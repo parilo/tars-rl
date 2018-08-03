@@ -1,5 +1,6 @@
 import os
 import tensorflow as tf
+import torch
 import time
 from rl_server.server.server_replay_buffer import ServerBuffer
 from threading import Lock, Thread
@@ -7,9 +8,9 @@ import multiprocessing
 
 
 def make_session(num_cpu=None, make_default=False, graph=None):
-    """Returns a session that will use <num_cpu> CPU's only"""
+    """Returns a session that will use <num_cpu> CPU"s only"""
     if num_cpu is None:
-        num_cpu = int(os.getenv('RCALL_NUM_CPU', multiprocessing.cpu_count()))
+        num_cpu = int(os.getenv("RCALL_NUM_CPU", multiprocessing.cpu_count()))
     tf_config = tf.ConfigProto(
         inter_op_parallelism_threads=num_cpu,
         intra_op_parallelism_threads=num_cpu)
@@ -43,7 +44,7 @@ class RLTrainer:
             start_learning_after=5000,
             show_stats_period=2000,
             save_model_period=10000,
-            save_path='ckpt/'):
+            logdir="ckpt/"):
 
         self._observation_shapes = observation_shapes
         self._action_size = action_size
@@ -60,7 +61,7 @@ class RLTrainer:
         self._beta = initial_beta
         self._use_prioritized_buffer = use_prioritized_buffer
         self._use_synchronous_update = use_synchronous_update
-        self._save_path = save_path
+        self._logdir = logdir
 
         self.server_buffer = ServerBuffer(
             self._buffer_size, observation_shapes, action_size)
@@ -88,7 +89,7 @@ class RLTrainer:
                             self._step_index += 1
                     elif buffer_size < self._start_learning_after \
                             and self._step_index % 10 == 0:
-                        print('--- buffer size {}'.format(buffer_size))
+                        print("--- buffer size {}".format(buffer_size))
                         time.sleep(1.0)
 
             th = Thread(target=train_loop)
@@ -110,14 +111,14 @@ class RLTrainer:
                         self._step_index += 1
                         i += 1
             elif buffer_size < self._start_learning_after:
-                print('--- buffer size {}'.format(buffer_size))
+                print("--- buffer size {}".format(buffer_size))
 
-    def act_batch(self, states, mode='default'):
-        if mode == 'default':
+    def act_batch(self, states, mode="default"):
+        if mode == "default":
             actions = self._algo.act_batch(states)
-        elif mode == 'sac_deterministic':
+        elif mode == "sac_deterministic":
             actions = self._algo.act_batch_deterministic(states)
-        elif mode == 'with_gradients':
+        elif mode == "with_gradients":
             # actually, here it will return actions and grads
             actions = self._algo.act_batch_with_gradients(states)
         else:
@@ -143,9 +144,10 @@ class RLTrainer:
             self.server_buffer.update_td_errors(indices, td_errors)
             self._beta = min(1.0, self._beta + 1e-6)
         else:
-            batch = self.server_buffer.get_batch(self._batch_size,
-                                                 history_len=self._hist_len,
-                                                 n_step=self._n_step)
+            batch = self.server_buffer.get_batch(
+                self._batch_size,
+                history_len=self._hist_len,
+                n_step=self._n_step)
             loss = self._algo.train(batch)
 
         if self._step_index % self._target_critic_update_period == 0:
@@ -156,7 +158,7 @@ class RLTrainer:
 
         if self._step_index % self._show_stats_period == 0:
             print(
-                'trains: {} loss: {} stored: {}'.format(
+                "trains: {} loss: {} stored: {}".format(
                     self._step_index, loss, queue_size))
 
         self.save()
@@ -175,12 +177,12 @@ class TFRLTrainer(RLTrainer):
         self._saver = tf.train.Saver(max_to_keep=None)
         self._algo.target_network_init(self._sess)
 
-    def act_batch(self, states, mode='default'):
-        if mode == 'default':
+    def act_batch(self, states, mode="default"):
+        if mode == "default":
             actions = self._algo.act_batch(self._sess, states)
-        if mode == 'sac_deterministic':
+        if mode == "sac_deterministic":
             actions = self._algo.act_batch_deterministic(self._sess, states)
-        if mode == 'with_gradients':
+        if mode == "with_gradients":
             # actually, here it will return actions and grads
             actions = self._algo.act_batch_with_gradients(self._sess, states)
         if self._use_synchronous_update:
@@ -204,9 +206,10 @@ class TFRLTrainer(RLTrainer):
             self.server_buffer.update_td_errors(indices, td_errors)
             self._beta = min(1.0, self._beta + 1e-6)
         else:
-            batch = self.server_buffer.get_batch(self._batch_size,
-                                                 history_len=self._hist_len,
-                                                 n_step=self._n_step)
+            batch = self.server_buffer.get_batch(
+                self._batch_size,
+                history_len=self._hist_len,
+                n_step=self._n_step)
             loss = self._algo.train(self._sess, batch)
 
         if self._step_index % self._target_critic_update_period == 0:
@@ -217,7 +220,7 @@ class TFRLTrainer(RLTrainer):
 
         if self._step_index % self._show_stats_period == 0:
             print(
-                'trains: {} loss: {} stored: {}'.format(
+                "trains: {} loss: {} stored: {}".format(
                     self._step_index, loss, queue_size))
 
         self.save()
@@ -225,6 +228,20 @@ class TFRLTrainer(RLTrainer):
     def save(self):
         if self._step_index % self._save_model_period == 0:
             save_path = self._saver.save(
-                self._sess, self._save_path + 'model-{}.ckpt'.format(
+                self._sess, self._logdir + "model-{}.ckpt".format(
                     self._step_index))
             print("Model saved in file: %s" % save_path)
+
+
+class TorchRLTrainer(RLTrainer):
+    def save(self):
+        if self._step_index % self._save_model_period == 0:
+            actor_state_dict = self._algo._actor.state_dict()
+            filename = "{logdir}/actor.{suffix}.pth.tar".format(
+                logdir=self._logdir, suffix=str(self._step_index))
+            torch.save(actor_state_dict, filename)
+
+            criitc_state_dict = self._algo._critic.state_dict()
+            filename = "{logdir}/critic.{suffix}.pth.tar".format(
+                logdir=self._logdir, suffix=str(self._step_index))
+            torch.save(criitc_state_dict, filename)

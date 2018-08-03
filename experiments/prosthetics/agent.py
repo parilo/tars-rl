@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-sys.path.append('../../')
+sys.path.append("../../")
 
 import os
 import argparse
@@ -15,30 +15,30 @@ from envs.prosthetics_new import ProstheticsEnvWrap
 from misc.experiment_config import ExperimentConfig
 
 # parse input arguments
-parser = argparse.ArgumentParser(description='Train or test neural net motor controller')
-parser.add_argument('--random_start',
-                    dest='random_start',
-                    action='store_true',
+parser = argparse.ArgumentParser(description="Train or test neural net motor controller")
+parser.add_argument("--random_start",
+                    dest="random_start",
+                    action="store_true",
                     default=False)
-parser.add_argument('--id',
-                    dest='id',
+parser.add_argument("--id",
+                    dest="id",
                     type=int,
                     default=0)
-parser.add_argument('--visualize',
-                    dest='visualize',
-                    action='store_true',
+parser.add_argument("--visualize",
+                    dest="visualize",
+                    action="store_true",
                     default=False)
-parser.add_argument('--validation',
-                    dest='validation',
-                    action='store_true',
+parser.add_argument("--validation",
+                    dest="validation",
+                    action="store_true",
                     default=False)
-parser.add_argument('--experiment_name',
-                    dest='experiment_name',
+parser.add_argument("--experiment_name",
+                    dest="experiment_name",
                     type=str,
-                    default='experiment')
+                    default="experiment")
 args = parser.parse_args()
 
-C = ExperimentConfig(env_name='prosthetics_new', experiment_name=args.experiment_name)
+C = ExperimentConfig(env_name="prosthetics_new", experiment_name=args.experiment_name)
 env = ProstheticsEnvWrap(
     frame_skip=C.frame_skip,
     visualize=args.visualize,
@@ -107,14 +107,14 @@ while True:
     if done:
         episode = agent_buffer.get_complete_episode()
         rl_client.store_episode(episode)
-        print('--- episode ended {} {} {}'.format(episode_index, env.time_step, env.get_total_reward()))
+        print("--- episode ended {} {} {}".format(episode_index, env.time_step, env.get_total_reward()))
 
         if args.validation:
             path_to_rewards = C.path_to_rewards_test
         else:
             path_to_rewards = C.path_to_rewards_train
-        with open(path_to_rewards, 'a') as f:
-            f.write(str(args.id) + ' ' + str(episode_index) + ' ' + str(env.get_total_reward()) + '\n')
+        with open(path_to_rewards, "a") as f:
+            f.write(str(args.id) + " " + str(episode_index) + " " + str(env.get_total_reward()) + "\n")
 
         episode_index += 1
         agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)

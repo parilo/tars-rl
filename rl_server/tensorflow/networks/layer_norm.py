@@ -11,8 +11,8 @@ class LayerNorm(Layer):
 
     def build(self, input_shape):
         input_dim = input_shape[self.axis]
-        self.gamma = self.add_weight(shape=(input_dim,), initializer='ones', name='gamma')
-        self.beta = self.add_weight(shape=(input_dim,), initializer='zeros', name='beta')
+        self.gamma = self.add_weight(shape=(input_dim,), initializer="ones", name="gamma")
+        self.beta = self.add_weight(shape=(input_dim,), initializer="zeros", name="beta")
         super(LayerNorm, self).build(input_shape)
 
     def call(self, x):

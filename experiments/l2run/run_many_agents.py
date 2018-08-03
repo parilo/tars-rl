@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-sys.path.append('../../')
+sys.path.append("../../")
 
 import subprocess
 import atexit
@@ -12,17 +12,17 @@ ps = []
 agent_id = 0
 for i in range(0):
     ps.append(subprocess.Popen(
-        ['python', 'agent.py', '--visualize=1', '--id', str(agent_id)]
+        ["python", "agent.py", "--visualize=1", "--id", str(agent_id)]
     ))
     agent_id += 1
 
 for i in range(30):
-    ps.append(subprocess.Popen(['python', 'agent.py', '--id', str(agent_id)]))
+    ps.append(subprocess.Popen(["python", "agent.py", "--id", str(agent_id)]))
     agent_id += 1
 
 for i in range(10):
     ps.append(subprocess.Popen(
-        ['python', 'agent.py', '--random_start', '--id', str(agent_id)]
+        ["python", "agent.py", "--random_start", "--id", str(agent_id)]
     ))
     agent_id += 1
 

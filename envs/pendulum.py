@@ -7,7 +7,7 @@ class Pendulum:
 
     def __init__(self, frame_skip=1, visualize=False):
         self.visualize = visualize
-        self.env = gym.make('Pendulum-v0')
+        self.env = gym.make("Pendulum-v0")
         self.frame_skip = frame_skip
         self.observation_shapes = [(3,)]
         self.action_size = 1

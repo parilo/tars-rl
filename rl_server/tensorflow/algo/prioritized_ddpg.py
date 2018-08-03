@@ -26,7 +26,7 @@ class PrioritizedDDPG(BaseDDPG):
         super(PrioritizedDDPG, self)._create_placeholders()
 
         # additional placeholder for importance sampling weights
-        self._is_weights = tf.placeholder(tf.float32, (None, ), name='importance_sampling_weights')
+        self._is_weights = tf.placeholder(tf.float32, (None, ), name="importance_sampling_weights")
         
     def _get_critic_update(self):
 
