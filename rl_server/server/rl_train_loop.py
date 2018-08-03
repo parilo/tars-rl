@@ -5,6 +5,9 @@ import time
 from rl_server.server.server_replay_buffer import ServerBuffer
 from threading import Lock, Thread
 import multiprocessing
+from tensorboardX import SummaryWriter
+from misc.defaults import create_if_need
+from datetime import datetime
 
 
 def make_session(num_cpu=None, make_default=False, graph=None):
@@ -62,11 +65,19 @@ class RLTrainer:
         self._use_prioritized_buffer = use_prioritized_buffer
         self._use_synchronous_update = use_synchronous_update
         self._logdir = logdir
+        current_date = datetime.now().strftime('%y-%m-%d-%H-%M-%S-%M-%f')
+        logpath = f"{logdir}/tower-{current_date}"
+        create_if_need(logpath)
+        self._logger = SummaryWriter(logpath)
 
         self.server_buffer = ServerBuffer(
             self._buffer_size, observation_shapes, action_size)
         self._train_loop_step_lock = Lock()
         self._step_index = 0
+
+        self._target_actor_update_num = 0
+        self._target_critic_update_num = 0
+        self._n_saved = 0
 
     def set_algorithm(self, algo):
         self._algo = algo
@@ -130,6 +141,7 @@ class RLTrainer:
     def train_step(self):
 
         queue_size = self.server_buffer.get_stored_in_buffer()
+        self._logger.add_scalar("buffer size", queue_size, self._step_index)
 
         if self._use_prioritized_buffer:
 
@@ -150,11 +162,27 @@ class RLTrainer:
                 n_step=self._n_step)
             loss = self._algo.train(batch)
 
+        if isinstance(loss, dict):
+            for key, value in loss.items():
+                self._logger.add_scalar(key, value, self._step_index)
+        else:
+            self._logger.add_scalar("loss", loss, self._step_index)
+
         if self._step_index % self._target_critic_update_period == 0:
             self._algo.target_critic_update()
+            self._target_critic_update_num += 1
+            self._logger.add_scalar(
+                "target critic update num",
+                self._target_critic_update_num,
+                self._step_index)
 
         if self._step_index % self._target_actor_update_period == 0:
             self._algo.target_actor_update()
+            self._target_actor_update_num += 1
+            self._logger.add_scalar(
+                "target actor update num",
+                self._target_actor_update_num,
+                self._step_index)
 
         if self._step_index % self._show_stats_period == 0:
             print(
@@ -231,6 +259,11 @@ class TFRLTrainer(RLTrainer):
                 self._sess, self._logdir + "model-{}.ckpt".format(
                     self._step_index))
             print("Model saved in file: %s" % save_path)
+            self._n_saved += 1
+            self._logger.add_scalar(
+                "num saved",
+                self._n_saved,
+                self._step_index)
 
 
 class TorchRLTrainer(RLTrainer):
@@ -240,8 +273,16 @@ class TorchRLTrainer(RLTrainer):
             filename = "{logdir}/actor.{suffix}.pth.tar".format(
                 logdir=self._logdir, suffix=str(self._step_index))
             torch.save(actor_state_dict, filename)
+            print("Actor saved in: %s" % filename)
 
             criitc_state_dict = self._algo._critic.state_dict()
             filename = "{logdir}/critic.{suffix}.pth.tar".format(
                 logdir=self._logdir, suffix=str(self._step_index))
             torch.save(criitc_state_dict, filename)
+            print("Critic saved in: %s" % filename)
+
+            self._n_saved += 1
+            self._logger.add_scalar(
+                "num saved",
+                self._n_saved,
+                self._step_index)
