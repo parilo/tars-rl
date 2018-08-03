@@ -71,22 +71,25 @@ class Critic(nn.Module):
         n_observation = reduce(lambda x, y: x * y, observation_shape)
 
         if concat_at > 0:
+            hiddens_ = [n_observation] + hiddens[0:concat_at]
             self.observation_net = SequentialNet(
-                hiddens=[n_observation] + hiddens[0:concat_at],
+                hiddens=hiddens_,
                 layer_fn=layer_fn,
                 activation_fn=activation_fn,
                 norm_fn=norm_fn,
                 bias=bias)
+            hiddens_ = [hiddens[concat_at-1] + n_action] + hiddens[concat_at:]
             self.feature_net = SequentialNet(
-                hiddens=[hiddens[concat_at] + n_action] + hiddens[concat_at:],
+                hiddens=hiddens_,
                 layer_fn=layer_fn,
                 activation_fn=activation_fn,
                 norm_fn=norm_fn,
                 bias=bias)
         else:
             self.observation_net = None
+            hiddens_ = [n_observation + n_action] + hiddens
             self.feature_net = SequentialNet(
-                hiddens=[n_observation + n_action] + hiddens,
+                hiddens=hiddens_,
                 layer_fn=layer_fn,
                 activation_fn=activation_fn,
                 norm_fn=norm_fn,

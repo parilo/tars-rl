@@ -1,0 +1,17 @@
+# Env
+obs_size: 333
+action_size: 19
+frame_skip: 1
+
+# Algorithm
+history_len: 1
+n_step: 1
+gamma: 0.99
+batch_size: 256
+
+# Buffer
+use_prioritized_buffer: false
+
+# Trainer
+use_synchronous_update: true
+port: 8777
