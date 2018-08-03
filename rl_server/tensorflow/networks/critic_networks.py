@@ -6,7 +6,7 @@ from .layer_norm import LayerNorm
 from .noisy_dense import NoisyDense
 
 
-def dense_block(input_layer, hiddens, activation='relu', 
+def dense_block(input_layer, hiddens, activation="relu",
                 layer_norm=False, noisy_layer=False):
     out = input_layer 
     for num_units in hiddens:
@@ -24,7 +24,7 @@ class CriticNetwork:
 
     def __init__(self, state_shape, action_size,
                  hiddens = [[256, 128], [64, 32]],
-                 activations=['relu', 'tanh'],
+                 activations=["relu", "tanh"],
                  action_insert_block=0,
                  layer_norm=False, noisy_layer=False,
                  output_activation=None, scope=None):
@@ -37,15 +37,15 @@ class CriticNetwork:
         self.layer_norm = layer_norm
         self.noisy_layer = noisy_layer
         self.out_activation = output_activation
-        self.scope = scope or 'CriticNetwork'
+        self.scope = scope or "CriticNetwork"
         self.model = self.build_model()
 
     def build_model(self):
-        input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
+        input_state = keras.layers.Input(shape=self.state_shape, name="state_input")
         if self.act_insert_block == -1:
             model_inputs = [input_state]
         else:
-            input_action = keras.layers.Input(shape=(self.action_size, ), name='action_input')
+            input_action = keras.layers.Input(shape=(self.action_size, ), name="action_input")
             model_inputs = [input_state, input_action]
 
         input_size = self.get_input_size(self.state_shape)
@@ -97,13 +97,13 @@ class CriticNetwork:
 
     def get_info(self):
         info = {}
-        info['architecture'] = 'standard'
-        info['hiddens'] = self.hiddens
-        info['activations'] = self.activations
-        info['layer_norm'] = self.layer_norm
-        info['noisy_layer'] = self.noisy_layer
-        info['output_activation'] = self.out_activation
-        info['action_insert_block'] = self.act_insert_block
+        info["architecture"] = "standard"
+        info["hiddens"] = self.hiddens
+        info["activations"] = self.activations
+        info["layer_norm"] = self.layer_norm
+        info["noisy_layer"] = self.noisy_layer
+        info["output_activation"] = self.out_activation
+        info["action_insert_block"] = self.act_insert_block
         return info
 
 
@@ -111,7 +111,7 @@ class DuelingCriticNetwork(CriticNetwork):
 
     def __init__(self, state_shape, action_size,
                  hiddens = [[256, 128], [64, 32]],
-                 activations=['relu', 'tanh'],
+                 activations=["relu", "tanh"],
                  action_insert_block=0,
                  layer_norm=False, noisy_layer=False,
                  output_activation=None, scope=None):
@@ -124,12 +124,12 @@ class DuelingCriticNetwork(CriticNetwork):
         self.noisy_layer = noisy_layer
         self.act_insert_block = action_insert_block
         self.out_activation = output_activation
-        self.scope = scope or 'DuelingCriticNetwork'
+        self.scope = scope or "DuelingCriticNetwork"
         self.model = self.build_model()
         
     def build_model(self):
-        input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
-        input_action = keras.layers.Input(shape=(self.action_size, ), name='action_input')
+        input_state = keras.layers.Input(shape=self.state_shape, name="state_input")
+        input_action = keras.layers.Input(shape=(self.action_size, ), name="action_input")
         input_size = self.get_input_size(self.state_shape)
         out = Reshape((input_size, ))(input_state)
         with tf.variable_scope(self.scope):
@@ -155,14 +155,14 @@ class DuelingCriticNetwork(CriticNetwork):
 
     def get_info(self):
         info = super(DuelingCriticNetwork, self).get_info()
-        info['architecture'] = 'dueling'
+        info["architecture"] = "dueling"
 
 
 class QuantileCriticNetwork(CriticNetwork):
 
     def __init__(self, state_shape, action_size,
                  hiddens = [[256, 128], [64, 32]],
-                 activations=['relu', 'tanh'],
+                 activations=["relu", "tanh"],
                  action_insert_block=0,
                  num_atoms=50,
                  layer_norm=False, noisy_layer=False,
@@ -182,12 +182,12 @@ class QuantileCriticNetwork(CriticNetwork):
         self.tau = tf.lin_space(start=tau_min, stop=tau_max, num=num_atoms)
 
         self.out_activation = output_activation
-        self.scope = scope or 'QuantileCriticNetwork'
+        self.scope = scope or "QuantileCriticNetwork"
         self.model = self.build_model()
 
     def build_model(self):
-        input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
-        input_action = keras.layers.Input(shape=(self.action_size, ), name='action_input')
+        input_state = keras.layers.Input(shape=self.state_shape, name="state_input")
+        input_action = keras.layers.Input(shape=(self.action_size, ), name="action_input")
         input_size = self.get_input_size(self.state_shape)
         out = Reshape((input_size, ))(input_state)
         with tf.variable_scope(self.scope):
@@ -219,15 +219,15 @@ class QuantileCriticNetwork(CriticNetwork):
 
     def get_info(self):
         info = super(QuantileCriticNetwork, self).get_info()
-        info['architecture'] = 'quantile'
-        info['num_atoms'] = self.num_atoms
+        info["architecture"] = "quantile"
+        info["num_atoms"] = self.num_atoms
 
 
 class CategoricalCriticNetwork(CriticNetwork):
 
     def __init__(self, state_shape, action_size,
                  hiddens = [[256, 128], [64, 32]],
-                 activations=['relu', 'tanh'],
+                 activations=["relu", "tanh"],
                  action_insert_block=0,
                  num_atoms=51, v=(-10., 10.),
                  layer_norm=False, noisy_layer=False,
@@ -247,12 +247,12 @@ class CategoricalCriticNetwork(CriticNetwork):
         self.z = tf.lin_space(start=self.v_min, stop=self.v_max, num=num_atoms)
 
         self.out_activation = output_activation
-        self.scope = scope or 'CategoricalCriticNetwork'
+        self.scope = scope or "CategoricalCriticNetwork"
         self.model = self.build_model()
 
     def build_model(self):
-        input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
-        input_action = keras.layers.Input(shape=(self.action_size, ), name='action_input')
+        input_state = keras.layers.Input(shape=self.state_shape, name="state_input")
+        input_action = keras.layers.Input(shape=(self.action_size, ), name="action_input")
         input_size = self.get_input_size(self.state_shape)
         out = Reshape((input_size, ))(input_state)
         with tf.variable_scope(self.scope):
@@ -284,6 +284,6 @@ class CategoricalCriticNetwork(CriticNetwork):
 
     def get_info(self):
         info = super(CategoricalCriticNetwork, self).get_info()
-        info['architecture'] = 'categorical'
-        info['num_atoms'] = self.num_atoms
-        info['domain'] = (self.v_min, self.v_max)
+        info["architecture"] = "categorical"
+        info["num_atoms"] = self.num_atoms
+        info["domain"] = (self.v_min, self.v_max)

@@ -23,7 +23,7 @@ def obs_to_string(observations):
     return str_obs
 
 
-def episode_to_req(episode, method='store_episode'):
+def episode_to_req(episode, method="store_episode"):
     """ Create compact serialized representation of the episode
         to pass it as a request.
     """
@@ -32,17 +32,17 @@ def episode_to_req(episode, method='store_episode'):
     str_act = actions.tolist()
     str_rew = rewards.tolist()
     str_don = dones.tolist()
-    req = serialize({'method': method,
-                     'observations': str_obs,
-                     'actions': str_act,
-                     'rewards': str_rew,
-                     'dones': str_don})
+    req = serialize({"method": method,
+                     "observations": str_obs,
+                     "actions": str_act,
+                     "rewards": str_rew,
+                     "dones": str_don})
     return req
 
 
 class RLClient:
 
-    def __init__(self, ip_address='127.0.0.1', port=8777, network_timeout=120):
+    def __init__(self, ip_address="127.0.0.1", port=8777, network_timeout=120):
         """ Class for RL Client which interacts with RL Server.
 
         Parameters
@@ -58,7 +58,7 @@ class RLClient:
         self._tcp_client.connect()
         self._tcp_lock = threading.Lock()
 
-    def act(self, state, mode='default'):
+    def act(self, state, mode="default"):
         """
             state is list of state parts
             in case you have many modalities in
@@ -67,7 +67,7 @@ class RLClient:
         """
         return self.act_batch(state, mode)[0]
 
-    def act_batch(self, states, mode='default'):
+    def act_batch(self, states, mode="default"):
         """
             state is list of state parts
             in case you have many modalities in
@@ -75,9 +75,9 @@ class RLClient:
             differently in the NN
         """
         str_states = obs_to_string(states)
-        req = serialize({'method': 'act_batch',
-                         'states': str_states,
-                         'mode': mode})
+        req = serialize({"method": "act_batch",
+                         "states": str_states,
+                         "mode": mode})
         with self._tcp_lock:
             data = self._tcp_client.write_and_read_with_retries(req)
             return deserialize(data)
@@ -90,13 +90,13 @@ class RLClient:
             differently in the NN
         """
         str_states = obs_to_string(states)
-        req = serialize({'method': 'act_with_gradient_batch',
-                         'states': str_states})
+        req = serialize({"method": "act_with_gradient_batch",
+                         "states": str_states})
         with self._tcp_lock:
             data = self._tcp_client.write_and_read_with_retries(req)
             return deserialize(data)
 
     def store_episode(self, episode):
-        req = episode_to_req(episode, method='store_episode')
+        req = episode_to_req(episode, method="store_episode")
         with self._tcp_lock:
             self._tcp_client.write_and_read_with_retries(req)

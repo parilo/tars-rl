@@ -26,9 +26,9 @@ class TD3(BaseDDPG):
         self._actor = actor
         self._critic1 = critic1
         self._critic2 = critic2
-        self._target_actor = actor.copy(scope='target_actor')
-        self._target_critic1 = critic1.copy(scope='target_critic1')
-        self._target_critic2 = critic2.copy(scope='target_critic2')
+        self._target_actor = actor.copy(scope="target_actor")
+        self._target_critic1 = critic1.copy(scope="target_critic1")
+        self._target_critic2 = critic2.copy(scope="target_critic2")
         self._actor_optimizer = actor_optimizer
         self._critic1_optimizer = critic1_optimizer
         self._critic2_optimizer = critic2_optimizer
@@ -108,15 +108,15 @@ class TD3(BaseDDPG):
 
     def _get_info(self):
         info = {}
-        info['algo'] = 'td3'
-        info['actor'] = self._actor.get_info()
-        info['critic1'] = self._critic1.get_info()
-        info['critic2'] = self._critic2.get_info()
-        info['grad_clip'] = self._grad_clip
-        info['action_noise_std'] = self._act_noise_std
-        info['action_noise_clip'] = self._act_noise_clip
-        info['discount_factor'] = self._gamma
-        info['target_actor_update_rate'] = self._update_rates[0]
-        info['target_critic1_update_rate'] = self._update_rates[1]
-        info['target_critic2_update_rate'] = self._update_rates[2]
+        info["algo"] = "td3"
+        info["actor"] = self._actor.get_info()
+        info["critic1"] = self._critic1.get_info()
+        info["critic2"] = self._critic2.get_info()
+        info["grad_clip"] = self._grad_clip
+        info["action_noise_std"] = self._act_noise_std
+        info["action_noise_clip"] = self._act_noise_clip
+        info["discount_factor"] = self._gamma
+        info["target_actor_update_rate"] = self._update_rates[0]
+        info["target_critic1_update_rate"] = self._update_rates[1]
+        info["target_critic2_update_rate"] = self._update_rates[2]
         return info

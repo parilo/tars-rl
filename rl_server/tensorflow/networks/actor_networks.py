@@ -6,7 +6,7 @@ from .layer_norm import LayerNorm
 from .noisy_dense import NoisyDense
 
 
-def dense_block(input_layer, hiddens, activation='relu', 
+def dense_block(input_layer, hiddens, activation="relu",
                 layer_norm=False, noisy_layer=False):
     out = input_layer 
     for num_units in hiddens:
@@ -24,7 +24,7 @@ class ActorNetwork:
 
     def __init__(self, state_shape, action_size,
                  hiddens = [[256, 128], [64, 32]], 
-                 activations=['relu', 'tanh'],
+                 activations=["relu", "tanh"],
                  layer_norm=False, noisy_layer=False,
                  output_activation=None, scope=None):
 
@@ -35,11 +35,11 @@ class ActorNetwork:
         self.layer_norm = layer_norm
         self.noisy_layer = noisy_layer
         self.out_activation = output_activation
-        self.scope = scope or 'ActorNetwork'
+        self.scope = scope or "ActorNetwork"
         self.model = self.build_model()
 
     def build_model(self):
-        input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
+        input_state = keras.layers.Input(shape=self.state_shape, name="state_input")
         input_size = self.get_input_size(self.state_shape)
         out = Reshape((input_size, ))(input_state)
         with tf.variable_scope(self.scope):
@@ -83,19 +83,19 @@ class ActorNetwork:
 
     def get_info(self):
         info = {}
-        info['architecture'] = 'standard'
-        info['hiddens'] = self.hiddens
-        info['activations'] = self.activations
-        info['layer_norm'] = self.layer_norm
-        info['noisy_layer'] = self.noisy_layer
-        info['output_activation'] = self.out_activation
+        info["architecture"] = "standard"
+        info["hiddens"] = self.hiddens
+        info["activations"] = self.activations
+        info["layer_norm"] = self.layer_norm
+        info["noisy_layer"] = self.noisy_layer
+        info["output_activation"] = self.out_activation
         return info
 
 class GMMActorNetwork(ActorNetwork):
     
     def __init__(self, state_shape, action_size,
                  hiddens = [[256, 128], [64, 32]], 
-                 activations=['relu', 'tanh'],
+                 activations=["relu", "tanh"],
                  num_components=1,
                  layer_norm=False, noisy_layer=False,
                  output_activation=None, scope=None):
@@ -108,11 +108,11 @@ class GMMActorNetwork(ActorNetwork):
         self.layer_norm = layer_norm
         self.noisy_layer = noisy_layer
         self.out_activation = output_activation
-        self.scope = scope or 'GMMActorNetwork'
+        self.scope = scope or "GMMActorNetwork"
         self.model = self.build_model()
 
     def build_model(self):
-        input_state = keras.layers.Input(shape=self.state_shape, name='state_input')
+        input_state = keras.layers.Input(shape=self.state_shape, name="state_input")
         input_size = self.get_input_size(self.state_shape)
         out = Reshape((input_size, ))(input_state)
         with tf.variable_scope(self.scope):
@@ -153,6 +153,6 @@ class GMMActorNetwork(ActorNetwork):
         
     def get_info(self):
         info = super(GMMActorNetwork, self).get_info()
-        info['architecture'] = 'GMM'
-        info['num_components'] = self.K
+        info["architecture"] = "GMM"
+        info["num_components"] = self.K
         return info

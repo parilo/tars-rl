@@ -26,7 +26,7 @@ class ServerBuffer:
 
         self.pointer = 0
         self._store_lock = RLock()
-        self.transition = namedtuple('Transition', ('s', 'a', 'r', 's_', 'done'))
+        self.transition = namedtuple("Transition", ("s", "a", "r", "s_", "done"))
 
     def push_episode(self, episode):
         """ episode = [observations, actions, rewards, dones]
@@ -119,11 +119,11 @@ class ServerBuffer:
 
     def get_prioritized_batch(self, batch_size, history_len=1,
                               n_step=1, gamma=0.99,
-                              priority='proportional', alpha=0.6, beta=1.0):
+                              priority="proportional", alpha=0.6, beta=1.0):
 
         with self._store_lock:
 
-            if priority == 'proportional':
+            if priority == "proportional":
                 p = np.power(np.abs(self.td_errors[:self.num_in_buffer])+1e-6, alpha)
                 p = p / p.sum()
                 indices = np.random.choice(range(self.num_in_buffer), size=batch_size, p=p)

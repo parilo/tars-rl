@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-sys.path.append('../../')
+sys.path.append("../../")
 
 import os
 import argparse
@@ -19,14 +19,14 @@ random.seed(seed)
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-parser = argparse.ArgumentParser(description='Train or test neural net motor controller')
-parser.add_argument('--experiment_name',
-                    dest='experiment_name',
+parser = argparse.ArgumentParser(description="Train or test neural net motor controller")
+parser.add_argument("--experiment_name",
+                    dest="experiment_name",
                     type=str,
-                    default='experiment')
+                    default="experiment")
 args = parser.parse_args()
 
-C = ExperimentConfig(env_name='lunar_lander', experiment_name=args.experiment_name)
+C = ExperimentConfig(env_name="lunar_lander", experiment_name=args.experiment_name)
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = str(C.gpu_id)
@@ -35,25 +35,25 @@ observation_shapes = [(C.obs_size,)]
 state_shapes = [(C.history_len, C.obs_size,)]
 
 actor = GMMActorNetwork(state_shapes[0], C.action_size, hiddens=[[256, 256]],
-                        activations=['relu'], output_activation='tanh',
+                        activations=["relu"], output_activation="tanh",
                         layer_norm=True, noisy_layer=False,
-                        num_components=4, scope='actor')
+                        num_components=4, scope="actor")
 
 critic_v = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[256, 256]],
-                         activations=['relu'], output_activation=None,
+                         activations=["relu"], output_activation=None,
                          layer_norm=True, noisy_layer=False,
-                         action_insert_block=-1, scope='critic_v')
+                         action_insert_block=-1, scope="critic_v")
 
 critic_q = CriticNetwork(state_shapes[0], C.action_size, hiddens=[[256], [256]],
-                         activations=['relu', 'relu'], output_activation=None,
+                         activations=["relu", "relu"], output_activation=None,
                          layer_norm=True, noisy_layer=False,
-                         action_insert_block=1, scope='critic_q')
+                         action_insert_block=1, scope="critic_q")
 
 def model_load_callback(sess, saver):
     pass
     # examples of loading checkpoint
     # saver.restore(sess,
-    # '/path/to/checkpoint/model-4800000.ckpt')
+    # "/path/to/checkpoint/model-4800000.ckpt")
 
 agent_algorithm = SAC(state_shapes=state_shapes,
                       action_size=C.action_size,

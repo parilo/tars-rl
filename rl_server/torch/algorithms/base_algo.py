@@ -70,13 +70,13 @@ class BaseAlgo:
 
     def _get_info(self):
         info = {}
-        info['algo'] = 'base_algo'
-        info['actor'] = self._actor.get_info()
-        info['critic'] = self._critic.get_info()
-        info['n_step'] = self._n_step
-        info['actor_grad_clip'] = self._actor_grad_clip
-        info['critic_grad_clip'] = self._critic_grad_clip
-        info['discount_factor'] = self._gamma
-        info['target_actor_update_rate'] = self._target_actor_update_rate
-        info['target_critic_update_rate'] = self._target_critic_update_rate
+        info["algo"] = "base_algo"
+        info["actor"] = self._actor.get_info()
+        info["critic"] = self._critic.get_info()
+        info["n_step"] = self._n_step
+        info["actor_grad_clip"] = self._actor_grad_clip
+        info["critic_grad_clip"] = self._critic_grad_clip
+        info["discount_factor"] = self._gamma
+        info["target_actor_update_rate"] = self._target_actor_update_rate
+        info["target_critic_update_rate"] = self._target_critic_update_rate
         return info

@@ -32,18 +32,18 @@ class NoisyDense(Layer):
 
         self.kernel_mu = self.add_weight(shape=(self.input_dim, self.units),
                                          initializer=RandomUniform(-init_mu, init_mu),
-                                         name='kernel_mu')
+                                         name="kernel_mu")
         self.kernel_sigma = self.add_weight(shape=(self.input_dim, self.units),
                                             initializer=RandomUniform(-init_sig, init_sig),
-                                            name='kernel_sigma')
+                                            name="kernel_sigma")
 
         if self.use_bias:
             self.bias_mu = self.add_weight(shape=(self.units,),
                                            initializer=RandomUniform(-init_mu, init_mu),
-                                           name='bias_mu')
+                                           name="bias_mu")
             self.bias_sigma = self.add_weight(shape=(self.units,),
                                               initializer=RandomUniform(-init_sig, init_sig),
-                                              name='bias_sigma')
+                                              name="bias_sigma")
 
         self.input_spec = InputSpec(min_ndim=2, axes={-1: self.input_dim})
         self.built = True
@@ -65,7 +65,7 @@ class NoisyDense(Layer):
         out = K.dot(inputs, self.kernel_mu + self.kernel_sigma * kernel_noise)
         if self.use_bias:
             out = K.bias_add(out, self.bias_mu + self.bias_sigma * bias_noise,
-                             data_format='channels_last')
+                             data_format="channels_last")
         if self.activation is not None:
             out = self.activation(out)
         return out

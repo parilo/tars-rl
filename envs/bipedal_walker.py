@@ -7,7 +7,7 @@ class BipedalWalker:
 
     def __init__(self, frame_skip=1, visualize=False):
         self.visualize = visualize
-        self.env = gym.make('BipedalWalkerHardcore-v2')
+        self.env = gym.make("BipedalWalkerHardcore-v2")
         self.frame_skip = frame_skip
         self.observation_shapes = [(24,)]
         self.action_size = 4

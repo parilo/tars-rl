@@ -7,7 +7,7 @@ class LunarLander:
 
     def __init__(self, frame_skip=1, visualize=False):
         self.visualize = visualize
-        self.env = gym.make('LunarLanderContinuous-v2')
+        self.env = gym.make("LunarLanderContinuous-v2")
         self.frame_skip = frame_skip
         self.observation_shapes = [(8,)]
         self.action_size = 2

@@ -1,31 +1,31 @@
 #!/usr/bin/env python
 
 from rl_server.server.rl_server_api import RLServerAPI
-from rl_server.server.rl_train_loop import RLTrainer
+from rl_server.server.rl_train_loop import TorchRLTrainer as RLTrainer
 
 
 class RLServer:
 
-    def __init__(self,
-                 num_clients,
-                 action_size,
-                 observation_shapes,
-                 state_shapes,
-                 agent_algorithm,
-                 batch_size=256,
-                 experience_replay_buffer_size=1000000,
-                 use_prioritized_buffer=True,
-                 use_synchronous_update=True,
-                 train_every_nth=4,
-                 history_length=3,
-                 start_learning_after=5000,
-                 target_critic_update_period=500,
-                 target_actor_update_period=500,
-                 show_stats_period=20,
-                 save_model_period=10000,
-                 init_port=8777,
-                 ckpt_path='ckpt/'):
-
+    def __init__(
+            self,
+            num_clients,
+            action_size,
+            observation_shapes,
+            state_shapes,
+            agent_algorithm,
+            batch_size=256,
+            experience_replay_buffer_size=1000000,
+            use_prioritized_buffer=True,
+            use_synchronous_update=True,
+            train_every_nth=4,
+            history_length=3,
+            start_learning_after=5000,
+            target_critic_update_period=500,
+            target_actor_update_period=500,
+            show_stats_period=20,
+            save_model_period=10000,
+            init_port=8777,
+            logdir="ckpt/"):
         self._server_api = RLServerAPI(
             num_clients,
             observation_shapes,
@@ -46,7 +46,7 @@ class RLServer:
             target_actor_update_period=target_actor_update_period,
             show_stats_period=show_stats_period,
             save_model_period=save_model_period,
-            save_path=ckpt_path)
+            logdir=logdir)
 
         self._train_loop.set_algorithm(agent_algorithm)
         self._train_loop.init()
@@ -55,6 +55,6 @@ class RLServer:
             self._train_loop.store_episode)
 
     def start(self):
-        print('--- starting rl server')
+        print("--- starting rl server")
         self._server_api.start_server()
         self._train_loop.start_training()

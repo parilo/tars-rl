@@ -108,6 +108,6 @@ class QuantileDDPG(BaseAlgo):
 
     def _get_info(self):
         info = super(QuantileDDPG, self)._get_info()
-        info['algo'] = 'QuantileDDPG'
-        info['num_atoms'] = self._critic.n_atoms
+        info["algo"] = "QuantileDDPG"
+        info["num_atoms"] = self._critic.n_atoms
         return info

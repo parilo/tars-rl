@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-sys.path.append('../../')
+sys.path.append("../../")
 
 import os
 import json
@@ -16,20 +16,20 @@ random.seed(seed)
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-environment_name = 'l2run'
-experiment_config = json.load(open('config.yml'))
+environment_name = "l2run"
+experiment_config = json.load(open("config.yml"))
 
-history_len = experiment_config['history_len']
-n_step = experiment_config['n_step']
-obs_size = experiment_config['observation_size']
-action_size = experiment_config['action_size']
-use_prioritized_buffer = experiment_config['prio']
-batch_size = experiment_config['batch_size']
-prio = experiment_config['prio']
-use_synchronous_update = experiment_config['sync']
-port = experiment_config['port']
-gpu_id = experiment_config['gpu_id']
-disc_factor = experiment_config['disc_factor']
+history_len = experiment_config["history_len"]
+n_step = experiment_config["n_step"]
+obs_size = experiment_config["observation_size"]
+action_size = experiment_config["action_size"]
+use_prioritized_buffer = experiment_config["prio"]
+batch_size = experiment_config["batch_size"]
+prio = experiment_config["prio"]
+use_synchronous_update = experiment_config["sync"]
+port = experiment_config["port"]
+gpu_id = experiment_config["gpu_id"]
+disc_factor = experiment_config["disc_factor"]
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
@@ -40,22 +40,22 @@ observation_shapes = [(obs_size,)]
 state_shapes = [(history_len, obs_size,)]
 
 actor = GMMActorNetwork(state_shapes[0], action_size, hiddens=[[400, 300]],
-                        activations=['relu'], output_activation='sigmoid',
-                        num_components=4, scope='actor')
+                        activations=["relu"], output_activation="sigmoid",
+                        num_components=4, scope="actor")
 
 critic_v = CriticNetwork(state_shapes[0], action_size, hiddens=[[400, 300]],
-                         activations=['relu'], output_activation=None,
-                         action_insert_block=-1, scope='critic_v')
+                         activations=["relu"], output_activation=None,
+                         action_insert_block=-1, scope="critic_v")
 
 critic_q = CriticNetwork(state_shapes[0], action_size, hiddens=[[400, 300]],
-                         activations=['relu'], output_activation=None,
-                         action_insert_block=0, scope='critic_q')
+                         activations=["relu"], output_activation=None,
+                         action_insert_block=0, scope="critic_q")
 
 def model_load_callback(sess, saver):
     pass
     # examples of loading checkpoint
     # saver.restore(sess,
-    # '/path/to/checkpoint/model-4800000.ckpt')
+    # "/path/to/checkpoint/model-4800000.ckpt")
 
 agent_algorithm = SAC(state_shapes=state_shapes,
                       action_size=action_size,

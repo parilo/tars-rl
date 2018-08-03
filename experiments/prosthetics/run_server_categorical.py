@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-sys.path.append('../../')
+sys.path.append("../../")
 
 import os
 import argparse
@@ -19,14 +19,14 @@ random.seed(seed)
 np.random.seed(seed)
 tf.set_random_seed(seed)
 
-parser = argparse.ArgumentParser(description='Train or test neural net motor controller')
-parser.add_argument('--experiment_name',
-                    dest='experiment_name',
+parser = argparse.ArgumentParser(description="Train or test neural net motor controller")
+parser.add_argument("--experiment_name",
+                    dest="experiment_name",
                     type=str,
-                    default='experiment')
+                    default="experiment")
 args = parser.parse_args()
 
-C = ExperimentConfig(env_name='prosthetics_new', experiment_name=args.experiment_name)
+C = ExperimentConfig(env_name="prosthetics_new", experiment_name=args.experiment_name)
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = str(C.gpu_id)
@@ -36,19 +36,19 @@ state_shapes = [(C.history_len, C.obs_size,)]
 
 critic = CategoricalCriticNetwork(state_shapes[0], C.action_size, hiddens=[[400], [300]],
                                   layer_norm=False, noisy_layer=False,
-                                  activations=['relu', 'relu'], output_activation=None,
-                                  action_insert_block=0, num_atoms=101, v=(-100., 900.), scope='critic')
+                                  activations=["relu", "relu"], output_activation=None,
+                                  action_insert_block=0, num_atoms=101, v=(-100., 900.), scope="critic")
 
 actor = ActorNetwork(state_shapes[0], C.action_size, hiddens=[[400], [300]],
                      layer_norm=False, noisy_layer=False,
-                     activations=['relu', 'relu'], output_activation='sigmoid',
-                     scope='actor')
+                     activations=["relu", "relu"], output_activation="sigmoid",
+                     scope="actor")
 
 def model_load_callback(sess, saver):
     pass
     # examples of loading checkpoint
     # saver.restore(sess,
-    # '/path/to/checkpoint/model-4800000.ckpt')
+    # "/path/to/checkpoint/model-4800000.ckpt")
 
 agent_algorithm = DDPG(state_shapes=state_shapes,
                        action_size=C.action_size,

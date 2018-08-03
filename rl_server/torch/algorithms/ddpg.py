@@ -96,5 +96,5 @@ class DDPG(BaseAlgo):
 
     def _get_info(self):
         info = super(DDPG, self)._get_info()
-        info['algo'] = 'DDPG'
+        info["algo"] = "DDPG"
         return info

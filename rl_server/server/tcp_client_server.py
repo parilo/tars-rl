@@ -37,12 +37,12 @@ class TCPBase(object):
         self._port = port
         self._timeout = timeout
         self._socket = None
-        self._logprefix = '--- (%s:%s) ' % (self._host, self._port)
+        self._logprefix = "--- (%s:%s) " % (self._host, self._port)
 
     def disconnect(self):
         """Disconnect any active connection."""
         if self._socket is not None:
-            logging.debug(self._logprefix + 'disconnecting')
+            logging.debug(self._logprefix + "disconnecting")
             self._socket.close()
             self._socket = None
 
@@ -53,44 +53,44 @@ class TCPBase(object):
     def write(self, message):
         """Send message to the server."""
         if self._socket is None:
-            raise TCPConnectionError(self._logprefix + 'not connected')
-        header = struct.pack('<L', len(message))
+            raise TCPConnectionError(self._logprefix + "not connected")
+        header = struct.pack("<L", len(message))
         try:
             self._socket.sendall(header + message)
         except Exception as exception:
-            print('--- tcp write: error {}'.format(exception))
+            print("--- tcp write: error {}".format(exception))
             self._reraise_exception_as_tcp_error(
-                'failed to write data', exception)
+                "failed to write data", exception)
 
     def read(self):
         """Read a message from the server."""
         header = self._read_n(4)
         if not header:
-            raise TCPConnectionClosedError(self._logprefix + 'connection closed')
-        length = struct.unpack('<L', header)[0]
+            raise TCPConnectionClosedError(self._logprefix + "connection closed")
+        length = struct.unpack("<L", header)[0]
         data = self._read_n(length)
         return data
 
     def _read_n(self, length):
         """Read n bytes from the socket."""
         if self._socket is None:
-            raise TCPConnectionError(self._logprefix + 'not connected')
+            raise TCPConnectionError(self._logprefix + "not connected")
         buf = BytesIO()
         while length > 0:
             try:
                 data = self._socket.recv(length)
             except Exception as exception:
                 self._reraise_exception_as_tcp_error(
-                    'failed to read data', exception)
+                    "failed to read data", exception)
             if not data:
-                raise TCPConnectionClosedError(self._logprefix + 'connection closed')
+                raise TCPConnectionClosedError(self._logprefix + "connection closed")
             buf.write(data)
             length -= len(data)
         return buf.getvalue()
 
     def _reraise_exception_as_tcp_error(self, message, exception):
         raise TCPConnectionError(
-            '%s%s: %s' % (self._logprefix, message, exception))
+            "%s%s: %s" % (self._logprefix, message, exception))
 
     def write_and_read_with_retries(self, data):
         while True:
@@ -101,7 +101,7 @@ class TCPBase(object):
             except TCPConnectionClosedError as e:
                 raise e
             except TCPConnectionError as e:
-                print('--- write and read tcp error {} retring'.format(e))
+                print("--- write and read tcp error {} retring".format(e))
 
 
 class TCPClient(TCPBase):
@@ -115,17 +115,17 @@ class TCPClient(TCPBase):
                     address=(self._host, self._port),
                     timeout=self._timeout)
                 self._socket.settimeout(self._timeout)
-                logging.debug(self._logprefix + 'connected')
+                logging.debug(self._logprefix + "connected")
                 return
             except Exception as exception:
                 error = exception
                 logging.debug(
-                    self._logprefix + 'connection attempt %d: %s',
+                    self._logprefix + "connection attempt %d: %s",
                     attempt,
                     error)
                 time.sleep(1)
                 continue
-        self._reraise_exception_as_tcp_error('failed to connect', error)
+        self._reraise_exception_as_tcp_error("failed to connect", error)
 
 
 class TCPServer(TCPBase):
@@ -140,10 +140,10 @@ class TCPServer(TCPBase):
                     response = callback(request)
                     self.write(response)
                 except TCPConnectionClosedError as e:
-                    print('--- tcp connection closed error {}'.format(e))
+                    print("--- tcp connection closed error {}".format(e))
                     break
                 except TCPConnectionError as e:
-                    print('--- tcp server: tcp connection error {} retring to read'.format(e))
+                    print("--- tcp server: tcp connection error {} retring to read".format(e))
 
         def listen_func():
             while True:

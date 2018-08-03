@@ -42,7 +42,7 @@ class CategoricalDDPG(BaseDDPG):
         tz = tf.clip_by_value(target_atoms, self._critic.v_min, self._critic.v_max)
         tz_z = tz[:, None, :] - self._critic.z[None, :, None]
         tz_z = tf.clip_by_value((1.0 - (tf.abs(tz_z) / self._critic.delta_z)), 0., 1.)
-        target_probs = tf.einsum('bij,bj->bi', tz_z, next_probs)
+        target_probs = tf.einsum("bij,bj->bi", tz_z, next_probs)
         target_probs = tf.stop_gradient(target_probs)
 
         # critic gradient and update rule
