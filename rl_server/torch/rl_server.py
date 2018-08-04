@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from rl_server.server.rl_server_api import RLServerAPI
-from rl_server.server.rl_train_loop import TorchRLTrainer as RLTrainer
+from rl_server.server.rl_trainer_torch import TorchRLTrainer as RLTrainer
 
 
 class RLServer:

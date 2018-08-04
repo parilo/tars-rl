@@ -7,12 +7,12 @@ import os
 import time
 import argparse
 import numpy as np
-import torch
+import pickle
 
 from rl_server.server.rl_client import RLClient
 from agent_replay_buffer import AgentBuffer
-from envs.prosthetics_new import ProstheticsEnvWrap
-from misc.defaults import default_parse_fn
+from envs.prosthetics import ProstheticsEnvWrap
+from misc.defaults import default_parse_fn, init_episode_storage
 from tensorboardX import SummaryWriter
 from misc.defaults import create_if_need
 from datetime import datetime
@@ -46,12 +46,17 @@ parser.add_argument(
 parser.add_argument(
     "--logdir",
     type=str, required=True)
+parser.add_argument(
+    "--store-episodes",
+    dest="store_episodes",
+    action="store_true",
+    default=False)
 args = parser.parse_args()
 
 ############################## Specify environment and experiment ##############################
 os.environ['OMP_NUM_THREADS'] = '1'
-torch.set_num_threads(1)
 
+create_if_need(args.logdir)
 args, hparams = default_parse_fn(args, [])
 
 env = ProstheticsEnvWrap(
@@ -95,7 +100,8 @@ buf_capacity = 1010
 
 rl_client = RLClient(port=hparams["server"]["init_port"] + args.id)
 agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
-agent_buffer.push_init_observation([env.reset()])
+# agent_buffer.push_init_observation([env.reset()])
+env.reset()
 
 episode_index = 0
 time_step = 0
@@ -114,27 +120,52 @@ start_time = time.time()
 n_steps = 0
 episode_index = 0
 
+if args.store_episodes:
+    path_to_episode_storage, stored_episode_index = init_episode_storage(args.id, args.logdir)
+    print('stored episodes: {}'.format(stored_episode_index))
 
 while True:
 
-    state = agent_buffer.get_current_state(history_len=history_len)[0].ravel()
+    if agent_buffer.is_inited():
+        state = agent_buffer.get_current_state(history_len=history_len)[0].ravel()
 
     if episode_index < 5:
         action = random_actions[time_step]
     else:
-        if args.validation:
-            action = rl_client.act([state])
+
+        if agent_buffer.is_inited():
+
+            if args.validation:
+                action = rl_client.act([state])
+            else:
+                # # normal noise exploration
+                # action = rl_client.act([state])
+                # action = np.array(action) + np.random.normal(
+                #     scale=expl_sigma, size=action_size)
+
+                # gradient exploration
+                result = rl_client.act_batch([state], mode="with_gradients")
+                action = result[0][0]
+                grad = result[1][0]
+                action = np.array(action)
+                random_action = env.get_random_action()
+                explore = 1. - np.clip(np.abs(grad), 0., explore_temp) / explore_temp
+                action = np.multiply(action, (1. - explore)) + np.multiply(random_action, explore)
+
+            action = np.clip(action, 0., 1.)
+
         else:
-            action = rl_client.act([state])
-            action = np.array(action) + np.random.normal(
-                scale=expl_sigma, size=action_size)
-        action = np.clip(action, -1., 1.)
+            action = np.zeros((action_size,))
 
     next_obs, reward, done, info = env.step(action)
-    transition = [[next_obs], action, reward, done]
-    agent_buffer.push_transition(transition)
-    next_state = agent_buffer.get_current_state(
-        history_len=history_len)[0].ravel()
+
+    if agent_buffer.is_inited():
+        transition = [[next_obs], action, reward, done]
+        agent_buffer.push_transition(transition)
+        # next_state = agent_buffer.get_current_state(history_len=C.history_len)[0].ravel()
+    else:
+        agent_buffer.push_init_observation([next_obs])
+
     time_step += 1
     n_steps += 1
 
@@ -144,6 +175,19 @@ while True:
         rl_client.store_episode(episode)
         print("--- episode ended {} {} {}".format(
             episode_index, env.time_step, env.get_total_reward()))
+
+        # save episode on disk
+        if args.store_episodes:
+            ep_path = os.path.join(path_to_episode_storage, 'episode_' + str(stored_episode_index)+'.pkl')
+            with open(ep_path, 'wb') as f:
+                pickle.dump(
+                [
+                    [obs_part.tolist() for obs_part in episode[0]],
+                    episode[1].tolist(),
+                    episode[2].tolist(),
+                    episode[3].tolist()
+                ], f, pickle.HIGHEST_PROTOCOL)
+            stored_episode_index += 1
 
         logger.add_scalar("steps", n_steps, episode_index)
         logger.add_scalar(
@@ -162,6 +206,6 @@ while True:
 
         episode_index += 1
         agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
-        agent_buffer.push_init_observation([env.reset()])
+        env.reset()
         n_steps = 0
         start_time = time.time()

@@ -11,18 +11,23 @@ class AgentBuffer:
         self.num_parts = len(observation_shapes)
         self.obs_shapes = observation_shapes
         self.act_shape = (action_size,)
-        
+
         self.observations = []
         for part_id in range(self.num_parts):
             self.observations.append(np.empty((self.size, ) + self.obs_shapes[part_id], dtype=np.float32))
         self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
         self.rewards = np.empty((self.size, ), dtype=np.float32)
-        self.dones = np.empty((self.size, ), dtype=np.bool)        
+        self.dones = np.empty((self.size, ), dtype=np.bool)
+        self.inited = False
+
+    def is_inited(self):
+        return self.inited
 
     def push_init_observation(self, obs):
         for part_id in range(self.num_parts):
             self.observations[part_id][0] = obs[part_id]
         self.pointer = 0
+        self.inited = True
 
     def get_current_state(self, history_len=1):
         state = []
