@@ -70,21 +70,11 @@ class DDPG(BaseAlgo):
 
         # actor update
         if actor_update:
-            self._actor.zero_grad()
-            policy_loss.backward()
-            if self._actor_grad_clip is not None:
-                torch.nn.utils.clip_grad_norm_(
-                    self._actor.parameters(),  self._actor_grad_clip)
-            self._actor_optimizer.step()
+            self.actor_update(policy_loss)
 
         # critic update
         if critic_update:
-            self._critic.zero_grad()
-            value_loss.backward()
-            if self._critic_grad_clip is not None:
-                torch.nn.utils.clip_grad_norm_(
-                    self._critic.parameters(), self._critic_grad_clip)
-            self._critic_optimizer.step()
+            self.critic_update(value_loss)
 
         # metrics = {
         #     "value_loss": value_loss,

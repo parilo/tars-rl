@@ -1,17 +1,21 @@
 #!/usr/bin/env python
 
 import sys
-
 sys.path.append("../../")
 
 import os
+import time
 import argparse
 import numpy as np
+import torch
 
 from rl_server.server.rl_client import RLClient
 from agent_replay_buffer import AgentBuffer
 from envs.prosthetics_new import ProstheticsEnvWrap
 from misc.defaults import default_parse_fn
+from tensorboardX import SummaryWriter
+from misc.defaults import create_if_need
+from datetime import datetime
 
 # parse input arguments
 parser = argparse.ArgumentParser(
@@ -45,6 +49,8 @@ parser.add_argument(
 args = parser.parse_args()
 
 ############################## Specify environment and experiment ##############################
+os.environ['OMP_NUM_THREADS'] = '1'
+torch.set_num_threads(1)
 
 args, hparams = default_parse_fn(args, [])
 
@@ -71,6 +77,16 @@ if args.validation:
 else:
     path_to_rewards = path_to_rewards_train
 
+current_date = datetime.now().strftime('%y-%m-%d-%H-%M-%S-%M-%f')
+if args.validation:
+    path_to_rewards = path_to_rewards_test
+    logpath = f"{args.logdir}/agent-valid-{args.id}-{current_date}"
+else:
+    path_to_rewards = path_to_rewards_train
+    logpath = f"{args.logdir}/agent-train-{args.id}-{current_date}"
+create_if_need(logpath)
+logger = SummaryWriter(logpath)
+
 history_len = hparams["server"]["history_length"]
 
 ########################################## Train agent #########################################
@@ -93,6 +109,10 @@ explore_dt = (explore_start_temp - explore_end_temp) / explore_episodes
 explore_temp = explore_start_temp
 
 expl_sigma = 3e-2 * (args.id % 4)
+
+start_time = time.time()
+n_steps = 0
+episode_index = 0
 
 
 while True:
@@ -118,9 +138,23 @@ while True:
     time_step += 1
 
     if done:
+        elapsed_time = time.time() - start_time
         episode = agent_buffer.get_complete_episode()
         rl_client.store_episode(episode)
-        print("--- episode ended {} {} {}".format(episode_index, env.time_step, env.get_total_reward()))
+        print("--- episode ended {} {} {}".format(
+            episode_index, env.time_step, env.get_total_reward()))
+
+        logger.add_scalar("steps", n_steps, episode_index)
+        logger.add_scalar(
+            "reward", env.get_total_reward(), episode_index)
+        logger.add_scalar(
+            "episode per minute",
+            episode_index / elapsed_time * 60,
+            episode_index)
+        logger.add_scalar(
+            "steps per second",
+            n_steps / elapsed_time,
+            episode_index)
 
         with open(path_to_rewards, "a") as f:
             f.write(str(args.id) + " " + str(episode_index) + " " + str(env.get_total_reward()) + "\n")
@@ -128,3 +162,5 @@ while True:
         episode_index += 1
         agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
         agent_buffer.push_init_observation([env.reset()])
+        n_steps = 0
+        start_time = time.time()

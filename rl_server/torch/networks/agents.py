@@ -26,7 +26,12 @@ def out_init(layer):
 def name2nn(name):
     if name is None:
         return None
-    return name if isinstance(name, nn.Module) else nn.__dict__[name]
+    elif isinstance(name, nn.Module):
+        return name
+    elif isinstance(name, str):
+        return nn.__dict__[name]
+    else:
+        return name
 
 
 class Actor(nn.Module):

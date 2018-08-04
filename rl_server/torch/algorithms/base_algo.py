@@ -58,6 +58,24 @@ class BaseAlgo:
         "returns loss for a batch of transitions"
         return None
 
+    def actor_update(self, loss):
+        self._actor.zero_grad()
+        self._actor_optimizer.zero_grad()
+        loss.backward()
+        if self._actor_grad_clip is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self._actor.parameters(), self._actor_grad_clip)
+        self._actor_optimizer.step()
+
+    def critic_update(self, loss):
+        self._critic.zero_grad()
+        self._critic_optimizer.zero_grad()
+        loss.backward()
+        if self._critic_grad_clip is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self._critic.parameters(), self._critic_grad_clip)
+        self._critic_optimizer.step()
+
     def target_actor_update(self):
         soft_update(
             self._target_actor, self._actor,

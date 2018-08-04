@@ -103,28 +103,12 @@ class TD3(BaseAlgo):
 
         # actor update
         if actor_update:
-            self._actor.zero_grad()
-            policy_loss.backward()
-            if self._actor_grad_clip is not None:
-                torch.nn.utils.clip_grad_norm_(
-                    self._actor.parameters(),  self._actor_grad_clip)
-            self._actor_optimizer.step()
+            self.actor_update(policy_loss)
 
         # critic update
         if critic_update:
-            self._critic.zero_grad()
-            value_loss.backward()
-            if self._critic_grad_clip is not None:
-                torch.nn.utils.clip_grad_norm_(
-                    self._critic.parameters(), self._critic_grad_clip)
-            self._critic_optimizer.step()
-
-            self._critic2.zero_grad()
-            value_loss2.backward()
-            if self._critic_grad_clip is not None:
-                torch.nn.utils.clip_grad_norm_(
-                    self._critic2.parameters(), self._critic_grad_clip)
-            self._critic2_optimizer.step()
+            self.critic_update(value_loss)
+            self.critic2_update(value_loss2)
 
         # metrics = {
         #     "value_loss": value_loss,
@@ -133,6 +117,15 @@ class TD3(BaseAlgo):
         loss = value_loss + value_loss2 + policy_loss
         loss = loss.item()
         return loss
+
+    def critic2_update(self, loss):
+        self._critic2.zero_grad()
+        self._critic2_optimizer.zero_grad()
+        loss.backward()
+        if self._critic_grad_clip is not None:
+            torch.nn.utils.clip_grad_norm_(
+                self._critic2.parameters(), self._critic_grad_clip)
+        self._critic2_optimizer.step()
 
     def _get_info(self):
         info = super(TD3, self)._get_info()

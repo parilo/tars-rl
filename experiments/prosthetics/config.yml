@@ -19,7 +19,7 @@ critic:
   norm_fn: null
   activation_fn: ReLU
   concat_at: 1
-  n_atoms: 1
+  n_atoms: 101
 
 actor_optim:
   lr: 0.0001
@@ -33,8 +33,8 @@ algorithm:
   n_step: 1
   gamma: 0.99
   actor_grad_clip: 1.0
-  target_actor_update_rate: 0.005
-  target_critic_update_rate: 0.005
+  target_actor_update_rate: 1.0
+  target_critic_update_rate: 1.0
 
 server:
   num_clients: 40
@@ -45,8 +45,8 @@ server:
   train_every_nth: 1
   history_length: 1
   start_learning_after: 5000
-  target_critic_update_period: 1
-  target_actor_update_period: 1
+  target_critic_update_period: 500
+  target_actor_update_period: 500
   show_stats_period: 100
   save_model_period: 10000
   init_port: 8901

@@ -3,6 +3,7 @@
 import sys
 sys.path.append('../../')
 
+import os
 import argparse
 import random
 
@@ -19,6 +20,8 @@ from rl_server.torch.algorithms.td3 import TD3
 from misc.defaults import default_parse_fn, create_if_need, set_global_seeds
 
 set_global_seeds(42)
+os.environ['OMP_NUM_THREADS'] = '1'
+torch.set_num_threads(1)
 
 parser = argparse.ArgumentParser(
     description='Train or test neural net motor controller')
