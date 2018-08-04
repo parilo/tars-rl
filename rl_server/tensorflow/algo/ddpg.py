@@ -14,6 +14,7 @@ class BaseDDPG:
                  critic_optimizer,
                  n_step=1,
                  gradient_clip=1.0,
+                 actor_gradient_clip_by_norm=None,
                  discount_factor=0.99,
                  target_actor_update_rate=1.0,
                  target_critic_update_rate=1.0):
@@ -28,6 +29,7 @@ class BaseDDPG:
         self._critic_optimizer = critic_optimizer
         self._n_step = n_step
         self._grad_clip = gradient_clip
+        self._actor_grad_clip_by_norm = actor_gradient_clip_by_norm
         self._gamma = discount_factor
         self._update_rates = [target_actor_update_rate, target_critic_update_rate]
         self._target_actor_update_rate = tf.constant(target_actor_update_rate)

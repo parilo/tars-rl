@@ -15,40 +15,44 @@ parser.add_argument(
 parser.add_argument(
     "--logdir",
     type=str, required=True)
+parser.add_argument(
+    "--store-episodes",
+    dest="store_episodes",
+    action="store_true",
+    default=False)
 args = parser.parse_args()
 
 ps = []
 
-agent_id = 0
-for i in range(0):
-    ps.append(subprocess.Popen([
-        "python", "agent.py", "--visualize", "--id", str(agent_id),
-        "--hparams", args.hparams, "--logdir", args.logdir]))
-    agent_id += 1
+common_params = [
+    "python", "agent.py",
+    "--hparams", args.hparams, "--logdir", args.logdir] + \
+    (["--store-episodes"] if args.store_episodes else [])
 
-for i in range(0):
-    ps.append(subprocess.Popen([
-        "python", "agent.py", "--visualize", "--validation",
-        "--id", str(agent_id),
-        "--hparams", args.hparams, "--logdir", args.logdir]))
+agent_id = 0
+for i in range(1):
+    ps.append(subprocess.Popen(common_params + \
+        ["--visualize", "--id", str(agent_id)]))
     agent_id += 1
 
 for i in range(1):
-    ps.append(subprocess.Popen([
-        "python", "agent.py", "--validation", "--id", str(agent_id),
-        "--hparams", args.hparams, "--logdir", args.logdir]))
+    ps.append(subprocess.Popen(common_params + \
+        ["--visualize", "--validation", "--id", str(agent_id)]))
     agent_id += 1
 
-for i in range(15):
-    ps.append(subprocess.Popen([
-        "python", "agent.py", "--id", str(agent_id),
-        "--hparams", args.hparams, "--logdir", args.logdir]))
+for i in range(1):
+    ps.append(subprocess.Popen(common_params + \
+        ["--validation", "--id", str(agent_id)]))
+    agent_id += 1
+
+for i in range(4):
+    ps.append(subprocess.Popen(common_params + \
+        ["--id", str(agent_id)]))
     agent_id += 1
 
 for i in range(0):
-    ps.append(subprocess.Popen([
-        "python", "agent.py", "--random_start", "--id", str(agent_id),
-        "--hparams", args.hparams, "--logdir", args.logdir]))
+    ps.append(subprocess.Popen(common_params + \
+        ["--random_start", "--id", str(agent_id)]))
     agent_id += 1
 
 

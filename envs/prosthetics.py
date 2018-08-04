@@ -1,4 +1,5 @@
 import os
+import math
 from osim.env import ProstheticsEnv
 import numpy as np
 
@@ -11,6 +12,24 @@ with np.load(norm_file) as data:
     obs_stds = data['stds']
 
 
+# Calculates Rotation Matrix given euler angles.
+def euler_angles_to_rotation_matrix(theta) :
+    R_x = np.array([[1,         0,                  0                   ],
+                    [0,         math.cos(theta[0]), -math.sin(theta[0]) ],
+                    [0,         math.sin(theta[0]), math.cos(theta[0])  ]
+                    ])
+    R_y = np.array([[math.cos(theta[1]),    0,      math.sin(theta[1])  ],
+                    [0,                     1,      0                   ],
+                    [-math.sin(theta[1]),   0,      math.cos(theta[1])  ]
+                    ])
+    R_z = np.array([[math.cos(theta[2]),    -math.sin(theta[2]),    0],
+                    [math.sin(theta[2]),    math.cos(theta[2]),     0],
+                    [0,                     0,                      1]
+                    ])
+    R = np.dot(R_z, np.dot( R_y, R_x ))
+    return R
+
+
 class ProstheticsEnvWrap:
 
     def __init__(self, frame_skip=1,
@@ -21,7 +40,8 @@ class ProstheticsEnvWrap:
                  living_bonus=0.0,
                  side_deviation_penalty=0.0,
                  crossing_legs_penalty=0.0,
-                 bending_knees_bonus=0.0):
+                 bending_knees_bonus=0.0,
+                 side_step_penalty=False):
 
         self.vis = visualize
         self.env = ProstheticsEnv(visualize=visualize, integrator_accuracy=1e-3)
@@ -38,6 +58,7 @@ class ProstheticsEnvWrap:
         self.side_dev_coef = side_deviation_penalty
         self.cross_legs_coef = crossing_legs_penalty
         self.bending_knees_coef = bending_knees_bonus
+        self.side_step_penalty = side_step_penalty
 
         self.obs_list = []
 
@@ -100,6 +121,12 @@ class ProstheticsEnvWrap:
         l_knee_flexion = np.minimum(state_desc['joint_pos']['knee_l'][0], 0.)
         bend_knees_bonus = np.abs(r_knee_flexion + l_knee_flexion)
         reward += self.bending_knees_coef * bend_knees_bonus
+        
+        # side step penalty
+        if self.side_step_penalty:
+            rx, ry, rz = state_desc['body_pos_rot']['pelvis']
+            R = euler_angles_to_rotation_matrix([rx, ry, rz])
+            reward *= (1.0 - math.fabs(R[2, 0]))
 
         return reward
 

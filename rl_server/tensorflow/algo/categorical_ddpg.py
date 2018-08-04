@@ -15,12 +15,14 @@ class CategoricalDDPG(BaseDDPG):
                  critic_optimizer,
                  n_step=1,
                  gradient_clip=1.0,
+                 actor_gradient_clip_by_norm=None,
                  discount_factor=0.99,
                  target_actor_update_rate=1.0,
                  target_critic_update_rate=1.0):
 
         super(CategoricalDDPG, self).__init__(state_shapes, action_size, actor, critic, actor_optimizer,
-                                              critic_optimizer, n_step, gradient_clip, discount_factor,
+                                              critic_optimizer, n_step, gradient_clip,
+                                              actor_gradient_clip_by_norm, discount_factor,
                                               target_actor_update_rate, target_critic_update_rate)
         self._create_placeholders()
         self._create_variables()
@@ -62,7 +64,13 @@ class CategoricalDDPG(BaseDDPG):
         actor_loss = -tf.reduce_mean(q_values)
         actor_gradients = self._actor_optimizer.compute_gradients(
             actor_loss, var_list=self._actor.variables())
-        actor_gradients_clip = [(tf.clip_by_value(grad, -self._grad_clip, self._grad_clip), var)
-                                for grad, var in actor_gradients]
+            
+        if self._actor_grad_clip_by_norm is not None:
+            actor_gradients_clip = [(tf.clip_by_norm(grad, self._actor_grad_clip_by_norm), var)
+                                    for grad, var in actor_gradients]
+        else:
+            actor_gradients_clip = [(tf.clip_by_value(grad, -self._grad_clip, self._grad_clip), var)
+                                    for grad, var in actor_gradients]
+        
         actor_update = self._actor_optimizer.apply_gradients(actor_gradients_clip)
         return actor_loss, actor_update

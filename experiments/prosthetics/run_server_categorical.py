@@ -56,6 +56,7 @@ agent_algorithm = DDPG(state_shapes=state_shapes,
                        critic_optimizer=tf.train.AdamOptimizer(learning_rate=1e-4),
                        n_step=hparams["algorithm"]["n_step"],
                        gradient_clip=1.0,
+                       actor_gradient_clip_by_norm=5.0,
                        discount_factor=hparams["algorithm"]["gamma"],
                        target_actor_update_rate=1.,
                        target_critic_update_rate=1.)

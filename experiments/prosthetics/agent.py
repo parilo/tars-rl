@@ -65,6 +65,7 @@ env = ProstheticsEnvWrap(
     reward_scale=0.1,
     crossing_legs_penalty=10.,
     bending_knees_bonus=1.,
+    side_step_penalty=True,
     max_episode_length=1000
 )
 observation_shapes = env.observation_shapes
@@ -100,7 +101,6 @@ buf_capacity = 1010
 
 rl_client = RLClient(port=hparams["server"]["init_port"] + args.id)
 agent_buffer = AgentBuffer(buf_capacity, observation_shapes, action_size)
-# agent_buffer.push_init_observation([env.reset()])
 env.reset()
 
 episode_index = 0
@@ -162,7 +162,6 @@ while True:
     if agent_buffer.is_inited():
         transition = [[next_obs], action, reward, done]
         agent_buffer.push_transition(transition)
-        # next_state = agent_buffer.get_current_state(history_len=C.history_len)[0].ravel()
     else:
         agent_buffer.push_init_observation([next_obs])
 
