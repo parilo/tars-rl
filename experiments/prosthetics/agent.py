@@ -136,6 +136,7 @@ while True:
     next_state = agent_buffer.get_current_state(
         history_len=history_len)[0].ravel()
     time_step += 1
+    n_steps += 1
 
     if done:
         elapsed_time = time.time() - start_time
