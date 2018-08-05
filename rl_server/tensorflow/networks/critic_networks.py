@@ -242,6 +242,7 @@ class CategoricalCriticNetwork(CriticNetwork):
         self.act_insert_block = action_insert_block
 
         self.num_atoms = num_atoms
+        self.v = v
         self.v_min, self.v_max = v
         self.delta_z = (self.v_max - self.v_min) / (num_atoms - 1)
         self.z = tf.lin_space(start=self.v_min, stop=self.v_max, num=num_atoms)
