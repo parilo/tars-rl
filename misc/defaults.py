@@ -130,3 +130,11 @@ def default_parse_fn(args, unknown_args):
             setattr(args_, key, arg_value)
 
     return args_, hparams
+
+
+def init_episode_storage(agent_id, logdir):
+    path_to_episode_storage = os.path.join(logdir, 'episodes', str(agent_id))
+    if not os.path.exists(path_to_episode_storage):
+        os.makedirs(path_to_episode_storage)
+    path, dirs, files = next(os.walk(path_to_episode_storage))
+    return path_to_episode_storage, len(files)
