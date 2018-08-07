@@ -31,6 +31,7 @@ class DDPG(BaseAlgo):
     def build_graph(self):
         with tf.name_scope("taking_action"):
             self.actions = self._actor(self.states_ph)
+            self.gradients = self.get_gradients_wrt_actions()
 
         with tf.name_scope("actor_update"):
             q_values = self._critic(

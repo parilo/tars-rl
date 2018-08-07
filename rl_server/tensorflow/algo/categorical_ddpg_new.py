@@ -34,9 +34,16 @@ class CategoricalDDPG(BaseAlgo):
         self.create_placeholders()
         self.build_graph()
 
+    def get_gradients_wrt_actions(self):
+        probs = self._critic([self.states_ph, self.actions_ph])
+        q_values = tf.reduce_sum(probs * self.z, axis=-1)
+        gradients = tf.gradients(q_values, self.actions_ph)[0]
+        return gradients
+
     def build_graph(self):
         with tf.name_scope("taking_action"):
             self.actions = self._actor(self.states_ph)
+            self.gradients = self.get_gradients_wrt_actions()
 
         with tf.name_scope("actor_update"):
             probs = self._critic(
