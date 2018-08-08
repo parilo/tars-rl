@@ -35,7 +35,8 @@ class CategoricalDDPG(BaseAlgo):
         self.build_graph()
 
     def get_gradients_wrt_actions(self):
-        probs = self._critic([self.states_ph, self.actions_ph])
+        logits = self._critic([self.states_ph, self.actions_ph])
+        probs = tf.nn.softmax(logits)
         q_values = tf.reduce_sum(probs * self.z, axis=-1)
         gradients = tf.gradients(q_values, self.actions_ph)[0]
         return gradients
@@ -46,17 +47,19 @@ class CategoricalDDPG(BaseAlgo):
             self.gradients = self.get_gradients_wrt_actions()
 
         with tf.name_scope("actor_update"):
-            probs = self._critic(
+            logits = self._critic(
                 [self.states_ph, self._actor(self.states_ph)])
+            probs = tf.nn.softmax(logits)
             q_values = tf.reduce_sum(probs * self.z, axis=-1)
             self.policy_loss = -tf.reduce_mean(q_values)
             self.actor_update = self.get_actor_update(self.policy_loss)
 
         with tf.name_scope("critic_update"):
-            probs = self._critic([self.states_ph, self.actions_ph])
+            logits = self._critic([self.states_ph, self.actions_ph])
             next_actions = self._target_actor(self.next_states_ph)
-            next_probs = self._target_critic(
+            next_logits = self._target_critic(
                 [self.next_states_ph, next_actions])
+            next_probs = tf.nn.softmax(next_logits)
             gamma = self._gamma ** self._n_step
             target_atoms = self.rewards_ph[:, None] + gamma * (
                 1 - self.dones_ph[:, None]) * self.z
@@ -65,8 +68,9 @@ class CategoricalDDPG(BaseAlgo):
             tz_z = tf.clip_by_value(
                 (1.0 - (tf.abs(tz_z) / self.delta_z)), 0., 1.)
             target_probs = tf.einsum("bij,bj->bi", tz_z, next_probs)
-            self.value_loss = -tf.reduce_sum(
-                tf.stop_gradient(target_probs) * tf.log(probs+1e-6))
+            cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(
+                logits=logits, labels=target_probs)
+            self.value_loss = tf.reduce_mean(cross_entropy)
             self.critic_update = self.get_critic_update(self.value_loss)
 
         with tf.name_scope("targets_update"):
