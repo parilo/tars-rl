@@ -1,76 +1,75 @@
-# DDPG taken from
-# https://github.com/nivwusquorum/tensorflow-deepq
-
 import tensorflow as tf
-from .ddpg import BaseDDPG
+from .base_algo import BaseAlgo
 
 
-class CategoricalDDPG(BaseDDPG):
-    def __init__(self,
-                 state_shapes,
-                 action_size,
-                 actor,
-                 critic,
-                 actor_optimizer,
-                 critic_optimizer,
-                 n_step=1,
-                 gradient_clip=1.0,
-                 actor_gradient_clip_by_norm=None,
-                 discount_factor=0.99,
-                 target_actor_update_rate=1.0,
-                 target_critic_update_rate=1.0):
+class CategoricalDDPG(BaseAlgo):
+    def __init__(
+            self,
+            state_shapes,
+            action_size,
+            actor,
+            critic,
+            actor_optimizer,
+            critic_optimizer,
+            n_step=1,
+            actor_grad_val_clip=1.0,
+            actor_grad_norm_clip=None,
+            critic_grad_val_clip=None,
+            critic_grad_norm_clip=None,
+            gamma=0.99,
+            target_actor_update_rate=1.0,
+            target_critic_update_rate=1.0):
+        super(CategoricalDDPG, self).__init__(
+            state_shapes, action_size, actor, critic,
+            actor_optimizer, critic_optimizer, n_step,
+            actor_grad_val_clip, actor_grad_norm_clip,
+            critic_grad_val_clip, critic_grad_norm_clip,
+            gamma, target_actor_update_rate, target_critic_update_rate)
 
-        super(CategoricalDDPG, self).__init__(state_shapes, action_size, actor, critic, actor_optimizer,
-                                              critic_optimizer, n_step, gradient_clip,
-                                              actor_gradient_clip_by_norm, discount_factor,
-                                              target_actor_update_rate, target_critic_update_rate)
-        self._create_placeholders()
-        self._create_variables()
+        self.num_atoms = self._critic.num_atoms
+        self.v_min, self.v_max = self._critic.v
+        self.delta_z = (self.v_max - self.v_min) / (self.num_atoms - 1)
+        self.z = tf.lin_space(
+            start=self.v_min, stop=self.v_max, num=self.num_atoms)
+        self.create_placeholders()
+        self.build_graph()
 
-    def _get_q_values(self, states, actions):
-        probs = self._critic([states, actions])
-        return tf.reduce_sum(probs * self._critic.z, axis=-1)
+    def get_gradients_wrt_actions(self):
+        probs = self._critic([self.states_ph, self.actions_ph])
+        q_values = tf.reduce_sum(probs * self.z, axis=-1)
+        gradients = tf.gradients(q_values, self.actions_ph)[0]
+        return gradients
 
-    def _get_critic_update(self):
+    def build_graph(self):
+        with tf.name_scope("taking_action"):
+            self.actions = self._actor(self.states_ph)
+            self.gradients = self.get_gradients_wrt_actions()
 
-        # left hand side of the distributional Bellman equation
-        agent_probs = self._critic([self._state, self._given_action])
+        with tf.name_scope("actor_update"):
+            probs = self._critic(
+                [self.states_ph, self._actor(self.states_ph)])
+            q_values = tf.reduce_sum(probs * self.z, axis=-1)
+            self.policy_loss = -tf.reduce_mean(q_values)
+            self.actor_update = self.get_actor_update(self.policy_loss)
 
-        # right hand side of the distributional Bellman equation
-        next_action = self._target_actor(self._next_state)
-        next_probs = self._target_critic([self._next_state, next_action])
-        discount = self._gamma ** self._n_step
-        target_atoms = self._rewards[:, None] + discount * (1 - self._terminator[:, None]) * self._critic.z
-        tz = tf.clip_by_value(target_atoms, self._critic.v_min, self._critic.v_max)
-        tz_z = tz[:, None, :] - self._critic.z[None, :, None]
-        tz_z = tf.clip_by_value((1.0 - (tf.abs(tz_z) / self._critic.delta_z)), 0., 1.)
-        target_probs = tf.einsum("bij,bj->bi", tz_z, next_probs)
-        target_probs = tf.stop_gradient(target_probs)
+        with tf.name_scope("critic_update"):
+            probs = self._critic([self.states_ph, self.actions_ph])
+            next_actions = self._target_actor(self.next_states_ph)
+            next_probs = self._target_critic(
+                [self.next_states_ph, next_actions])
+            gamma = self._gamma ** self._n_step
+            target_atoms = self.rewards_ph[:, None] + gamma * (
+                1 - self.dones_ph[:, None]) * self.z
+            tz = tf.clip_by_value(target_atoms, self.v_min, self.v_max)
+            tz_z = tz[:, None, :] - self.z[None, :, None]
+            tz_z = tf.clip_by_value(
+                (1.0 - (tf.abs(tz_z) / self.delta_z)), 0., 1.)
+            target_probs = tf.einsum("bij,bj->bi", tz_z, next_probs)
+            self.value_loss = -tf.reduce_sum(
+                tf.stop_gradient(target_probs) * tf.log(probs+1e-6))
+            self.critic_update = self.get_critic_update(self.value_loss)
 
-        # critic gradient and update rule
-        critic_loss = -tf.reduce_sum(target_probs * tf.log(agent_probs+1e-6))
-        critic_gradients = self._critic_optimizer.compute_gradients(
-            critic_loss, var_list=self._critic.variables())
-        critic_update = self._critic_optimizer.apply_gradients(critic_gradients)
-
-        return critic_loss, critic_update
-
-    def _get_actor_update(self):
-
-        # actor gradient and update rule
-        probs = self._critic([self._state, self._actor(self._state)])
-        q_values = tf.reduce_sum(probs * self._critic.z, axis=-1)
-
-        actor_loss = -tf.reduce_mean(q_values)
-        actor_gradients = self._actor_optimizer.compute_gradients(
-            actor_loss, var_list=self._actor.variables())
-            
-        if self._actor_grad_clip_by_norm is not None:
-            actor_gradients_clip = [(tf.clip_by_norm(grad, self._actor_grad_clip_by_norm), var)
-                                    for grad, var in actor_gradients]
-        else:
-            actor_gradients_clip = [(tf.clip_by_value(grad, -self._grad_clip, self._grad_clip), var)
-                                    for grad, var in actor_gradients]
-        
-        actor_update = self._actor_optimizer.apply_gradients(actor_gradients_clip)
-        return actor_loss, actor_update
+        with tf.name_scope("targets_update"):
+            self.targets_init_op = self.get_targets_init()
+            self.target_actor_update_op = self.get_target_actor_update()
+            self.target_critic_update_op = self.get_target_critic_update()
