@@ -74,6 +74,11 @@ class BaseAlgo:
         self.dones_ph = tf.placeholder(
             tf.float32, [None, ], "dones_ph")
 
+    def get_gradients_wrt_actions(self):
+        q_values = self._critic([self.states_ph, self.actions_ph])
+        gradients = tf.gradients(q_values, self.actions_ph)[0]
+        return gradients
+
     def get_actor_update(self, loss):
         update_op = BaseAlgo.network_update(
             loss, self._actor, self._actor_optimizer,
@@ -108,6 +113,7 @@ class BaseAlgo:
     def build_graph(self):
         with tf.name_scope("taking_action"):
             self.actions = self._actor(self.states_ph)
+            self.gradients = self.get_gradients_wrt_actions()
 
         with tf.name_scope("actor_update"):
             self.policy_loss = 0
@@ -129,6 +135,13 @@ class BaseAlgo:
         feed_dict = dict(zip(self.states_ph, states))
         actions = sess.run(self.actions, feed_dict=feed_dict)
         return actions.tolist()
+
+    def act_batch_with_gradients(self, sess, states):
+        feed_dict = dict(zip(self.states_ph, states))
+        actions = sess.run(self.actions, feed_dict=feed_dict)
+        feed_dict = {**feed_dict, **{self.actions_ph: actions}}
+        gradients = sess.run(self.gradients, feed_dict=feed_dict)
+        return actions.tolist(), gradients.tolist()
 
     def train(self, sess, batch, actor_update=True, critic_update=True):
         feed_dict = {
