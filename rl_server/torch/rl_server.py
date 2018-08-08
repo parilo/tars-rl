@@ -40,7 +40,7 @@ class RLServer:
             experience_replay_buffer_size=experience_replay_buffer_size,
             use_prioritized_buffer=use_prioritized_buffer,
             use_synchronous_update=use_synchronous_update,
-            n_step=1,
+            n_step=n_step,
             train_every_nth=train_every_nth,
             history_length=history_length,
             start_learning_after=start_learning_after,
