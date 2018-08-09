@@ -69,7 +69,7 @@ class CategoricalDDPG(BaseAlgo):
                 (1.0 - (tf.abs(tz_z) / self.delta_z)), 0., 1.)
             target_probs = tf.einsum("bij,bj->bi", tz_z, next_probs)
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(
-                logits=logits, labels=target_probs)
+                logits=logits, labels=tf.stop_gradient(target_probs))
             self.value_loss = tf.reduce_mean(cross_entropy)
             self.critic_update = self.get_critic_update(self.value_loss)
 
