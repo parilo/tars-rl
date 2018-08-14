@@ -1,5 +1,7 @@
 import tensorflow as tf
 
+from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
+
 
 class BaseAlgo:
     def __init__(
@@ -22,6 +24,8 @@ class BaseAlgo:
         self._action_size = action_size
         self._actor = actor
         self._critic = critic
+        self._actor_weights_tool = ModelWeightsTool(actor)
+        self._critic_weights_tool = ModelWeightsTool(critic)
         self._target_actor = actor.copy(scope="target_actor")
         self._target_critic = critic.copy(scope="target_critic")
         self._actor_optimizer = actor_optimizer
@@ -174,3 +178,14 @@ class BaseAlgo:
         info["actor"] = self._actor.get_info()
         info["critic"] = self._critic.get_info()
         return info
+
+    def get_weights(self, sess):
+        return {
+            'actor': self._actor_weights_tool.get_weights(sess),
+            'critic': self._critic_weights_tool.get_weights(sess)
+        }
+
+    def set_weights(self, sess, weights):
+        self._actor_weights_tool.set_weights(sess, weights['actor'])
+        self._critic_weights_tool.set_weights(sess, weights['critic'])
+        

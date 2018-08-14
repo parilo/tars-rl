@@ -56,8 +56,6 @@ class TFRLTrainer(RLTrainer):
 
     def train_step(self):
 
-        queue_size = self.server_buffer.get_stored_in_buffer()
-
         if self._use_prioritized_buffer:
 
             prio_batch = self.server_buffer.get_prioritized_batch(
@@ -78,14 +76,22 @@ class TFRLTrainer(RLTrainer):
                 n_step=self._n_step,
                 gamma=self._gamma)
             loss = self._algo.train(self._sess, batch)
+            
+            # parallel buffer
+            # batch = self.server_buffer.get_batch()
+            # if batch is not None:
+            #     loss = self._algo.train(self._sess, batch)
+            # else:
+            #     loss = None
 
         if self._step_index % self._target_critic_update_period == 0:
             self._algo.target_critic_update(self._sess)
-
+        
         if self._step_index % self._target_actor_update_period == 0:
             self._algo.target_actor_update(self._sess)
-
+        
         if self._step_index % self._show_stats_period == 0:
+            queue_size = self.server_buffer.get_stored_in_buffer()
             print(
                 "trains: {} loss: {} stored: {}".format(
                     self._step_index, loss, queue_size))
@@ -103,3 +109,6 @@ class TFRLTrainer(RLTrainer):
             #     "num saved",
             #     self._n_saved,
             #     self._step_index)
+
+    def get_weights(self):
+        return self._algo.get_weights(self._sess)

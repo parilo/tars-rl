@@ -1,25 +1,28 @@
 # Env
 env:
+  name: prosthetics
   obs_size: 338
   action_size: 19
   frame_skip: 1
+  ge_temperature: 0.01
+  agent_buffer_size: 2010
 
 actor:
-  hiddens: [400, 300]
-  layer_fn: Linear
-  bias: true
-  norm_fn: null
-  activation_fn: ReLU
-  out_activation: Sigmoid
-
+  hiddens: [[400], [300]]
+  layer_norm: False
+  noisy_layer: False
+  activations: ["relu", "relu"]
+  output_activation: "sigmoid"
+  
 critic:
-  hiddens: [400, 300]
-  layer_fn: Linear
-  bias: true
-  norm_fn: null
-  activation_fn: ReLU
-  concat_at: 1
-  n_atoms: 101
+  hiddens: [[400], [300]]
+  layer_norm: False
+  noisy_layer: False
+  activations: ["relu", "relu"]
+  output_activation: "linear"
+  num_atoms: 101
+  v: [-100., 900.]
+  action_insert_block: 0
 
 actor_optim:
   lr: 0.0001
@@ -32,21 +35,21 @@ critic_optim:
 algorithm:
   n_step: 1
   gamma: 0.99
-  actor_grad_clip: 1.0
+  actor_grad_val_clip: 1.0
   target_actor_update_rate: 1.0
   target_critic_update_rate: 1.0
 
 server:
   num_clients: 40
   batch_size: 256
-  experience_replay_buffer_size: 5000000
+  experience_replay_buffer_size: 10000000
   use_prioritized_buffer: false
-  use_synchronous_update: true
-  train_every_nth: 1
+  use_synchronous_update: false
+  train_every_nth: 2
   history_length: 1
   start_learning_after: 5000
   target_critic_update_period: 500
   target_actor_update_period: 500
   show_stats_period: 100
   save_model_period: 10000
-  init_port: 8777
+  init_port: 9777

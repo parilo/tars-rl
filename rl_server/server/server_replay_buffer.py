@@ -3,6 +3,7 @@ import numpy as np
 from collections import namedtuple
 from threading import RLock
 
+Transition = namedtuple("Transition", ("s", "a", "r", "s_", "done"))
 
 class ServerBuffer:
 
@@ -26,7 +27,6 @@ class ServerBuffer:
 
         self.pointer = 0
         self._store_lock = RLock()
-        self.transition = namedtuple("Transition", ("s", "a", "r", "s_", "done"))
 
     def push_episode(self, episode):
         """ episode = [observations, actions, rewards, dones]
@@ -114,7 +114,13 @@ class ServerBuffer:
                 next_states.append(next_state)
             dones = [transitions[i][4] for i in range(batch_size)]
 
-            batch = self.transition(states, actions, rewards, next_states, dones)
+            batch = Transition(
+                np.array(states, dtype=np.float32),
+                np.array(actions, dtype=np.float32),
+                np.array(rewards, dtype=np.float32),
+                np.array(next_states, dtype=np.float32),
+                np.array(dones, dtype=np.bool)
+            )
             return batch
 
     def get_prioritized_batch(self, batch_size, history_len=1,

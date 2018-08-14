@@ -1,4 +1,5 @@
 import threading
+import numpy as np
 from .tcp_client_server import TCPClient
 from .serialization import serialize, deserialize
 
@@ -32,12 +33,23 @@ def episode_to_req(episode, method="store_episode"):
     str_act = actions.tolist()
     str_rew = rewards.tolist()
     str_don = dones.tolist()
-    req = serialize({"method": method,
+    req = {"method": method,
                      "observations": str_obs,
                      "actions": str_act,
                      "rewards": str_rew,
-                     "dones": str_don})
+                     "dones": str_don}
     return req
+    
+
+def string_to_weights(weights):
+    for nn_name in weights:
+        nn_weights = weights[nn_name]
+        for i in range(len(nn_weights)):
+            data = nn_weights[i]
+            nn_weights[i] = np.frombuffer(
+                data['data'],
+                dtype=np.float32
+            ).reshape(data['shape'])
 
 
 class RLClient:
@@ -97,6 +109,14 @@ class RLClient:
             return deserialize(data)
 
     def store_episode(self, episode):
-        req = episode_to_req(episode, method="store_episode")
+        req = serialize(episode_to_req(episode, method="store_episode"))
         with self._tcp_lock:
             self._tcp_client.write_and_read_with_retries(req)
+
+    def get_weights(self):
+        req = serialize({"method": "get_weights"})
+        with self._tcp_lock:
+            data = self._tcp_client.write_and_read_with_retries(req)
+            data = deserialize(data)
+            string_to_weights(data)
+            return data
