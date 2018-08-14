@@ -37,6 +37,7 @@ class RLTrainer:
             use_prioritized_buffer=False,
             use_synchronous_update=True,
             n_step=1,
+            gamma=0.99,
             train_every_nth=4,
             history_length=3,
             initial_beta=0.4,
@@ -53,6 +54,7 @@ class RLTrainer:
         self._buffer_size = experience_replay_buffer_size
         self._start_learning_after = start_learning_after
         self._n_step = n_step
+        self._gamma = gamma
         self._train_every = train_every_nth
         self._target_critic_update_period = target_critic_update_period
         self._target_actor_update_period = target_actor_update_period
@@ -147,7 +149,8 @@ class RLTrainer:
                 self._batch_size,
                 history_len=self._hist_len,
                 n_step=self._n_step,
-                beta=self._beta)
+                beta=self._beta,
+                gamma=self._gamma)
             batch, indices, is_weights = prio_batch
             loss = self._algo.train(batch, is_weights)
             td_errors = self._algo.get_td_errors(batch).ravel()
@@ -157,7 +160,8 @@ class RLTrainer:
             batch = self.server_buffer.get_batch(
                 self._batch_size,
                 history_len=self._hist_len,
-                n_step=self._n_step)
+                n_step=self._n_step,
+                gamma=self._gamma)
             loss = self._algo.train(batch)
 
         if isinstance(loss, dict):

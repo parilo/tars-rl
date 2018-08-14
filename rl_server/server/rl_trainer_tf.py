@@ -38,7 +38,7 @@ class TFRLTrainer(RLTrainer):
         self._sess.run(tf.global_variables_initializer())
         self._saver = tf.train.Saver(max_to_keep=None)
         self._algo.target_network_init(self._sess)
-        
+
     def load_checkpoint(self, path):
         self._saver.restore(self._sess, path)
 
@@ -64,7 +64,8 @@ class TFRLTrainer(RLTrainer):
                 self._batch_size,
                 history_len=self._hist_len,
                 n_step=self._n_step,
-                beta=self._beta)
+                beta=self._beta,
+                gamma=self._gamma)
             batch, indices, is_weights = prio_batch
             loss = self._algo.train(self._sess, batch, is_weights)
             td_errors = self._algo.get_td_errors(self._sess, batch).ravel()
@@ -74,7 +75,8 @@ class TFRLTrainer(RLTrainer):
             batch = self.server_buffer.get_batch(
                 self._batch_size,
                 history_len=self._hist_len,
-                n_step=self._n_step)
+                n_step=self._n_step,
+                gamma=self._gamma)
             loss = self._algo.train(self._sess, batch)
 
         if self._step_index % self._target_critic_update_period == 0:
