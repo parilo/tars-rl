@@ -8,7 +8,7 @@ from .noisy_dense import NoisyDense
 
 def dense_block(input_layer, hiddens, activation="relu",
                 layer_norm=False, noisy_layer=False):
-    out = input_layer 
+    out = input_layer
     for num_units in hiddens:
         if noisy_layer:
             out = NoisyDense(num_units, None)(out)
@@ -23,7 +23,7 @@ def dense_block(input_layer, hiddens, activation="relu",
 class ActorNetwork:
 
     def __init__(self, state_shape, action_size,
-                 hiddens = [[256, 128], [64, 32]], 
+                 hiddens = [[256, 128], [64, 32]],
                  activations=["relu", "tanh"],
                  layer_norm=False, noisy_layer=False,
                  output_activation=None, scope=None):
@@ -44,14 +44,14 @@ class ActorNetwork:
         out = Reshape((input_size, ))(input_state)
         with tf.variable_scope(self.scope):
             for i in range(len(self.hiddens)):
-                out = dense_block(out, self.hiddens[i], self.activations[i], 
+                out = dense_block(out, self.hiddens[i], self.activations[i],
                                   self.layer_norm, self.noisy_layer)
             out = Dense(self.action_size, self.out_activation,
                         kernel_initializer=RandomUniform(-3e-3, 3e-3),
                         bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
             model = keras.models.Model(inputs=[input_state], outputs=out)
         return model
-    
+
     def get_input_size(self, shape):
         if len(shape) == 1:
             return shape[0]
@@ -91,10 +91,64 @@ class ActorNetwork:
         info["output_activation"] = self.out_activation
         return info
 
-class GMMActorNetwork(ActorNetwork):
-    
+class GaussActorNetwork(ActorNetwork):
+
     def __init__(self, state_shape, action_size,
-                 hiddens = [[256, 128], [64, 32]], 
+                 hiddens = [[256, 128], [64, 32]],
+                 activations=["relu", "tanh"],
+                 layer_norm=False, noisy_layer=False,
+                 output_activation=None, scope=None):
+
+        self.state_shape = state_shape
+        self.action_size = action_size
+        self.hiddens = hiddens
+        self.activations = activations
+        self.layer_norm = layer_norm
+        self.noisy_layer = noisy_layer
+        self.out_activation = output_activation
+        self.scope = scope or "GaussActorNetwork"
+        self.model = self.build_model()
+
+    def build_model(self):
+        input_state = keras.layers.Input(shape=self.state_shape, name="state_input")
+        input_size = self.get_input_size(self.state_shape)
+        out = Reshape((input_size, ))(input_state)
+        with tf.variable_scope(self.scope):
+            for i in range(len(self.hiddens)):
+                out = dense_block(out, self.hiddens[i], self.activations[i],
+                                  self.layer_norm, self.noisy_layer)
+            mu = Dense(self.action_size, None,
+                       kernel_initializer=RandomUniform(-3e-3, 3e-3),
+                       bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
+            log_sig = Dense(self.action_size, None,
+                            kernel_initializer=RandomUniform(-3e-3, 3e-3),
+                            bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
+            model = keras.models.Model(inputs=[input_state], outputs=[mu, log_sig])
+        return model
+
+    def copy(self, scope=None):
+        """copy network architecture"""
+        scope = scope or self.scope + "_copy"
+        with tf.variable_scope(scope):
+            return GaussActorNetwork(state_shape=self.state_shape,
+                                   action_size=self.action_size,
+                                   hiddens=self.hiddens,
+                                   activations=self.activations,
+                                   layer_norm=self.layer_norm,
+                                   noisy_layer=self.noisy_layer,
+                                   output_activation=self.out_activation,
+                                   scope=scope)
+
+    def get_info(self):
+        info = super(GaussActorNetwork, self).get_info()
+        info["architecture"] = "Gauss"
+        return info
+
+
+class GMMActorNetwork(ActorNetwork):
+
+    def __init__(self, state_shape, action_size,
+                 hiddens = [[256, 128], [64, 32]],
                  activations=["relu", "tanh"],
                  num_components=1,
                  layer_norm=False, noisy_layer=False,
@@ -150,7 +204,7 @@ class GMMActorNetwork(ActorNetwork):
                                    num_components=self.K,
                                    output_activation=self.out_activation,
                                    scope=scope)
-        
+
     def get_info(self):
         info = super(GMMActorNetwork, self).get_info()
         info["architecture"] = "GMM"
