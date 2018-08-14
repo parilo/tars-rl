@@ -27,6 +27,9 @@ actor_optim:
 critic_optim:
   lr: 0.0003
 
+ensemble:
+  num_of_algorithms: 5
+
 # Algorithm
 algorithm:
   n_step: 1

@@ -18,21 +18,25 @@ class CategoricalDDPG(BaseAlgo):
             critic_grad_norm_clip=None,
             gamma=0.99,
             target_actor_update_rate=1.0,
-            target_critic_update_rate=1.0):
+            target_critic_update_rate=1.0,
+            scope="algorithm",
+            placeholders=None):
         super(CategoricalDDPG, self).__init__(
             state_shapes, action_size, actor, critic,
             actor_optimizer, critic_optimizer, n_step,
             actor_grad_val_clip, actor_grad_norm_clip,
             critic_grad_val_clip, critic_grad_norm_clip,
-            gamma, target_actor_update_rate, target_critic_update_rate)
+            gamma, target_actor_update_rate, target_critic_update_rate,
+            scope, placeholders)
 
-        self.num_atoms = self._critic.num_atoms
-        self.v_min, self.v_max = self._critic.v
-        self.delta_z = (self.v_max - self.v_min) / (self.num_atoms - 1)
-        self.z = tf.lin_space(
-            start=self.v_min, stop=self.v_max, num=self.num_atoms)
-        self.create_placeholders()
-        self.build_graph()
+        with tf.name_scope(scope):
+            self.num_atoms = self._critic.num_atoms
+            self.v_min, self.v_max = self._critic.v
+            self.delta_z = (self.v_max - self.v_min) / (self.num_atoms - 1)
+            self.z = tf.lin_space(
+                start=self.v_min, stop=self.v_max, num=self.num_atoms)
+            self.create_placeholders()
+            self.build_graph()
 
     def get_gradients_wrt_actions(self):
         logits = self._critic([self.states_ph, self.actions_ph])

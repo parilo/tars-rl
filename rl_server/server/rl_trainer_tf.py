@@ -110,5 +110,5 @@ class TFRLTrainer(RLTrainer):
             #     self._n_saved,
             #     self._step_index)
 
-    def get_weights(self):
-        return self._algo.get_weights(self._sess)
+    def get_weights(self, index=0):
+        return self._algo.get_weights(self._sess, index)

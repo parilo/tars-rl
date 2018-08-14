@@ -117,7 +117,7 @@ class RLServerAPI:
             response = ""
 
         elif method == "get_weights":
-            response = self._get_weights_callback()
+            response = self._get_weights_callback(req["index"])
             weights_to_string(response)
 
         return serialize(response)

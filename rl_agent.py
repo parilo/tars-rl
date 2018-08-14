@@ -16,6 +16,10 @@ class RLAgent:
         self._env = env
         self._seed = seed
         self._use_tensorflow = use_tensorflow
+        
+    def fetch_model(self):
+        index = random.randint(0, self._num_of_algorithms-1)
+        self._agent_model.fetch(index)
 
     def run(self):
         set_agent_seed(self._seed)
@@ -25,10 +29,11 @@ class RLAgent:
         rl_client = RLClient(
             port=hparams["server"]["init_port"] + args.id)
 
+        self._num_of_algorithms = hparams["ensemble"]["num_of_algorithms"]
         if self._use_tensorflow:
             from rl_server.tensorflow.agent_model_tf import AgentModel
-            agent_model = AgentModel(hparams, rl_client)
-            agent_model.fetch()
+            self._agent_model = AgentModel(hparams, rl_client)
+            self.fetch_model()
 
         history_len = hparams["server"]["history_length"]
         buf_capacity = hparams["env"]["agent_buffer_size"]
@@ -65,12 +70,12 @@ class RLAgent:
 
             if args.validation:
                 # result = rl_client.act_batch([state.ravel()], mode="with_gradients")
-                action = agent_model.act_batch(prepare_state(state))[0]
+                action = self._agent_model.act_batch(prepare_state(state))[0]
             else:
                 if np.float(args.exploration) >= 0:
                     # action = rl_client.act([state.ravel()]) + np.random.normal(
                     #     scale=np.float(args.exploration), size=self._env.action_size)
-                    action = agent_model.act_batch(prepare_state(state))[0]
+                    action = self._agent_model.act_batch(prepare_state(state))[0]
                     action = np.array(action) + np.random.normal(
                         scale=np.float(args.exploration),
                         size=self._env.action_size)
@@ -79,7 +84,7 @@ class RLAgent:
                     # result = rl_client.act_batch([state.ravel()], mode="with_gradients")
                     # action = result[0][0]
                     # grad = result[1][0]
-                    actions, grads = agent_model.act_batch(
+                    actions, grads = self._agent_model.act_batch(
                         prepare_state(state),
                         mode="with_gradients")
                     action = actions[0]
@@ -106,7 +111,7 @@ class RLAgent:
                 logger.log(episode_index, n_steps)
                 episode = agent_buffer.get_complete_episode()
                 rl_client.store_episode(episode)
-                agent_model.fetch()
+                self.fetch_model()
 
                 # save episode on disk
                 if args.store_episodes:

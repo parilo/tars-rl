@@ -18,15 +18,20 @@ class DDPG(BaseAlgo):
             critic_grad_norm_clip=None,
             gamma=0.99,
             target_actor_update_rate=1.0,
-            target_critic_update_rate=1.0):
+            target_critic_update_rate=1.0,
+            scope="algorithm",
+            placeholders=None):
         super(DDPG, self).__init__(
             state_shapes, action_size, actor, critic,
             actor_optimizer, critic_optimizer, n_step,
             actor_grad_val_clip, actor_grad_norm_clip,
             critic_grad_val_clip, critic_grad_norm_clip,
-            gamma, target_actor_update_rate, target_critic_update_rate)
-        self.create_placeholders()
-        self.build_graph()
+            gamma, target_actor_update_rate, target_critic_update_rate,
+            scope, placeholders)
+            
+        with tf.name_scope(scope):
+            self.create_placeholders()
+            self.build_graph()
 
     def build_graph(self):
         with tf.name_scope("taking_action"):

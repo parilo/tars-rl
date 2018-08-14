@@ -27,5 +27,5 @@ class AgentModel:
             raise NotImplementedError
         return actions
         
-    def fetch(self):
-        self.set_weights(self._rl_client.get_weights())
+    def fetch(self, index=0):
+        self.set_weights(self._rl_client.get_weights(index=index))

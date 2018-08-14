@@ -113,8 +113,8 @@ class RLClient:
         with self._tcp_lock:
             self._tcp_client.write_and_read_with_retries(req)
 
-    def get_weights(self):
-        req = serialize({"method": "get_weights"})
+    def get_weights(self, index=0):
+        req = serialize({"method": "get_weights", "index": index})
         with self._tcp_lock:
             data = self._tcp_client.write_and_read_with_retries(req)
             data = deserialize(data)
