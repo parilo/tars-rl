@@ -3,6 +3,25 @@ import tensorflow as tf
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
 
 
+def create_placeholders(state_shapes, action_size, scope="placeholders"):
+    with tf.name_scope(scope):
+        states_ph, next_states_ph = [], []
+        for i, s in enumerate(state_shapes):
+            states_batch_shape = [None] + list(s)
+            states_ph.append(tf.placeholder(
+                tf.float32, states_batch_shape, "states"+str(i)+"_ph"))
+            next_states_ph.append(tf.placeholder(
+                tf.float32, states_batch_shape, "next_states"+str(i)+"_ph"))
+        actions_ph = tf.placeholder(
+            tf.float32, [None, action_size], "actions_ph")
+        rewards_ph = tf.placeholder(
+            tf.float32, [None, ], "rewards_ph")
+        dones_ph = tf.placeholder(
+            tf.float32, [None, ], "dones_ph")
+            
+    return (states_ph, actions_ph, rewards_ph, next_states_ph, dones_ph)
+
+
 class BaseAlgo:
     def __init__(
             self,
@@ -19,15 +38,15 @@ class BaseAlgo:
             critic_grad_norm_clip=None,
             gamma=0.99,
             target_actor_update_rate=1.0,
-            target_critic_update_rate=1.0):
+            target_critic_update_rate=1.0,
+            scope="algorithm",
+            placeholders=None):
         self._state_shapes = state_shapes
         self._action_size = action_size
         self._actor = actor
         self._critic = critic
         self._actor_weights_tool = ModelWeightsTool(actor)
         self._critic_weights_tool = ModelWeightsTool(critic)
-        self._target_actor = actor.copy(scope="target_actor")
-        self._target_critic = critic.copy(scope="target_critic")
         self._actor_optimizer = actor_optimizer
         self._critic_optimizer = critic_optimizer
         self._n_step = n_step
@@ -38,6 +57,10 @@ class BaseAlgo:
         self._gamma = gamma
         self._target_actor_update_rate = target_actor_update_rate
         self._target_critic_update_rate = target_critic_update_rate
+        self._placeholders = placeholders
+        
+        self._target_actor = actor.copy(scope=scope + "/target_actor")
+        self._target_critic = critic.copy(scope=scope + "/target_critic")
 
     @staticmethod
     def target_network_update(target, source, tau):
@@ -64,19 +87,29 @@ class BaseAlgo:
         return update_op
 
     def create_placeholders(self):
-        self.states_ph, self.next_states_ph = [], []
-        for i, s in enumerate(self._state_shapes):
-            states_batch_shape = [None] + list(s)
-            self.states_ph.append(tf.placeholder(
-                tf.float32, states_batch_shape, "states"+str(i)+"_ph"))
-            self.next_states_ph.append(tf.placeholder(
-                tf.float32, states_batch_shape, "next_states"+str(i)+"_ph"))
-        self.actions_ph = tf.placeholder(
-            tf.float32, [None, self._action_size], "actions_ph")
-        self.rewards_ph = tf.placeholder(
-            tf.float32, [None, ], "rewards_ph")
-        self.dones_ph = tf.placeholder(
-            tf.float32, [None, ], "dones_ph")
+        if self._placeholders is None:
+            self._placeholders = create_placeholders(self._state_shapes, self._action_size)
+
+        self.states_ph = self._placeholders[0]
+        self.actions_ph = self._placeholders[1]
+        self.rewards_ph = self._placeholders[2]
+        self.next_states_ph = self._placeholders[3]
+        self.dones_ph = self._placeholders[4]
+            
+        # with tf.name_scope("placeholders"):
+        #     self.states_ph, self.next_states_ph = [], []
+        #     for i, s in enumerate(self._state_shapes):
+        #         states_batch_shape = [None] + list(s)
+        #         self.states_ph.append(tf.placeholder(
+        #             tf.float32, states_batch_shape, "states"+str(i)+"_ph"))
+        #         self.next_states_ph.append(tf.placeholder(
+        #             tf.float32, states_batch_shape, "next_states"+str(i)+"_ph"))
+        #     self.actions_ph = tf.placeholder(
+        #         tf.float32, [None, self._action_size], "actions_ph")
+        #     self.rewards_ph = tf.placeholder(
+        #         tf.float32, [None, ], "rewards_ph")
+        #     self.dones_ph = tf.placeholder(
+        #         tf.float32, [None, ], "dones_ph")
 
     def get_gradients_wrt_actions(self):
         q_values = self._critic([self.states_ph, self.actions_ph])
@@ -131,6 +164,18 @@ class BaseAlgo:
             self.targets_init_op = self.get_targets_init()
             self.target_actor_update_op = self.get_target_actor_update()
             self.target_critic_update_op = self.get_target_critic_update()
+        
+    def get_value_loss_op(self):
+        return self.value_loss
+        
+    def get_policy_loss_op(self):
+        return self.policy_loss
+        
+    def get_actor_update_op(self):
+        return self.actor_update
+        
+    def get_critic_update_op(self):
+        return self.critic_update
 
     def init(self, sess):
         sess.run(tf.global_variables_initializer())
@@ -179,7 +224,13 @@ class BaseAlgo:
         info["critic"] = self._critic.get_info()
         return info
 
-    def get_weights(self, sess):
+    def get_actor_weights_tool(self):
+        return self._actor_weights_tool
+        
+    def get_critic_weights_tool(self):
+        return self._critic_weights_tool
+
+    def get_weights(self, sess, index=0):
         return {
             'actor': self._actor_weights_tool.get_weights(sess),
             'critic': self._critic_weights_tool.get_weights(sess)

@@ -16,6 +16,6 @@ env = BipedalWalker(
 
 agent = RLAgent(
     env=env,
-    seed=1
+    seed=1 + args.id
 )
 agent.run()
