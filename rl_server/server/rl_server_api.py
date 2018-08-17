@@ -34,6 +34,17 @@ def req_to_episode(req, obs_shapes):
     rewards = np.array(req["rewards"], dtype=np.float32)
     dones = np.array(req["dones"], dtype=np.bool)
     return [observations, actions, rewards, dones]
+    
+
+def weights_to_string(weights):
+    for nn_name in weights:
+        nn_weights = weights[nn_name]
+        for i in range(len(nn_weights)):
+            np_array = nn_weights[i]
+            nn_weights[i] = {
+                'data': np_array.reshape(-1).tostring(),
+                'shape': np_array.shape
+            }
 
 
 class RLServerAPI:
@@ -76,6 +87,9 @@ class RLServerAPI:
     def set_store_episode_callback(self, callback):
         self._store_episode_callback = callback
 
+    def set_get_weights_callback(self, callback):
+        self._get_weights_callback = callback
+
     def start_server(self):
         for i in range(self._num_clients):
             server = TCPServer(self._ip_address,
@@ -101,5 +115,9 @@ class RLServerAPI:
             episode = req_to_episode(req, self._observation_shapes)
             self._store_episode_callback(episode)
             response = ""
+
+        elif method == "get_weights":
+            response = self._get_weights_callback()
+            weights_to_string(response)
 
         return serialize(response)

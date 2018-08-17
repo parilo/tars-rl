@@ -5,6 +5,7 @@ import copy
 import random
 import numpy as np
 import collections
+import argparse
 
 
 def set_global_seeds(i):
@@ -138,3 +139,47 @@ def init_episode_storage(agent_id, logdir):
         os.makedirs(path_to_episode_storage)
     path, dirs, files = next(os.walk(path_to_episode_storage))
     return path_to_episode_storage, len(files)
+
+
+def set_agent_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+
+
+def parse_agent_args():
+    parser = argparse.ArgumentParser(
+        description="Run RL agent on RL server")
+    parser.add_argument(
+        "--id",
+        dest="id",
+        type=int,
+        default=0)
+    parser.add_argument(
+        "--visualize",
+        dest="visualize",
+        action="store_true",
+        default=False)
+    parser.add_argument(
+        "--validation",
+        dest="validation",
+        action="store_true",
+        default=False)
+    parser.add_argument(
+        "--hparams",
+        type=str, required=True)
+    parser.add_argument(
+        "--logdir",
+        type=str, required=True)
+    parser.add_argument(
+        "--exploration",
+        dest="exploration",
+        type=str,
+        default="-1.0")
+    parser.add_argument(
+        "--store-episodes",
+        dest="store_episodes",
+        action="store_true",
+        default=False)
+    args = parser.parse_args()
+    args, hparams = default_parse_fn(args, [])
+    return args, hparams

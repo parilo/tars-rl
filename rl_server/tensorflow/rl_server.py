@@ -56,7 +56,8 @@ class RLServer:
         self._train_loop.init()
         self._server_api.set_act_batch_callback(self._train_loop.act_batch)
         self._server_api.set_store_episode_callback(self._train_loop.store_episode)
-
+        self._server_api.set_get_weights_callback(self._train_loop.get_weights)
+        
     def load_weights(self, path):
         self._train_loop.load_checkpoint(path)
 

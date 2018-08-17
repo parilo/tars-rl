@@ -41,7 +41,8 @@ class ProstheticsEnvWrap:
                  side_deviation_penalty=0.0,
                  crossing_legs_penalty=0.0,
                  bending_knees_bonus=0.0,
-                 side_step_penalty=False):
+                 side_step_penalty=False,
+                 legs_interleave_bonus=0.):
 
         self.vis = visualize
         self.env = ProstheticsEnv(visualize=visualize, integrator_accuracy=1e-3)
@@ -59,12 +60,16 @@ class ProstheticsEnvWrap:
         self.cross_legs_coef = crossing_legs_penalty
         self.bending_knees_coef = bending_knees_bonus
         self.side_step_penalty = side_step_penalty
+        self.legs_interleave_bonus = legs_interleave_bonus
+        self.front_leg = 0
+        self.prev_legs_x = np.array([0., 0.])
 
         self.obs_list = []
 
     def reset(self):
         self.time_step = 0
         self.total_reward = 0
+        self.total_reward_shaped = 0.
         self.init_action = np.round(np.random.uniform(0, 0.7, size=self.action_size))
         obs = self.env.reset(project=False)
         return self.preprocess_obs(obs)
@@ -75,9 +80,11 @@ class ProstheticsEnvWrap:
         action = np.clip(action, 0.0, 1.0)
         for i in range(self.frame_skip):
             observation, r, _, info = self.env.step(action, project=False)
+            self.original_reward = r
             self.total_reward += r
             done = self.is_done(observation)
             reward += self.shape_reward(r) * self.reward_scale
+            self.total_reward_shaped += reward
             if done: break
 
         observation = self.preprocess_obs(observation)
@@ -121,12 +128,29 @@ class ProstheticsEnvWrap:
         l_knee_flexion = np.minimum(state_desc['joint_pos']['knee_l'][0], 0.)
         bend_knees_bonus = np.abs(r_knee_flexion + l_knee_flexion)
         reward += self.bending_knees_coef * bend_knees_bonus
-        
+
+        # legs interleaving
+        pelvis_x = pelvis_xy[0]
+        legs_x = np.array([
+            state_desc['body_pos']['pros_tibia_r'][0] - pelvis_x,
+            state_desc['body_pos']['tibia_l'][0] - pelvis_x])
+        if legs_x[self.front_leg] > 0.225:
+            # change leg
+            self.front_leg = 1 - self.front_leg
+        legs_v = legs_x - self.prev_legs_x
+        reward_for_front_leg = 0.
+        front_leg_v = legs_v[self.front_leg]
+        if front_leg_v > 0:
+            reward_for_front_leg = self.legs_interleave_bonus * front_leg_v
+        self.prev_legs_x = legs_x
+        reward += reward_for_front_leg
+
         # side step penalty
         if self.side_step_penalty:
             rx, ry, rz = state_desc['body_pos_rot']['pelvis']
             R = euler_angles_to_rotation_matrix([rx, ry, rz])
-            reward *= (1.0 - math.fabs(R[2, 0]))
+            # reward = 0.5 * reward * (1.0 + (1.0 - math.fabs(R[2, 0])))
+            reward = reward * (1.0 - math.fabs(R[2, 0]))
 
         return reward
 
@@ -214,6 +238,9 @@ class ProstheticsEnvWrap:
 
     def get_total_reward(self):
         return self.total_reward
+
+    def get_total_reward_shaped(self):
+        return self.total_reward_shaped
 
     def get_random_action(self, resample=True):
         if resample:

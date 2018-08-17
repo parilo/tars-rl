@@ -6,6 +6,7 @@ import multiprocessing
 from tensorboardX import SummaryWriter
 from misc.defaults import create_if_need
 from datetime import datetime
+from rl_server.server.parallel_batch_fetcher import ParallelBatchFetcher
 
 
 def make_session(num_cpu=None, make_default=False, graph=None):
@@ -70,9 +71,27 @@ class RLTrainer:
         create_if_need(logpath)
         self._logger = SummaryWriter(logpath)
 
+        # sync buffer
         self.server_buffer = ServerBuffer(
             self._buffer_size, observation_shapes, action_size)
         self._train_loop_step_lock = Lock()
+        
+        # parallel buffer
+        # batch_prepare_params = {
+        #     'batch_size': self._batch_size,
+        #     'history_len': self._hist_len,
+        #     'n_step': self._n_step,
+        #     'gamma': 0.99,
+        #     'indices': None
+        # }
+        # self.server_buffer = ParallelBatchFetcher(
+        #     self._buffer_size,
+        #     observation_shapes,
+        #     action_size,
+        #     batch_prepare_params)
+        # self.server_buffer.start()
+        
+        
         self._step_index = 0
 
         self._target_actor_update_num = 0
@@ -90,23 +109,29 @@ class RLTrainer:
 
     # for asynchronous acts and trains
     def start_training(self):
-        if not self._use_synchronous_update:
-            def train_loop():
-                while True:
-                    buffer_size = self.server_buffer.get_stored_in_buffer()
-                    if buffer_size > self._start_learning_after:
-                        if buffer_size > self._step_index * self._train_every:
-                            self.train_step()
-                            self._step_index += 1
-                    elif buffer_size < self._start_learning_after \
-                            and self._step_index % 10 == 0:
-                        print("--- buffer size {}".format(buffer_size))
-                        time.sleep(1.0)
+        # parallel buffer
+        # while True:
+        #     buffer_size = self.server_buffer.get_stored_in_buffer()
+        #     if buffer_size > self._start_learning_after:
+        #         if buffer_size > self._step_index * self._train_every:
+        #             self.train_step()
+        #             self._step_index += 1
+        #     elif buffer_size < self._start_learning_after \
+        #             and self._step_index % 10 == 0:
+        #         print("--- buffer size {}".format(buffer_size))
+        #         time.sleep(1.0)
 
-            th = Thread(target=train_loop)
-            th.start()
-        else:
-            pass
+        if not self._use_synchronous_update:
+            while True:
+                buffer_size = self.server_buffer.get_stored_in_buffer()
+                if buffer_size > self._start_learning_after:
+                    if buffer_size > self._step_index * self._train_every:
+                        self.train_step()
+                        self._step_index += 1
+                elif buffer_size < self._start_learning_after \
+                        and self._step_index % 10 == 0:
+                    print("--- buffer size {}".format(buffer_size))
+                    time.sleep(1.0)
 
     # for synchronous acts and trains
     def train_loop_step(self):
@@ -137,7 +162,7 @@ class RLTrainer:
         if self._use_synchronous_update:
             self.train_loop_step()
         return actions
-
+    
     def train_step(self):
 
         queue_size = self.server_buffer.get_stored_in_buffer()
@@ -195,3 +220,6 @@ class RLTrainer:
 
     def save(self):
         pass
+
+    def get_weights(self):
+        return None
