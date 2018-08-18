@@ -2,6 +2,24 @@ from osim.env import ProstheticsEnv
 import numpy as np
 
 
+# Calculates Rotation Matrix given euler angles.
+def euler_angles_to_rotation_matrix(theta):
+    R_x = np.array(
+        [[1, 0, 0],
+         [0, math.cos(theta[0]), -math.sin(theta[0])],
+         [0, math.sin(theta[0]), math.cos(theta[0])]])
+    R_y = np.array(
+        [[math.cos(theta[1]), 0, math.sin(theta[1])],
+         [0, 1, 0],
+         [-math.sin(theta[1]), 0, math.cos(theta[1])]])
+    R_z = np.array(
+        [[math.cos(theta[2]), -math.sin(theta[2]), 0],
+         [math.sin(theta[2]), math.cos(theta[2]), 0],
+         [0, 0, 1]])
+    R = np.dot(R_z, np.dot(R_y, R_x))
+    return R
+
+
 def get_simbody_state(state_desc):
     res = []
     # joints
@@ -54,7 +72,8 @@ class ProstheticsMini:
             side_deviation_penalty=0.0,
             crossing_legs_penalty=0.0,
             bending_knees_bonus=0.0,
-            legs_interleave_bonus=0.):
+            legs_interleave_bonus=0.0,
+            side_step_penalty=False):
 
         self.visualize = visualize
         self.randomized_start = randomized_start
@@ -74,6 +93,7 @@ class ProstheticsMini:
         self.cross_legs_coef = crossing_legs_penalty
         self.bending_knees_coef = bending_knees_bonus
         self.legs_interleave_bonus = legs_interleave_bonus
+        self.side_step_penalty = side_step_penalty
         self.front_leg = 0
         self.prev_legs_x = np.array([0., 0.])
 
@@ -173,6 +193,12 @@ class ProstheticsMini:
         self.prev_legs_x = legs_x
         reward += reward_for_front_leg
 
+        # side step penalty
+        if self.side_step_penalty:
+            rx, ry, rz = state_desc['body_pos_rot']['pelvis']
+            R = euler_angles_to_rotation_matrix([rx, ry, rz])
+            reward = reward * (1.0 - math.fabs(R[2, 0]))
+
         return reward
 
     def get_total_reward(self):
@@ -216,13 +242,14 @@ class ProstheticsMiniCosine(ProstheticsMini):
             side_deviation_penalty=0.0,
             crossing_legs_penalty=0.0,
             bending_knees_bonus=0.0,
-            legs_interleave_bonus=0.):
+            legs_interleave_bonus=0.,
+            side_step_penalty=False):
         super(ProstheticsMiniCosine, self).__init__(
             frame_skip, visualize, randomized_start,
             max_episode_length, reward_scale, death_penalty,
             living_bonus, side_deviation_penalty,
             crossing_legs_penalty, bending_knees_bonus,
-            legs_interleave_bonus)
+            legs_interleave_bonus, side_step_penalty)
         self.observation_shapes = [(84,)]
         self.prep_func = preprocess_obs_cosine
 
