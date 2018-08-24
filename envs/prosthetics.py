@@ -30,27 +30,52 @@ def euler_angles_to_rotation_matrix(theta) :
     return R
 
 
+def get_simbody_state(state_desc):
+    res = []
+    # joints
+    for joint_val in ["joint_pos", "joint_vel"]:
+        for joint in ["ground_pelvis", "hip_r", "hip_l", "back",
+                      "knee_r", "knee_l", "ankle_r", "ankle_l"]:
+            res += state_desc[joint_val][joint]
+    # muscles
+    muscles = ["abd_r", "add_r", "hamstrings_r", "bifemsh_r",
+               "glut_max_r", "iliopsoas_r", "rect_fem_r", "vasti_r",
+               "abd_l", "add_l", "hamstrings_l", "bifemsh_l",
+               "glut_max_l", "iliopsoas_l", "rect_fem_l", "vasti_l",
+               "gastroc_l", "soleus_l", "tib_ant_l"]
+    for muscle in muscles:
+        res += [state_desc["muscles"][muscle]["activation"]]
+        res += [state_desc["muscles"][muscle]["fiber_length"]]
+    return res
+
+
 class ProstheticsEnvWrap:
 
-    def __init__(self, frame_skip=1,
-                 visualize=False,
-                 max_episode_length=300,
-                 reward_scale=0.1,
-                 death_penalty=0.0,
-                 living_bonus=0.0,
-                 side_deviation_penalty=0.0,
-                 crossing_legs_penalty=0.0,
-                 bending_knees_bonus=0.0,
-                 side_step_penalty=False,
-                 legs_interleave_bonus=0.):
+    def __init__(
+            self,
+            frame_skip=1,
+            visualize=False,
+            randomized_start=False,
+            max_episode_length=300,
+            reward_scale=0.1,
+            death_penalty=0.0,
+            living_bonus=0.0,
+            side_deviation_penalty=0.0,
+            crossing_legs_penalty=0.0,
+            bending_knees_bonus=0.0,
+            side_step_penalty=False,
+            legs_interleave_bonus=0.):
 
         self.vis = visualize
-        self.env = ProstheticsEnv(visualize=visualize, integrator_accuracy=1e-3)
-        self.env.change_model(model='3D', prosthetic=True, difficulty=0, seed=np.random.randint(200))
+        self.randomized_start = randomized_start
+        self.max_ep_length = max_episode_length - 2
+        self.env = ProstheticsEnv(
+            visualize=visualize, integrator_accuracy=1e-3)
+        self.env.change_model(
+            model='3D', prosthetic=True, difficulty=0)
         self.frame_skip = frame_skip
         self.observation_shapes = [(338,)]
         self.action_size = 19
-        self.max_ep_length = max_episode_length
 
         # reward shaping
         self.reward_scale = reward_scale
@@ -64,18 +89,28 @@ class ProstheticsEnvWrap:
         self.front_leg = 0
         self.prev_legs_x = np.array([0., 0.])
 
-        self.obs_list = []
-
     def reset(self):
         self.time_step = 0
         self.total_reward = 0
         self.total_reward_shaped = 0.
-        self.init_action = np.round(np.random.uniform(0, 0.7, size=self.action_size))
-        obs = self.env.reset(project=False)
-        return self.preprocess_obs(obs)
+        self.init_action = np.round(
+            np.random.uniform(0, 0.7, size=self.action_size))
+        state_desc = self.env.reset(project=False)
+
+        if self.randomized_start:
+            state = get_simbody_state(state_desc)
+            noise = np.random.normal(scale=0.1, size=72)
+            noise[3:6] = 0
+            state = (np.array(state) + noise).tolist()
+            simbody_state = self.env.osim_model.get_state()
+            obj = simbody_state.getY()
+            for i in range(72):
+                obj[i] = state[i]
+            self.env.osim_model.set_state(simbody_state)
+
+        return self.preprocess_obs(state_desc)
 
     def step(self, action):
-
         reward = 0
         action = np.clip(action, 0.0, 1.0)
         for i in range(self.frame_skip):
