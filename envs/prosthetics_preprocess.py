@@ -39,7 +39,7 @@ def euler_angles_to_rotation_matrix(theta):
     return R
 
 
-def preprocess_obs(obs):
+def preprocess_obs(state_desc):
 
     res = []
 
@@ -51,45 +51,45 @@ def preprocess_obs(obs):
                   'tibia_l', 'talus_l', 'calcn_l', 'toes_l', 'torso', 'head']
     # calculate linear coordinates of pelvis to switch
     # to the reference frame attached to the pelvis
-    x, y, z = obs['body_pos']['pelvis']
-    rx, ry, rz = obs['body_pos_rot']['pelvis']
+    x, y, z = state_desc['body_pos']['pelvis']
+    rx, ry, rz = state_desc['body_pos_rot']['pelvis']
     res += [y, z]
     res += [rx, ry, rz]
     # 30 components -- relative linear coordinates of body parts (except pelvis)
     for body_part in body_parts:
         if body_part != 'pelvis':
-            x_, y_, z_ = obs['body_pos'][body_part]
+            x_, y_, z_ = state_desc['body_pos'][body_part]
             res += [x_-x, y_-y, z_-z]
     # 2 components -- relative linear coordinates of center mass
-    x_, y_, z_ = obs['misc']['mass_center_pos']
+    x_, y_, z_ = state_desc['misc']['mass_center_pos']
     res += [x_-x, y_-y, z_-z]
     # 35 components -- linear velocities of body parts (and center mass)
     for body_part in body_parts:
-        res += obs['body_vel'][body_part]
-    res += obs['misc']['mass_center_vel']
+        res += state_desc['body_vel'][body_part]
+    res += state_desc['misc']['mass_center_vel']
     # 35 components -- linear accelerations of body parts (and center mass)
     for body_part in body_parts:
-        res += obs['body_acc'][body_part]
-    res += obs['misc']['mass_center_acc']
+        res += state_desc['body_acc'][body_part]
+    res += state_desc['misc']['mass_center_acc']
     # calculate angular coordinates of pelvis to switch
     # to the reference frame attached to the pelvis
     # 30 components -- relative angular coordinates of body parts (except pelvis)
     for body_part in body_parts:
         if body_part != 'pelvis':
-            rx_, ry_, rz_ = obs['body_pos_rot'][body_part]
+            rx_, ry_, rz_ = state_desc['body_pos_rot'][body_part]
             res += [rx_-rx, ry_-ry, rz_-rz]
     # 33 components -- linear velocities of body parts
     for body_part in body_parts:
-        res += obs['body_vel_rot'][body_part]
+        res += state_desc['body_vel_rot'][body_part]
     # 33 components -- linear accelerations of body parts
     for body_part in body_parts:
-        res += obs['body_acc_rot'][body_part]
+        res += state_desc['body_acc_rot'][body_part]
 
     # joints
     for joint_val in ['joint_pos', 'joint_vel', 'joint_acc']:
         for joint in ['ground_pelvis', 'hip_r', 'knee_r', 'ankle_r',
                       'hip_l', 'knee_l', 'ankle_l']:
-            res += obs[joint_val][joint][:3]
+            res += state_desc[joint_val][joint][:3]
 
     # muscles
     muscles = ['abd_r', 'add_r', 'hamstrings_r', 'bifemsh_r',
@@ -98,11 +98,11 @@ def preprocess_obs(obs):
        'glut_max_l', 'iliopsoas_l', 'rect_fem_l', 'vasti_l',
        'gastroc_l', 'soleus_l', 'tib_ant_l']
     for muscle in muscles:
-        res += [obs['muscles'][muscle]['activation']]
-        res += [obs['muscles'][muscle]['fiber_length']]
-        res += [obs['muscles'][muscle]['fiber_velocity']]
+        res += [state_desc['muscles'][muscle]['activation']]
+        res += [state_desc['muscles'][muscle]['fiber_length']]
+        res += [state_desc['muscles'][muscle]['fiber_velocity']]
     for muscle in muscles:
-        res += [obs['muscles'][muscle]['fiber_force']*force_mult]
+        res += [state_desc['muscles'][muscle]['fiber_force']*force_mult]
     forces = ['abd_r', 'add_r', 'hamstrings_r', 'bifemsh_r',
       'glut_max_r', 'iliopsoas_r', 'rect_fem_r', 'vasti_r',
       'abd_l', 'add_l', 'hamstrings_l', 'bifemsh_l',
@@ -110,12 +110,13 @@ def preprocess_obs(obs):
       'gastroc_l', 'soleus_l', 'tib_ant_l', 'ankleSpring',
       'pros_foot_r_0', 'foot_l', 'HipLimit_r', 'HipLimit_l',
       'KneeLimit_r', 'KneeLimit_l', 'AnkleLimit_r', 'AnkleLimit_l',
-      'HipAddLimit_r', 'HipAddLimit_l',]
+      'HipAddLimit_r', 'HipAddLimit_l']
 
     # forces
     for force in forces:
-        f = obs['forces'][force]
-        if len(f) == 1: res+= [f[0]*force_mult]
+        f = state_desc['forces'][force]
+        if len(f) == 1:
+            res += [f[0] * force_mult]
 
     res = (np.array(res) - obs_means) / obs_stds
 
@@ -159,3 +160,9 @@ def preprocess_obs_mini_cosine(state_desc):
     prep_obs = [prep_obs[0]] + cosines + sines + prep_obs[15:]
     res = (np.array(prep_obs) - obs_mini_means) / obs_mini_stds
     return res.tolist()
+
+
+def preprocess_obs_round2(state_desc):
+    res = preprocess_obs(state_desc)
+    res += state_desc["target_vel"]
+    return res
