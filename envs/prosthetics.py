@@ -51,6 +51,8 @@ class ProstheticsEnvWrap:
         self.cross_legs_coef = crossing_legs_penalty
         self.bending_knees_coef = bending_knees_bonus
         self.side_step_penalty = side_step_penalty
+        self.total_reward = 0.
+        self.total_reward_shaped = 0.
 
         self.episodes = 1
         self.ep2reload = 10
@@ -59,19 +61,18 @@ class ProstheticsEnvWrap:
         self.time_step = 0
         self.init_action = np.round(
             np.random.uniform(0, 0.7, size=self.action_size))
-
-        if self.episodes % self.ep2reload == 0:
-            self.env = ProstheticsEnv(
-                visualize=self.visualize, integrator_accuracy=1e-3)
-            self.env.change_model(
-                model='3D', prosthetic=True, difficulty=0,
-                seed=np.random.randint(200))
+        self.total_reward = 0.
+        self.total_reward_shaped = 0.
 
         state_desc = self.env.reset(project=False)
         if self.randomized_start:
             state = get_simbody_state(state_desc)
             noise = np.random.normal(scale=0.1, size=72)
             noise[3:6] = 0
+            noise[6] = np.random.uniform(-1., 1., size=1)
+            noise[9] = np.random.uniform(-1., 1., size=1)
+            noise[13] = -np.random.uniform(0., 1., size=1)  # knee_r
+            noise[14] = -np.random.uniform(0., 1., size=1)  # knee_l
             state = (np.array(state) + noise).tolist()
             simbody_state = self.env.osim_model.get_state()
             obj = simbody_state.getY()
@@ -83,10 +84,9 @@ class ProstheticsEnvWrap:
     def step(self, action):
         reward = 0
         action = np.clip(action, 0.0, 1.0)
-        reward_origin = 0
         for i in range(self.frame_skip):
             observation, r, _, info = self.env.step(action, project=False)
-            reward_origin += r
+            reward_origin = r
             done = self.is_done(observation)
             reward += self.shape_reward(r)
             if done:
@@ -97,6 +97,9 @@ class ProstheticsEnvWrap:
         reward *= self.reward_scale
         info["reward_origin"] = reward_origin
         self.time_step += 1
+
+        self.total_reward += reward_origin
+        self.total_reward_shaped += reward
         return observation, reward, done, info
 
     def is_done(self, observation):
@@ -145,5 +148,10 @@ class ProstheticsEnvWrap:
 
         return reward
 
+    def get_total_reward(self):
+        return self.total_reward
+
+    def get_total_reward_shaped(self):
+        return self.total_reward_shaped
 
 ENV = ProstheticsEnvWrap

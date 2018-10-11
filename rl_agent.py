@@ -7,36 +7,55 @@ import numpy as np
 
 from rl_server.server.rl_client import RLClient
 from agent_replay_buffer import AgentBuffer
-from misc.defaults import default_parse_fn, set_agent_seed, parse_agent_args, init_episode_storage
+from misc.defaults import set_agent_seed, init_episode_storage
 from misc.rl_logger import RLLogger
+
+np.set_printoptions(suppress=True)
 
 class RLAgent:
     
-    def __init__(self, env, seed, use_tensorflow=True):
+    def __init__(
+        self,
+        experiment_config,
+        agent_config,
+        logdir,
+        validation,
+        exploration,
+        store_episodes,
+        agent_id,
+        env,
+        seed,
+        use_tensorflow=True
+    ):
+        self._exp_config = experiment_config
+        self._agent_config = agent_config
+        self._logdir = logdir
+        self._validation = validation
+        self._exploration = exploration
+        self._store_episodes = store_episodes
+        self._id = agent_id
         self._env = env
         self._seed = seed
         self._use_tensorflow = use_tensorflow
+        self._exp_index = 0
         
     def fetch_model(self):
-        index = random.randint(0, self._num_of_algorithms-1)
-        self._agent_model.fetch(index)
+        self._agent_model.fetch(self._id)
 
     def run(self):
         set_agent_seed(self._seed)
-        args, hparams = parse_agent_args()
-        logger = RLLogger(args, self._env)
+        logger = RLLogger(self._logdir, self._id, self._validation, self._env)
 
         rl_client = RLClient(
-            port=hparams["server"]["init_port"] + args.id)
+            port=self._exp_config.config["server"]["init_port"] + self._id)
 
-        self._num_of_algorithms = hparams["ensemble"]["num_of_algorithms"]
         if self._use_tensorflow:
             from rl_server.tensorflow.agent_model_tf import AgentModel
-            self._agent_model = AgentModel(hparams, rl_client)
+            self._agent_model = AgentModel(self._exp_config, self._agent_config, rl_client)
             self.fetch_model()
 
-        history_len = hparams["server"]["history_length"]
-        buf_capacity = hparams["env"]["agent_buffer_size"]
+        history_len = self._exp_config.config["env"]["history_length"]
+        buf_capacity = self._exp_config.config["env"]["agent_buffer_size"]
 
         agent_buffer = AgentBuffer(
             buf_capacity,
@@ -44,8 +63,8 @@ class RLAgent:
             self._env.action_size)
         agent_buffer.push_init_observation([self._env.reset()])
 
-        if args.store_episodes:
-            path_to_episode_storage, stored_episode_index = init_episode_storage(args.id, args.logdir)
+        if self._store_episodes:
+            path_to_episode_storage, stored_episode_index = init_episode_storage(self._id, self._logdir)
             print('stored episodes: {}'.format(stored_episode_index))
 
         ################################ run agent ################################
@@ -53,8 +72,8 @@ class RLAgent:
         episode_index = 0
 
         # exploration parameters for gradient exploration
-        explore_start_temp = hparams["env"]["ge_temperature"]
-        explore_end_temp = hparams["env"]["ge_temperature"]
+        explore_start_temp = self._exp_config.config["env"]["ge_temperature"]
+        explore_end_temp = self._exp_config.config["env"]["ge_temperature"]
         explore_episodes = 500
         explore_dt = (explore_start_temp - explore_end_temp) / explore_episodes
         explore_temp = explore_start_temp
@@ -68,38 +87,26 @@ class RLAgent:
             state = agent_buffer.get_current_state(
                 history_len=history_len)[0]
 
-            if args.validation:
-                # result = rl_client.act_batch([state.ravel()], mode="with_gradients")
+            # Bernoulli exploration
+            # action = np.array(self._agent_model.act_batch(prepare_state(state))[0])
+            # env_action = (action + 1.) / 2.
+            # env_action = np.clip(env_action, 0., 1.)
+            # env_action = np.random.binomial([1]*self._env.action_size, env_action).astype(np.float32)
+
+            if self._validation:
                 action = self._agent_model.act_batch(prepare_state(state))[0]
+                action = np.array(action)
+                env_action = action
             else:
-                if np.float(args.exploration) >= 0:
-                    # action = rl_client.act([state.ravel()]) + np.random.normal(
-                    #     scale=np.float(args.exploration), size=self._env.action_size)
-                    action = self._agent_model.act_batch(prepare_state(state))[0]
-                    action = np.array(action) + np.random.normal(
-                        scale=np.float(args.exploration),
-                        size=self._env.action_size)
-                else:
-                    # gradient exploration
-                    # result = rl_client.act_batch([state.ravel()], mode="with_gradients")
-                    # action = result[0][0]
-                    # grad = result[1][0]
-                    actions, grads = self._agent_model.act_batch(
-                        prepare_state(state),
-                        mode="with_gradients")
-                    action = actions[0]
-                    grad = grads[0]
-
-                    action = np.array(action)
-                    random_action = self._env.get_random_action()
-                    explore = 1. - np.clip(
-                        np.abs(grad), 0., explore_temp) / explore_temp
-                    action = (1 - explore) * action + explore * random_action
-                    
-            # clip action to be in range [-1, 1]
-            action = np.clip(action, -1., 1.)
-
-            next_obs, reward, done, info = self._env.step(action)
+                # exploration with normal noise
+                action = self._agent_model.act_batch(prepare_state(state))[0]
+                action = np.array(action) + np.random.normal(
+                   scale=np.float(self._exploration),
+                   size=self._env.action_size)
+                env_action = (action + 1.) / 2.
+                env_action = np.clip(env_action, 0., 1.)
+            
+            next_obs, reward, done, info = self._env.step(env_action)
             transition = [[next_obs], action, reward, done]
             agent_buffer.push_transition(transition)
             next_state = agent_buffer.get_current_state(
@@ -114,7 +121,7 @@ class RLAgent:
                 self.fetch_model()
 
                 # save episode on disk
-                if args.store_episodes:
+                if self._store_episodes:
                     ep_path = os.path.join(path_to_episode_storage, 'episode_' + str(stored_episode_index)+'.pkl')
                     with open(ep_path, 'wb') as f:
                         pickle.dump(

@@ -1,0 +1,30 @@
+algo_name: "quantile_td3"
+
+actor:
+  hiddens: [[512, 512, 256, 256]]
+  layer_norm: False
+  noisy_layer: False
+  activations: ["relu"]
+  output_activation: "tanh"
+  
+critic:
+  hiddens: [[512, 512, 256]]
+  layer_norm: False
+  noisy_layer: False
+  activations: ["relu"]
+  output_activation: "linear"
+  action_insert_block: 0
+  num_atoms: 256
+
+actor_optim:
+  lr: 0.0001
+
+critic_optim:
+  lr: 0.0001
+
+algorithm:
+  n_step: 1
+  gamma: 0.98
+  actor_grad_val_clip: 1.0
+  target_actor_update_rate: 0025
+  target_critic_update_rate: 0.005

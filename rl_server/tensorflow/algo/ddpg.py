@@ -46,7 +46,8 @@ class DDPG(BaseAlgo):
 
         with tf.name_scope("critic_update"):
             q_values = self._critic([self.states_ph, self.actions_ph])
-            next_actions = self._target_actor(self.next_states_ph)
+            next_actions = self._actor(self.next_states_ph)
+            # next_actions = self._target_actor(self.next_states_ph)
             next_q_values = self._target_critic(
                 [self.next_states_ph, next_actions])
             gamma = self._gamma ** self._n_step

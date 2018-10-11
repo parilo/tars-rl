@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.contrib.distributions import MultivariateNormalDiag as Normal
 from .base_algo import BaseAlgo
+from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
 
 
 class SAC(BaseAlgo):
@@ -25,14 +26,21 @@ class SAC(BaseAlgo):
             gamma=0.99,
             reward_scale=1.,
             mu_and_sig_reg=1e-3,
-            target_critic_update_rate=1.0):
+            target_critic_update_rate=1.0,
+            target_actor_update_rate=1.0,
+            scope="algorithm",
+            placeholders=None):
         self._state_shapes = state_shapes
         self._action_size = action_size
         self._actor = actor
         self._critic_q1 = critic_q1
         self._critic_q2 = critic_q2
         self._critic_v = critic_v
-        self._target_critic_v = critic_v.copy(scope="target_critic")
+        self._actor_weights_tool = ModelWeightsTool(actor)
+        self._critic_q1_weights_tool = ModelWeightsTool(critic_q1)
+        self._critic_q2_weights_tool = ModelWeightsTool(critic_q2)
+        self._critic_v_weights_tool = ModelWeightsTool(critic_v)
+        self._target_critic_v = critic_v.copy(scope=scope + "/target_critic")
         self._actor_optimizer = actor_optimizer
         self._critic_q1_optimizer = critic_q1_optimizer
         self._critic_q2_optimizer = critic_q2_optimizer
@@ -47,8 +55,11 @@ class SAC(BaseAlgo):
         self._reward_scale = reward_scale
         self._mu_and_sig_reg = mu_and_sig_reg
         self._target_critic_update_rate = target_critic_update_rate
-        self.create_placeholders()
-        self.build_graph()
+        self._placeholders = placeholders
+        
+        with tf.name_scope(scope):
+            self.create_placeholders()
+            self.build_graph()
 
     def get_gradients_wrt_actions(self):
         q_values = self._critic_q1([self.states_ph, self.actions_ph])
@@ -146,6 +157,7 @@ class SAC(BaseAlgo):
             target_v_values = q_values - log_pi
             self.v_loss = 0.5 * tf.reduce_mean(
                 (v_values - tf.stop_gradient(target_v_values)) ** 2)
+            self.value_loss = self.v_loss
             self.critic_v_update = self.get_critic_v_update(self.v_loss)
 
             kl_loss = tf.reduce_mean(log_pi - q_values1)
@@ -168,10 +180,13 @@ class SAC(BaseAlgo):
                 (q_values2 - tf.stop_gradient(td_targets)) ** 2)
             self.critic_q1_update = self.get_critic_q1_update(self.q1_loss)
             self.critic_q2_update = self.get_critic_q2_update(self.q2_loss)
+            self.critic_update = tf.group(
+                self.critic_v_update, self.critic_q1_update, self.critic_q2_update)
 
         with tf.name_scope("targets_update"):
             self.targets_init_op = self.get_targets_init()
             self.target_critic_update_op = self.get_target_critic_update()
+            self.target_actor_update_op = tf.no_op()
 
     def act_batch_deterministic(self, sess, states):
         feed_dict = dict(zip(self.states_ph, states))
@@ -210,3 +225,17 @@ class SAC(BaseAlgo):
         info["algo"] = "sac"
         info["actor"] = self._actor.get_info()
         return info
+
+    def get_weights(self, sess, index=0):
+        return {
+            'actor': self._actor_weights_tool.get_weights(sess),
+            'critic_v': self._critic_v_weights_tool.get_weights(sess),
+            'critic_q1': self._critic_q1_weights_tool.get_weights(sess),
+            'critic_q2': self._critic_q2_weights_tool.get_weights(sess)
+        }
+
+    def set_weights(self, sess, weights):
+        self._actor_weights_tool.set_weights(sess, weights['actor'])
+        self._critic_v_weights_tool.set_weights(sess, weights['critic_v'])
+        self._critic_q1_weights_tool.set_weights(sess, weights['critic_q1'])
+        self._critic_q2_weights_tool.set_weights(sess, weights['critic_q2'])

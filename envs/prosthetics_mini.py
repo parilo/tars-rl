@@ -1,5 +1,10 @@
+import os
+import math
+
 from osim.env import ProstheticsEnv
 import numpy as np
+
+from envs.prosthetics_mini_preprocess import preprocess_obs
 
 
 # Calculates Rotation Matrix given euler angles.

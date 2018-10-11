@@ -17,17 +17,19 @@ class AlgoEnsemble:
         self.actor_update_op = [algo.get_actor_update_op() for algo in self._algos]
         self.critic_update_op = [algo.get_critic_update_op() for algo in self._algos]
             
-        self.train_op = self.critic_loss_op + \
-            self.actor_loss_op + \
-            self.critic_update_op + \
+        self.train_op = tf.tuple(
+            self.critic_loss_op + 
+            self.actor_loss_op +
+            self.critic_update_op +
             self.actor_update_op
+        )
         
         self.targets_init_op = tf.group(
-            [algo.get_targets_init() for algo in self._algos])
+            [algo.get_targets_init_op() for algo in self._algos])
         self.target_actor_update_op = tf.group(
-            [algo.get_target_actor_update() for algo in self._algos])
+            [algo.get_target_actor_update_op() for algo in self._algos])
         self.target_critic_update_op = tf.group(
-            [algo.get_target_critic_update() for algo in self._algos])
+            [algo.get_target_critic_update_op() for algo in self._algos])
     
     def act_batch(self, sess, states):
         raise NotImplementedError
@@ -62,10 +64,7 @@ class AlgoEnsemble:
         sess.run(self.target_actor_update_op)
 
     def get_weights(self, sess, index=0):
-        return {
-            'actor': self._algos[index].get_actor_weights_tool().get_weights(sess),
-            'critic': self._algos[index].get_critic_weights_tool().get_weights(sess)
-        }
+        return self._algos[index].get_weights(sess)
 
     def _get_info(self):
         info = {}

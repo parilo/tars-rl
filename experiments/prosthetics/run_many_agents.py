@@ -10,7 +10,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Train or test neural net motor controller")
 parser.add_argument(
-    "--hparams",
+    "--config",
     type=str, required=True)
 parser.add_argument(
     "--logdir",
@@ -20,13 +20,20 @@ parser.add_argument(
     dest="store_episodes",
     action="store_true",
     default=False)
+parser.add_argument(
+    "--exploration",
+    dest="exploration",
+    type=str,
+    default="-1.0")
 args = parser.parse_args()
 
 ps = []
 
 common_params = [
     "python", "agent.py",
-    "--hparams", args.hparams, "--logdir", args.logdir] + \
+    "--config", args.config,
+    "--logdir", args.logdir,
+    "--exploration", args.exploration] + \
     (["--store-episodes"] if args.store_episodes else [])
 
 agent_id = 0
@@ -50,11 +57,6 @@ for i in range(4):
         ["--id", str(agent_id)]))
     agent_id += 1
 
-for i in range(0):
-    ps.append(subprocess.Popen(common_params + \
-        ["--random_start", "--id", str(agent_id)]))
-    agent_id += 1
-
 
 def on_exit():
     for p in ps:
@@ -65,4 +67,3 @@ atexit.register(on_exit)
 
 while True:
     time.sleep(60)
-

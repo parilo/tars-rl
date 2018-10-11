@@ -11,8 +11,9 @@ import numpy as np
 from rl_server.tensorflow.rl_server import RLServer
 from rl_server.tensorflow.algo.algo_fabric import create_algorithm
 from rl_server.tensorflow.algo.algo_ensemble import AlgoEnsemble
-from rl_server.tensorflow.algo.base_algo import create_placeholders
-from misc.defaults import default_parse_fn, create_if_need, set_global_seeds
+from rl_server.tensorflow.algo.base_algo import create_placeholders_n_algos_random_sample, create_placeholders
+from misc.defaults import create_if_need, set_global_seeds
+from misc.config import EnsembleConfig
 
 set_global_seeds(42)
 
@@ -20,12 +21,8 @@ set_global_seeds(42)
 parser = argparse.ArgumentParser(
     description="Run RL algorithm on RL server")
 parser.add_argument(
-    "--agent", 
-    default="ddpg",
-    choices=["ddpg", "categorical", "quantile", "td3", "sac"])
-parser.add_argument(
-    "--hparams",
-    type=str, 
+    "--config",
+    type=str,
     required=True)
 parser.add_argument(
     "--logdir",
@@ -33,17 +30,28 @@ parser.add_argument(
     required=True)
 args, unknown_args = parser.parse_known_args()
 
+config = EnsembleConfig(args.config)
+
 create_if_need(args.logdir)
-args, hparams = default_parse_fn(args, unknown_args)
-observation_shapes = [(hparams["env"]["obs_size"],)]
-history_len = hparams["server"]["history_length"]
-state_shapes = [(history_len, hparams["env"]["obs_size"],)]
-action_size = hparams["env"]["action_size"]
+observation_shapes, state_shapes, action_size = config.get_env_shapes()
 
 ############################# define algorithm ############################
-placeholders = create_placeholders(state_shapes, action_size)
-agent_algorithms = [create_algorithm(args.agent, hparams, placeholders, i) for i in range(hparams["ensemble"]["num_of_algorithms"])]
-algo_ensemble = AlgoEnsemble(agent_algorithms, placeholders)
+big_batch_ph = create_placeholders(
+    state_shapes,
+    action_size
+)
+
+agent_algorithms = [
+    create_algorithm(
+        observation_shapes,
+        state_shapes,
+        action_size,
+        algo_config,
+        big_batch_ph,
+        i
+    ) for i, algo_config in enumerate(config.algo_configs)
+]
+algo_ensemble = AlgoEnsemble(agent_algorithms, big_batch_ph)
 
 ############################## run rl server ##############################
 rl_server = RLServer(
@@ -52,5 +60,7 @@ rl_server = RLServer(
     state_shapes=state_shapes,
     agent_algorithm=algo_ensemble,
     ckpt_path=args.logdir,
-    **hparams["server"])
+    history_length=config.config["env"]["history_length"],
+    **config.config["server"])
+# rl_server.load_weights('/home/anton/devel/osim-rl-2018/experiments/prosthetics/logs/round2-activations-penalty/model-780000.ckpt')
 rl_server.start()

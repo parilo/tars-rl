@@ -6,8 +6,8 @@ from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
 def create_placeholders(state_shapes, action_size, scope="placeholders"):
     with tf.name_scope(scope):
         states_ph, next_states_ph = [], []
-        for i, s in enumerate(state_shapes):
-            states_batch_shape = [None] + list(s)
+        for i, shape in enumerate(state_shapes):
+            states_batch_shape = [None] + list(shape)
             states_ph.append(tf.placeholder(
                 tf.float32, states_batch_shape, "states"+str(i)+"_ph"))
             next_states_ph.append(tf.placeholder(
@@ -20,6 +20,98 @@ def create_placeholders(state_shapes, action_size, scope="placeholders"):
             tf.float32, [None, ], "dones_ph")
             
     return (states_ph, actions_ph, rewards_ph, next_states_ph, dones_ph)
+
+
+def create_placeholders_n_algos_with_split(state_shapes, action_size, num_algos, batch_size, scope="placeholders"):
+    # construct one big batch for optimal loading
+    big_batch_size = num_algos * batch_size
+    with tf.name_scope(scope):
+        states_ph, next_states_ph = [], []
+        for i, shape in enumerate(state_shapes):
+            states_batch_shape = [big_batch_size] + list(shape)
+            states_ph.append(tf.placeholder(
+                tf.float32, states_batch_shape, "states"+str(i)+"_ph"))
+            next_states_ph.append(tf.placeholder(
+                tf.float32, states_batch_shape, "next_states"+str(i)+"_ph"))
+        actions_ph = tf.placeholder(
+            tf.float32, [big_batch_size, action_size], "actions_ph")
+        rewards_ph = tf.placeholder(
+            tf.float32, [big_batch_size, ], "rewards_ph")
+        dones_ph = tf.placeholder(
+            tf.float32, [big_batch_size, ], "dones_ph")
+            
+        # split big batch into individual batches
+        splited_states_ph = [tf.split(st_ph, num_algos, axis=0) for st_ph in states_ph]
+        splited_next_states_ph = [tf.split(st_ph, num_algos, axis=0) for st_ph in next_states_ph]
+        splited_actions_ph = tf.split(actions_ph, num_algos, axis=0)
+        splited_rewards_ph = tf.split(rewards_ph, num_algos, axis=0)
+        splited_dones_ph = tf.split(dones_ph, num_algos, axis=0)
+        splited_batches = list(zip(
+            *(
+                splited_states_ph +
+                splited_next_states_ph +
+                [splited_actions_ph, splited_rewards_ph, splited_dones_ph]
+            )
+        ))
+        # group observations
+        num_obs = len(state_shapes)
+        for i, splited_batch in enumerate(splited_batches):
+            splited_batches[i] = [
+                splited_batch[:num_obs],
+                splited_batch[-3],
+                splited_batch[-2],
+                splited_batch[num_obs:2 * num_obs],
+                splited_batch[-1]
+            ]
+            
+    # big batch, then splitted batches
+    return (states_ph, actions_ph, rewards_ph, next_states_ph, dones_ph), splited_batches
+
+
+def create_placeholders_n_algos_random_sample(state_shapes, action_size, num_algos, big_batch_size, algo_batch_size, scope="placeholders"):
+    # construct one big batch for optimal loading
+    with tf.name_scope(scope):
+        states_ph, next_states_ph = [], []
+        for i, shape in enumerate(state_shapes):
+            states_batch_shape = [big_batch_size] + list(shape)
+            states_ph.append(tf.placeholder(
+                tf.float32, states_batch_shape, "states"+str(i)+"_ph"))
+            next_states_ph.append(tf.placeholder(
+                tf.float32, states_batch_shape, "next_states"+str(i)+"_ph"))
+        actions_ph = tf.placeholder(
+            tf.float32, [big_batch_size, action_size], "actions_ph")
+        rewards_ph = tf.placeholder(
+            tf.float32, [big_batch_size, ], "rewards_ph")
+        dones_ph = tf.placeholder(
+            tf.float32, [big_batch_size, ], "dones_ph")
+            
+        # split big batch into individual batches
+        step = int(float(big_batch_size - algo_batch_size) / num_algos)
+        splited_states_ph = [[st_ph[i * step:algo_batch_size + i * step] for i in range(num_algos)] for st_ph in states_ph]
+        splited_next_states_ph = [[st_ph[i * step:algo_batch_size + i * step] for i in range(num_algos)] for st_ph in next_states_ph]
+        splited_actions_ph = [actions_ph[i * step:algo_batch_size + i * step] for i in range(num_algos)]
+        splited_rewards_ph = [rewards_ph[i * step:algo_batch_size + i * step] for i in range(num_algos)]
+        splited_dones_ph = [dones_ph[i * step:algo_batch_size + i * step] for i in range(num_algos)]
+        splited_batches = list(zip(
+            *(
+                splited_states_ph +
+                splited_next_states_ph +
+                [splited_actions_ph, splited_rewards_ph, splited_dones_ph]
+            )
+        ))
+        # group observations
+        num_obs = len(state_shapes)
+        for i, splited_batch in enumerate(splited_batches):
+            splited_batches[i] = [
+                splited_batch[:num_obs],
+                splited_batch[-3],
+                splited_batch[-2],
+                splited_batch[num_obs:2 * num_obs],
+                splited_batch[-1]
+            ]
+            
+    # big batch, then splitted batches
+    return (states_ph, actions_ph, rewards_ph, next_states_ph, dones_ph), splited_batches
 
 
 class BaseAlgo:
@@ -95,21 +187,6 @@ class BaseAlgo:
         self.rewards_ph = self._placeholders[2]
         self.next_states_ph = self._placeholders[3]
         self.dones_ph = self._placeholders[4]
-            
-        # with tf.name_scope("placeholders"):
-        #     self.states_ph, self.next_states_ph = [], []
-        #     for i, s in enumerate(self._state_shapes):
-        #         states_batch_shape = [None] + list(s)
-        #         self.states_ph.append(tf.placeholder(
-        #             tf.float32, states_batch_shape, "states"+str(i)+"_ph"))
-        #         self.next_states_ph.append(tf.placeholder(
-        #             tf.float32, states_batch_shape, "next_states"+str(i)+"_ph"))
-        #     self.actions_ph = tf.placeholder(
-        #         tf.float32, [None, self._action_size], "actions_ph")
-        #     self.rewards_ph = tf.placeholder(
-        #         tf.float32, [None, ], "rewards_ph")
-        #     self.dones_ph = tf.placeholder(
-        #         tf.float32, [None, ], "dones_ph")
 
     def get_gradients_wrt_actions(self):
         q_values = self._critic([self.states_ph, self.actions_ph])
@@ -164,6 +241,15 @@ class BaseAlgo:
             self.targets_init_op = self.get_targets_init()
             self.target_actor_update_op = self.get_target_actor_update()
             self.target_critic_update_op = self.get_target_critic_update()
+
+    def get_target_actor_update_op(self):
+        return self.target_actor_update_op
+
+    def get_target_critic_update_op(self):
+        return self.target_critic_update_op
+
+    def get_targets_init_op(self):
+        return self.targets_init_op
         
     def get_value_loss_op(self):
         return self.value_loss
