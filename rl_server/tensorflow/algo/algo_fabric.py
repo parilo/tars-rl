@@ -6,6 +6,7 @@ from rl_server.tensorflow.algo.quantile_td3 import QuantileTD3
 from rl_server.tensorflow.algo.sac import SAC
 from rl_server.tensorflow.networks.actor_networks import *
 from rl_server.tensorflow.networks.critic_networks_new import CriticNetwork
+from rl_server.tensorflow.algo.base_algo import create_placeholders
 
 def create_algorithm(
     observation_shapes,
@@ -23,6 +24,12 @@ def create_algorithm(
     actor_scope = "actor_" + scope_postfix
     critic_scope = "critic_" + scope_postfix
     algo_scope = "algorithm_" + scope_postfix
+    
+    if placeholders is None:
+        placeholders = create_placeholders(state_shapes, action_size)
+    
+    actor_lr = placeholders[0]
+    critic_lr = placeholders[1]
 
     if name != "sac" and name != "td3" and name != "quantile_td3":
 
@@ -63,9 +70,9 @@ def create_algorithm(
             actor=actor,
             critic=critic,
             actor_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["actor_optim"]["lr"]),
+                learning_rate=actor_lr),
             critic_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["critic_optim"]["lr"]),
+                learning_rate=critic_lr),
             **algo_config["algorithm"],
             scope=algo_scope,
             placeholders=placeholders)
@@ -104,13 +111,13 @@ def create_algorithm(
             critic_q1=critic_q1,
             critic_q2=critic_q2,
             actor_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["actor_optim"]["lr"]),
+                learning_rate=actor_lr),
             critic_v_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["critic_optim"]["lr"]),
+                learning_rate=critic_lr),
             critic_q1_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["critic_optim"]["lr"]),
+                learning_rate=critic_lr),
             critic_q2_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["critic_optim"]["lr"]),
+                learning_rate=critic_lr),
             **algo_config["algorithm"],
             scope=algo_scope,
             placeholders=placeholders)
@@ -141,14 +148,17 @@ def create_algorithm(
             critic1=critic1,
             critic2=critic2,
             actor_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["actor_optim"]["lr"]),
+                learning_rate=actor_lr),
             critic1_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["critic_optim"]["lr"]),
+                learning_rate=critic_lr),
             critic2_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["critic_optim"]["lr"]),
+                learning_rate=critic_lr),
             **algo_config["algorithm"],
             scope=algo_scope,
-            placeholders=placeholders)
+            placeholders=placeholders,
+            actor_optim_schedule=algo_config["actor_optim"],
+            critic_optim_schedule=algo_config["critic_optim"],
+            training_schedule=algo_config["training"])
         
     elif name == "quantile_td3":
 
@@ -176,13 +186,16 @@ def create_algorithm(
             critic1=critic1,
             critic2=critic2,
             actor_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["actor_optim"]["lr"]),
+                learning_rate=actor_lr),
             critic1_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["critic_optim"]["lr"]),
+                learning_rate=critic_lr),
             critic2_optimizer=tf.train.AdamOptimizer(
-                learning_rate=algo_config["critic_optim"]["lr"]),
+                learning_rate=critic_lr),
             **algo_config["algorithm"],
             scope=algo_scope,
-            placeholders=placeholders)
+            placeholders=placeholders,
+            actor_optim_schedule=algo_config["actor_optim"],
+            critic_optim_schedule=algo_config["critic_optim"],
+            training_schedule=algo_config["training"])
     
     return agent_algorithm

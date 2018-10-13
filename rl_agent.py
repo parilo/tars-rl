@@ -28,6 +28,7 @@ class RLAgent:
         use_tensorflow=True
     ):
         self._exp_config = experiment_config
+        self._algos_count = self._exp_config.get_algos_count()
         self._agent_config = agent_config
         self._logdir = logdir
         self._validation = validation
@@ -40,7 +41,7 @@ class RLAgent:
         self._exp_index = 0
         
     def fetch_model(self):
-        self._agent_model.fetch(self._id)
+        self._agent_model.fetch(self._id % self._algos_count)
 
     def run(self):
         set_agent_seed(self._seed)
@@ -96,15 +97,15 @@ class RLAgent:
             if self._validation:
                 action = self._agent_model.act_batch(prepare_state(state))[0]
                 action = np.array(action)
-                env_action = action
             else:
                 # exploration with normal noise
                 action = self._agent_model.act_batch(prepare_state(state))[0]
                 action = np.array(action) + np.random.normal(
                    scale=np.float(self._exploration),
                    size=self._env.action_size)
-                env_action = (action + 1.) / 2.
-                env_action = np.clip(env_action, 0., 1.)
+
+            env_action = (action + 1.) / 2.
+            env_action = np.clip(env_action, 0., 1.)
             
             next_obs, reward, done, info = self._env.step(env_action)
             transition = [[next_obs], action, reward, done]

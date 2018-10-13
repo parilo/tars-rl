@@ -1,3 +1,5 @@
+from operator import itemgetter
+
 import yaml
 
 
@@ -18,6 +20,10 @@ class EnsembleConfig:
     
     def __init__(self, path):
         self.config, self.algo_configs = load_ensemble_config(path)
+        for algo_config in self.algo_configs:
+            algo_config["actor_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
+            algo_config["critic_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
+            algo_config["training"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
     
     def get_env_shapes(self):
         observation_shapes = [(self.config["env"]["obs_size"],)]
@@ -26,3 +32,6 @@ class EnsembleConfig:
             self.config["env"]["obs_size"],)]
         action_size = self.config["env"]["action_size"]
         return observation_shapes, state_shapes, action_size
+        
+    def get_algos_count(self):
+        return len(self.algo_configs)

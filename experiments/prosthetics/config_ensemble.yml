@@ -9,7 +9,7 @@ env:
   activations_penalty: 0.0
   max_reward: 2.0
   reward_scale: 0.1
-  action_func: tanh
+  crossing_legs_penalty: 0.
   
 ensemble:
   algo_config_paths: [
@@ -18,14 +18,14 @@ ensemble:
 
 server:
   num_clients: 16
-  batch_size: 256
+  # batch_size: 256
   experience_replay_buffer_size: 5000000
   use_prioritized_buffer: false
   use_synchronous_update: false
   train_every_nth: 0.
-  start_learning_after: 5000
+  start_learning_after: 500
   target_critic_update_period: 1
   target_actor_update_period: 1
   show_stats_period: 100
-  save_model_period: 1000000
+  save_model_period: 25000
   init_port: 10977

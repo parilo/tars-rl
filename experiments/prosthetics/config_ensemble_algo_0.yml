@@ -17,14 +17,41 @@ critic:
   num_atoms: 256
 
 actor_optim:
-  lr: 0.0001
+  schedule:
+    - limit: 0
+      lr: 0.0001
+    - limit: 500000
+      lr: 0.00005
+    - limit: 1000000
+      lr: 0.00005
+    - limit: 1500000
+      lr: 0.000025
 
 critic_optim:
-  lr: 0.0001
+  schedule:
+    - limit: 0
+      lr: 0.0001
+    - limit: 500000
+      lr: 0.00005
+    - limit: 1000000
+      lr: 0.00005
+    - limit: 1500000
+      lr: 0.000025
+      
+training:
+  schedule:
+    - limit: 0
+      batch_size: 256
+    - limit: 500000
+      batch_size: 256
+    - limit: 1000000
+      batch_size: 512
+    - limit: 1500000
+      batch_size: 512
 
 algorithm:
   n_step: 1
-  gamma: 0.98
+  gamma: 0.99
   actor_grad_val_clip: 1.0
-  target_actor_update_rate: 0025
+  target_actor_update_rate: 0.0025
   target_critic_update_rate: 0.005

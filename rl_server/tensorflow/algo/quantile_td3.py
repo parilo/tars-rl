@@ -15,27 +15,31 @@ def huber_loss(source, target, weights, kappa=1.0):
 
 class QuantileTD3(BaseAlgo):
     def __init__(
-            self,
-            state_shapes,
-            action_size,
-            actor,
-            critic1,
-            critic2,
-            actor_optimizer,
-            critic1_optimizer,
-            critic2_optimizer,
-            n_step=1,
-            actor_grad_val_clip=1.0,
-            actor_grad_norm_clip=None,
-            critic_grad_val_clip=None,
-            critic_grad_norm_clip=None,
-            action_noise_std=0.02,
-            action_noise_clip=0.5,
-            gamma=0.99,
-            target_actor_update_rate=1.0,
-            target_critic_update_rate=1.0,
-            scope="algorithm",
-            placeholders=None):
+        self,
+        state_shapes,
+        action_size,
+        actor,
+        critic1,
+        critic2,
+        actor_optimizer,
+        critic1_optimizer,
+        critic2_optimizer,
+        n_step=1,
+        actor_grad_val_clip=1.0,
+        actor_grad_norm_clip=None,
+        critic_grad_val_clip=None,
+        critic_grad_norm_clip=None,
+        action_noise_std=0.02,
+        action_noise_clip=0.5,
+        gamma=0.99,
+        target_actor_update_rate=1.0,
+        target_critic_update_rate=1.0,
+        scope="algorithm",
+        placeholders=None,
+        actor_optim_schedule=[{'limit': 0, 'lr': 1e-4}],
+        critic_optim_schedule=[{'limit': 0, 'lr': 1e-4}],
+        training_schedule=[{'limit': 0, 'batch_size_mult': 1}]
+    ):
         self._state_shapes = state_shapes
         self._action_size = action_size
         self._actor = actor
@@ -61,6 +65,9 @@ class QuantileTD3(BaseAlgo):
         self._target_actor_update_rate = target_actor_update_rate
         self._target_critic_update_rate = target_critic_update_rate
         self._placeholders = placeholders
+        self._actor_optim_schedule = actor_optim_schedule
+        self._critic_optim_schedule = critic_optim_schedule
+        self._training_schedule = training_schedule
         
         with tf.name_scope(scope):
             self.num_atoms = self._critic1.num_atoms

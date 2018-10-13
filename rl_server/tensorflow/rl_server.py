@@ -12,7 +12,7 @@ class RLServer:
                  observation_shapes,
                  state_shapes,
                  agent_algorithm,
-                 batch_size=256,
+                #  batch_size=256,
                  experience_replay_buffer_size=1000000,
                  use_prioritized_buffer=True,
                  use_synchronous_update=True,
@@ -37,7 +37,7 @@ class RLServer:
         self._train_loop = RLTrainer(
             observation_shapes=observation_shapes,
             action_size=action_size,
-            batch_size=batch_size,
+            # batch_size=batch_size,
             experience_replay_buffer_size=experience_replay_buffer_size,
             use_prioritized_buffer=use_prioritized_buffer,
             use_synchronous_update=use_synchronous_update,

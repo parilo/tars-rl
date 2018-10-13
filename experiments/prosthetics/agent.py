@@ -16,25 +16,24 @@ env = ProstheticsEnvWrap(
     frame_skip=experiment_config.config["env"]["frame_skip"],
     visualize=args.visualize,
     reward_scale=experiment_config.config["env"]["reward_scale"],
-    crossing_legs_penalty=0.,
+    crossing_legs_penalty=experiment_config.config["env"]["crossing_legs_penalty"],
     bending_knees_bonus=0.,
     left_knee_bonus=0.,
     right_knee_bonus=0.,
     activations_penalty=experiment_config.config["env"]["activations_penalty"],
     max_reward=experiment_config.config["env"]["max_reward"],
-    action_func=experiment_config.config["env"]["action_func"],
     max_episode_length=1000
 )
 
 agent = RLAgent(
     experiment_config,
-    experiment_config.algo_configs[args.id],
+    experiment_config.algo_configs[args.id % experiment_config.get_algos_count()],
     logdir=args.logdir,
     validation=args.validation,
     exploration=args.exploration,
     store_episodes=args.store_episodes,
     agent_id=args.id,
     env=env,
-    seed=1 + args.id
+    seed=10 + args.id
 )
 agent.run()

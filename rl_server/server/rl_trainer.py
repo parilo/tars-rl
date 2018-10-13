@@ -33,7 +33,7 @@ class RLTrainer:
             self,
             observation_shapes,
             action_size,
-            batch_size=96,
+            # batch_size=96,
             experience_replay_buffer_size=1000000,
             use_prioritized_buffer=False,
             use_synchronous_update=True,
@@ -51,7 +51,7 @@ class RLTrainer:
 
         self._observation_shapes = observation_shapes
         self._action_size = action_size
-        self._batch_size = batch_size
+        # self._batch_size = batch_size
         self._buffer_size = experience_replay_buffer_size
         self._start_learning_after = start_learning_after
         self._n_step = n_step

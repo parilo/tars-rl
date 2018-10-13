@@ -15,7 +15,7 @@ from rl_server.tensorflow.algo.base_algo import create_placeholders_n_algos_rand
 from misc.defaults import create_if_need, set_global_seeds
 from misc.config import EnsembleConfig
 
-set_global_seeds(42)
+set_global_seeds(420)
 
 ############################# parse arguments #############################
 parser = argparse.ArgumentParser(
