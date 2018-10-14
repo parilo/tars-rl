@@ -1,12 +1,12 @@
+import tensorflow as tf
 from rl_server.tensorflow.algo.ddpg import DDPG
 from rl_server.tensorflow.algo.categorical_ddpg import CategoricalDDPG
 from rl_server.tensorflow.algo.quantile_ddpg import QuantileDDPG
 from rl_server.tensorflow.algo.td3 import TD3
 from rl_server.tensorflow.algo.quantile_td3 import QuantileTD3
 from rl_server.tensorflow.algo.sac import SAC
-from rl_server.tensorflow.networks.actor_networks import *
-from rl_server.tensorflow.networks.critic_networks_new import CriticNetwork
 from rl_server.tensorflow.algo.base_algo import create_placeholders
+
 
 def create_algorithm(
     observation_shapes,
@@ -16,9 +16,15 @@ def create_algorithm(
     placeholders=None,
     scope_postfix=0
 ):
+    if algo_config['use_lstm_networks']:
+        from rl_server.tensorflow.networks.actor_networks_lstm import ActorNetwork
+        from rl_server.tensorflow.networks.critic_networks_lstm import CriticNetwork
+    else:
+        from rl_server.tensorflow.networks.actor_networks import ActorNetwork, GaussActorNetwork
+        from rl_server.tensorflow.networks.critic_networks_new import CriticNetwork
 
     name = algo_config['algo_name']
-    print('--- creating {} {} {}'.format(name, algo_config['actor']['hiddens'], algo_config['critic']['hiddens']))
+    print('--- creating {} {} {}'.format(name, algo_config['actor']['embedding_layers'], algo_config['critic']['embedding_layers']))
     
     scope_postfix = str(scope_postfix)
     actor_scope = "actor_" + scope_postfix
