@@ -1,6 +1,8 @@
 import math
+import copy
+import random
 import numpy as np
-from osim.env import ProstheticsEnv
+from osim.env import ProstheticsEnv, rect
 from gym.spaces import Box
 
 from envs.prosthetics_preprocess import preprocess_obs_round2, \
@@ -22,7 +24,8 @@ class ProstheticsEnvWrap:
             left_knee_bonus=0.,
             right_knee_bonus=0.,
             max_reward=10.0,
-            activations_penalty=0.):
+            activations_penalty=0.,
+            num_of_augmented_targets=4):
 
         self.visualize = visualize
         self.randomized_start = randomized_start
@@ -36,6 +39,7 @@ class ProstheticsEnvWrap:
         self.action_size = 19
         self.max_ep_length = max_episode_length - 2
         self.activations_penalty = activations_penalty
+        self.num_of_augmented_targets = num_of_augmented_targets
 
         self.observation_space = Box(
             low=self.env.observation_space.low[0],
@@ -59,12 +63,55 @@ class ProstheticsEnvWrap:
         self.episodes = 1
         self.ep2reload = 10
 
+    def generate_new_augmented_targets(self, poisson_lambda = 100):
+        nsteps = self.max_ep_length + 1
+        rg = np.array(range(nsteps))
+        velocity = np.zeros(nsteps)
+        heading = np.zeros(nsteps)
+
+        velocity[0] = random.uniform(-0.5,0.5)
+        heading[0] = random.uniform(-math.pi/8,math.pi/8)
+
+        change = np.cumsum(np.random.poisson(poisson_lambda, 10))
+
+        for i in range(1,nsteps):
+            velocity[i] = velocity[i-1]
+            heading[i] = heading[i-1]
+
+            if i in change:
+                velocity[i] += random.uniform(-0.5,0.5)
+                heading[i] += random.uniform(-math.pi/8,math.pi/8)
+
+        trajectory_polar = np.vstack((velocity,heading)).transpose()
+        return np.apply_along_axis(rect, 1, trajectory_polar)
+
+    def augmented_reward_round2(self, target):
+        state_desc = self.env.get_state_desc()
+        prev_state_desc = self.env.get_prev_state_desc()
+        penalty = 0
+
+        # Small penalty for too much activation (cost of transport)
+        penalty += np.sum(np.array(self.env.osim_model.get_activations())**2) * 0.001
+
+        # Big penalty for not matching the vector on the X,Z projection.
+        # No penalty for the vertical axis
+        # augmented_target = self.augmented_targets[self.time_step,:]
+        penalty += (state_desc["body_vel"]["pelvis"][0] - target[0])**2
+        penalty += (state_desc["body_vel"]["pelvis"][2] - target[2])**2
+        
+        # Reward for not falling
+        reward = 10.0
+        
+        return reward - penalty 
+
     def reset(self):
         self.time_step = 0
         self.init_action = np.round(
             np.random.uniform(0, 0.7, size=self.action_size))
         self.total_reward = 0.
         self.total_reward_shaped = 0.
+        
+        self.augmented_targets = [self.generate_new_augmented_targets() for _ in range(self.num_of_augmented_targets)]
 
         state_desc = self.env.reset(project=False)
         if self.randomized_start:
@@ -82,9 +129,22 @@ class ProstheticsEnvWrap:
     def step(self, action):
         reward = 0
         reward_origin = 0
+        augmented_targets_at_step = [[] for _ in range(self.frame_skip)]
+        augmented_targets_rewards = [0 for _ in range(self.num_of_augmented_targets)]
+        augmented_targets_observations = [[] for _ in range(self.frame_skip)]
         for i in range(self.frame_skip):
             observation, r, _, info = self.env.step(action, project=False)
             reward_origin += r
+            for ati in range(self.num_of_augmented_targets):
+                augmented_target = self.augmented_targets[ati][self.time_step].tolist()
+                augmented_targets_at_step[i].append(augmented_target)
+                augmented_targets_rewards[ati] += self.shape_reward(
+                    self.augmented_reward_round2(augmented_target)
+                ) * self.reward_scale
+                augmented_observation = copy.deepcopy(observation)
+                augmented_observation["target_vel"] = augmented_target
+                augmented_observation = preprocess_obs_round2(augmented_observation, self.time_step)
+                augmented_targets_observations[i].append(augmented_observation)
             done = self.is_done(observation)
             reward += self.shape_reward(r)
             if done:
@@ -94,6 +154,11 @@ class ProstheticsEnvWrap:
         observation = preprocess_obs_round2(observation, self.time_step)
         reward *= self.reward_scale
         info["reward_origin"] = reward_origin
+        info["augmented_targets"] = {
+            'targets': augmented_targets_at_step,
+            'rewards': augmented_targets_rewards,
+            'observations': augmented_targets_observations
+        }
         self.time_step += 1
         self.total_reward += reward_origin
         self.total_reward_shaped += reward

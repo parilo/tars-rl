@@ -22,7 +22,8 @@ env = ProstheticsEnvWrap(
     right_knee_bonus=0.,
     activations_penalty=experiment_config.config["env"]["activations_penalty"],
     max_reward=experiment_config.config["env"]["max_reward"],
-    max_episode_length=1000
+    max_episode_length=1000,
+    num_of_augmented_targets=experiment_config.config["env"]["num_of_augmented_targets"]
 )
 
 agent = RLAgent(

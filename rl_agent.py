@@ -39,9 +39,28 @@ class RLAgent:
         self._seed = seed
         self._use_tensorflow = use_tensorflow
         self._exp_index = 0
+        self._num_of_augmented_targets = experiment_config.config["env"]["num_of_augmented_targets"]
         
     def fetch_model(self):
         self._agent_model.fetch(self._id % self._algos_count)
+        
+    def init_agent_buffers(self):
+        buf_capacity = self._exp_config.config["env"]["agent_buffer_size"]
+        first_obs = self._env.reset()
+        self.agent_buffer = AgentBuffer(
+            buf_capacity,
+            self._env.observation_shapes,
+            self._env.action_size)
+        self.agent_buffer.push_init_observation([first_obs])
+
+        self.augmented_agent_buffers = []
+        for _ in range(self._num_of_augmented_targets):
+            aug_agent_buffer = AgentBuffer(
+                buf_capacity,
+                self._env.observation_shapes,
+                self._env.action_size)
+            aug_agent_buffer.push_init_observation([first_obs])
+            self.augmented_agent_buffers.append(aug_agent_buffer)
 
     def run(self):
         set_agent_seed(self._seed)
@@ -56,13 +75,8 @@ class RLAgent:
             self.fetch_model()
 
         history_len = self._exp_config.config["env"]["history_length"]
-        buf_capacity = self._exp_config.config["env"]["agent_buffer_size"]
 
-        agent_buffer = AgentBuffer(
-            buf_capacity,
-            self._env.observation_shapes,
-            self._env.action_size)
-        agent_buffer.push_init_observation([self._env.reset()])
+        self.init_agent_buffers()
 
         if self._store_episodes:
             path_to_episode_storage, stored_episode_index = init_episode_storage(self._id, self._logdir)
@@ -85,7 +99,7 @@ class RLAgent:
         while True:
 
             # obtain current state from the buffer
-            state = agent_buffer.get_current_state(
+            state = self.agent_buffer.get_current_state(
                 history_len=history_len)[0]
 
             # Bernoulli exploration
@@ -109,16 +123,36 @@ class RLAgent:
             
             next_obs, reward, done, info = self._env.step(env_action)
             transition = [[next_obs], action, reward, done]
-            agent_buffer.push_transition(transition)
-            next_state = agent_buffer.get_current_state(
+            self.agent_buffer.push_transition(transition)
+            
+            # print('--- orig: r: {} t: {} {} {}'.format(
+            #     reward,
+            #     next_obs[-4], next_obs[-3], next_obs[-2]
+            # ))
+            for i in range(self._num_of_augmented_targets):
+                augmented_reward = info['augmented_targets']['rewards'][i]
+                augmented_obs = info['augmented_targets']['observations'][-1][i]
+                # print('--- orig: r: {} t: {} {} {}'.format(
+                #     augmented_reward,
+                #     augmented_obs[-4], augmented_obs[-3], augmented_obs[-2]
+                # ))
+                aug_transition = [[augmented_obs], action, augmented_reward, done]
+                self.augmented_agent_buffers[i].push_transition(aug_transition)
+            
+            next_state = self.agent_buffer.get_current_state(
                 history_len=history_len)[0].ravel()
             n_steps += 1
 
             if done:
 
                 logger.log(episode_index, n_steps)
-                episode = agent_buffer.get_complete_episode()
+                episode = self.agent_buffer.get_complete_episode()
                 rl_client.store_episode(episode)
+                
+                for augmented_agent_buffer in self.augmented_agent_buffers:
+                    aug_episode = augmented_agent_buffer.get_complete_episode()
+                    rl_client.store_episode(aug_episode)
+                
                 self.fetch_model()
 
                 # save episode on disk
@@ -135,7 +169,8 @@ class RLAgent:
                     stored_episode_index += 1
 
                 episode_index += 1
-                agent_buffer = AgentBuffer(
-                    buf_capacity, self._env.observation_shapes, self._env.action_size)
-                agent_buffer.push_init_observation([self._env.reset()])
+                # agent_buffer = AgentBuffer(
+                #     buf_capacity, self._env.observation_shapes, self._env.action_size)
+                # agent_buffer.push_init_observation([self._env.reset()])
+                self.init_agent_buffers()
                 n_steps = 0

@@ -24,7 +24,7 @@ def create_algorithm(
         from rl_server.tensorflow.networks.critic_networks_new import CriticNetwork
 
     name = algo_config['algo_name']
-    print('--- creating {} {} {}'.format(name, algo_config['actor']['embedding_layers'], algo_config['critic']['embedding_layers']))
+    print('--- creating {}'.format(name))
     
     scope_postfix = str(scope_postfix)
     actor_scope = "actor_" + scope_postfix
