@@ -25,7 +25,9 @@ class ProstheticsEnvWrap:
             right_knee_bonus=0.,
             max_reward=10.0,
             activations_penalty=0.,
-            num_of_augmented_targets=4):
+            num_of_augmented_targets=4,
+            bonus_for_knee_angles_scale=0.,
+            bonus_for_knee_angles_angle=0.):
 
         self.visualize = visualize
         self.randomized_start = randomized_start
@@ -40,6 +42,8 @@ class ProstheticsEnvWrap:
         self.max_ep_length = max_episode_length - 2
         self.activations_penalty = activations_penalty
         self.num_of_augmented_targets = num_of_augmented_targets
+        self.bonus_for_knee_angles_scale = bonus_for_knee_angles_scale
+        self.bonus_for_knee_angles_angle = bonus_for_knee_angles_angle
 
         self.observation_space = Box(
             low=self.env.observation_space.low[0],
@@ -63,8 +67,8 @@ class ProstheticsEnvWrap:
         self.episodes = 1
         self.ep2reload = 10
 
-    def generate_new_augmented_targets(self, poisson_lambda = 100):
-        nsteps = self.max_ep_length + 1
+    def generate_new_augmented_targets(self, poisson_lambda = 50):
+        nsteps = self.max_ep_length + 3
         rg = np.array(range(nsteps))
         velocity = np.zeros(nsteps)
         heading = np.zeros(nsteps)
@@ -116,9 +120,20 @@ class ProstheticsEnvWrap:
         state_desc = self.env.reset(project=False)
         if self.randomized_start:
             state = get_simbody_state(state_desc)
-            noise = np.random.normal(scale=0.1, size=72)
-            noise[3:6] = 0
-            state = (np.array(state) + noise).tolist()
+            # noise = np.random.normal(scale=0.4, size=72)
+            # noise[9] = 1.  # left leg
+            # noise[6] = 1.  # right leg
+            # state = (np.array(state) + noise).tolist()
+            
+            amplitude = random.gauss(0.8, 0.05)
+            direction = random.choice([-1., 1])
+            amplitude_knee = random.gauss(-1.2, 0.05)
+            state[4] = 0.8
+            state[6] = amplitude * direction  # right leg
+            state[9] = amplitude * direction * (-1.)  # left leg
+            state[13] = amplitude_knee if direction == 1. else 0  # right knee
+            state[14] = amplitude_knee if direction == -1. else 0  # left knee
+            
             simbody_state = self.env.osim_model.get_state()
             obj = simbody_state.getY()
             for i in range(72):
@@ -196,6 +211,13 @@ class ProstheticsEnvWrap:
         l_knee_flexion = np.minimum(state_desc['joint_pos']['knee_l'][0], 0.)
         bend_knees_bonus = np.abs(r_knee_flexion + l_knee_flexion)
         reward += self.bending_knees_coef * bend_knees_bonus
+        
+        reward += self.bonus_for_knee_angles_scale * math.exp(-((r_knee_flexion + self.bonus_for_knee_angles_angle) * 6.0)**2)
+        reward += self.bonus_for_knee_angles_scale * math.exp(-((l_knee_flexion + self.bonus_for_knee_angles_angle) * 6.0)**2)
+        # print('--- knee {} {}'.format(
+        #     self.bonus_for_knee_angles_scale * math.exp(-((r_knee_flexion + self.bonus_for_knee_angles_angle) * 6.0)**2),
+        #     self.bonus_for_knee_angles_scale * math.exp(-((l_knee_flexion + self.bonus_for_knee_angles_angle) * 6.0)**2)
+        # ))
         
         r_knee_flexion = math.fabs(state_desc['joint_vel']['knee_r'][0])
         l_knee_flexion = math.fabs(state_desc['joint_vel']['knee_l'][0])

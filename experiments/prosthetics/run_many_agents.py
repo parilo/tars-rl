@@ -39,7 +39,8 @@ common_params = [
 agent_id = 0
 for i in range(1):
     ps.append(subprocess.Popen(common_params + \
-        ["--visualize", "--id", str(agent_id)]))
+        # ["--visualize", "--id", str(agent_id)]))
+        ["--random-start", "--visualize", "--id", str(agent_id)]))
     agent_id += 1
 
 for i in range(1):
@@ -52,7 +53,22 @@ for i in range(1):
         ["--validation", "--id", str(agent_id)]))
     agent_id += 1
 
-for i in range(4):
+for i in range(1):
+    ps.append(subprocess.Popen(common_params + \
+        ["--visualize", "--step-limit", str(200), "--id", str(agent_id)]))
+    agent_id += 1
+
+for i in range(0):
+    ps.append(subprocess.Popen(common_params + \
+        ["--step-limit", str(200), "--id", str(agent_id)]))
+    agent_id += 1
+
+for i in range(1):
+    ps.append(subprocess.Popen(common_params + \
+        ["--random-start", "--id", str(agent_id)]))
+    agent_id += 1
+
+for i in range(2):
     ps.append(subprocess.Popen(common_params + \
         ["--id", str(agent_id)]))
     agent_id += 1

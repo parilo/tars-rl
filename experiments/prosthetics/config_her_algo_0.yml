@@ -22,34 +22,34 @@ actor_optim:
   schedule:
     - limit: 0
       lr: 0.0001
-    - limit: 500000
-      lr: 0.00005
     - limit: 1000000
-      lr: 0.00005
-    - limit: 1500000
-      lr: 0.000025
+      lr: 0.00003
+    # - limit: 1000000
+    #   lr: 0.000005
+    # - limit: 1500000
+    #   lr: 0.0000025
 
 critic_optim:
   schedule:
     - limit: 0
-      lr: 0.0001
-    - limit: 500000
-      lr: 0.00005
+      lr: 0.001
     - limit: 1000000
-      lr: 0.00005
-    - limit: 1500000
-      lr: 0.000025
+      lr: 0.0003
+    - limit: 2000000
+      lr: 0.0001
+    # - limit: 1500000
+    #   lr: 0.00025
       
 training:
   schedule:
     - limit: 0
       batch_size: 256
-    - limit: 500000
-      batch_size: 256
-    - limit: 1000000
-      batch_size: 512
+    # - limit: 500000
+    #   batch_size: 256
     - limit: 1500000
       batch_size: 512
+    # - limit: 2000000
+    #   batch_size: 512
 
 algorithm:
   n_step: 1

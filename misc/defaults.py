@@ -195,5 +195,10 @@ def parse_agent_args():
         dest="right_knee",
         type=str,
         default="0.0")
+    parser.add_argument(
+        "--step-limit",
+        dest="step_limit",
+        type=int,
+        default=0)
     args = parser.parse_args()
     return args

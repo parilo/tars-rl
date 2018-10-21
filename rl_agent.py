@@ -21,6 +21,7 @@ class RLAgent:
         logdir,
         validation,
         exploration,
+        step_limit,
         store_episodes,
         agent_id,
         env,
@@ -33,6 +34,7 @@ class RLAgent:
         self._logdir = logdir
         self._validation = validation
         self._exploration = exploration
+        self._step_limit = step_limit
         self._store_episodes = store_episodes
         self._id = agent_id
         self._env = env
@@ -85,6 +87,7 @@ class RLAgent:
         ################################ run agent ################################
         n_steps = 0
         episode_index = 0
+        muscle_ampl = random.uniform(0.85, 1.)
 
         # exploration parameters for gradient exploration
         explore_start_temp = self._exp_config.config["env"]["ge_temperature"]
@@ -125,17 +128,9 @@ class RLAgent:
             transition = [[next_obs], action, reward, done]
             self.agent_buffer.push_transition(transition)
             
-            # print('--- orig: r: {} t: {} {} {}'.format(
-            #     reward,
-            #     next_obs[-4], next_obs[-3], next_obs[-2]
-            # ))
             for i in range(self._num_of_augmented_targets):
                 augmented_reward = info['augmented_targets']['rewards'][i]
                 augmented_obs = info['augmented_targets']['observations'][-1][i]
-                # print('--- orig: r: {} t: {} {} {}'.format(
-                #     augmented_reward,
-                #     augmented_obs[-4], augmented_obs[-3], augmented_obs[-2]
-                # ))
                 aug_transition = [[augmented_obs], action, augmented_reward, done]
                 self.augmented_agent_buffers[i].push_transition(aug_transition)
             
@@ -143,7 +138,7 @@ class RLAgent:
                 history_len=history_len)[0].ravel()
             n_steps += 1
 
-            if done:
+            if done or (self._step_limit > 0 and n_steps > self._step_limit):
 
                 logger.log(episode_index, n_steps)
                 episode = self.agent_buffer.get_complete_episode()
@@ -174,3 +169,4 @@ class RLAgent:
                 # agent_buffer.push_init_observation([self._env.reset()])
                 self.init_agent_buffers()
                 n_steps = 0
+                muscle_ampl = random.uniform(0.85, 1.)

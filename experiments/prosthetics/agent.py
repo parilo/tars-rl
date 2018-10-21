@@ -23,7 +23,10 @@ env = ProstheticsEnvWrap(
     activations_penalty=experiment_config.config["env"]["activations_penalty"],
     max_reward=experiment_config.config["env"]["max_reward"],
     max_episode_length=1000,
-    num_of_augmented_targets=experiment_config.config["env"]["num_of_augmented_targets"]
+    num_of_augmented_targets=experiment_config.config["env"]["num_of_augmented_targets"],
+    randomized_start=args.random_start,
+    bonus_for_knee_angles_scale=experiment_config.config["env"]["bonus_for_knee_angles_scale"],
+    bonus_for_knee_angles_angle=experiment_config.config["env"]["bonus_for_knee_angles_angle"]
 )
 
 agent = RLAgent(
@@ -35,6 +38,7 @@ agent = RLAgent(
     store_episodes=args.store_episodes,
     agent_id=args.id,
     env=env,
-    seed=10 + args.id
+    seed=10 + args.id,
+    step_limit=args.step_limit
 )
 agent.run()

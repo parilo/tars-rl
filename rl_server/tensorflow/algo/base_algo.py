@@ -327,7 +327,7 @@ class BaseAlgo:
             ops.append(self.actor_update)
         ops_ = sess.run(ops, feed_dict=feed_dict)
         losses_values = ops_[:2]
-        return [actor_lr, critic_lr] + losses_values
+        return [critic_lr, actor_lr] + losses_values
 
     def target_actor_update(self, sess):
         sess.run(self.target_actor_update_op)
