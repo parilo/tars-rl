@@ -10,13 +10,6 @@ with np.load(norm_file) as data:
     obs_means = data['means']
     obs_stds = data['stds']
 
-norm_file_mini = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    'prosthetics_norm_mini.npz')
-with np.load(norm_file_mini) as data:
-    obs_mini_means = data['means']
-    obs_mini_stds = data['stds']
-
 
 # Calculates Rotation Matrix given euler angles.
 def euler_angles_to_rotation_matrix(theta):
@@ -162,7 +155,8 @@ def preprocess_obs_mini_cosine(state_desc):
     return res.tolist()
 
 
-def preprocess_obs_round2(state_desc):
+def preprocess_obs_round2(state_desc, step_index):
     res = preprocess_obs(state_desc)
     res += state_desc["target_vel"]
+    res += [float(step_index) / 500. - 1.]
     return res

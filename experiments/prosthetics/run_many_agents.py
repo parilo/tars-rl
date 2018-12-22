@@ -10,7 +10,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Train or test neural net motor controller")
 parser.add_argument(
-    "--hparams",
+    "--config",
     type=str, required=True)
 parser.add_argument(
     "--logdir",
@@ -20,19 +20,27 @@ parser.add_argument(
     dest="store_episodes",
     action="store_true",
     default=False)
+parser.add_argument(
+    "--exploration",
+    dest="exploration",
+    type=str,
+    default="-1.0")
 args = parser.parse_args()
 
 ps = []
 
 common_params = [
     "python", "agent.py",
-    "--hparams", args.hparams, "--logdir", args.logdir] + \
+    "--config", args.config,
+    "--logdir", args.logdir,
+    "--exploration", args.exploration] + \
     (["--store-episodes"] if args.store_episodes else [])
 
 agent_id = 0
 for i in range(1):
     ps.append(subprocess.Popen(common_params + \
-        ["--visualize", "--id", str(agent_id)]))
+        # ["--visualize", "--id", str(agent_id)]))
+        ["--random-start", "--visualize", "--id", str(agent_id)]))
     agent_id += 1
 
 for i in range(1):
@@ -45,14 +53,24 @@ for i in range(1):
         ["--validation", "--id", str(agent_id)]))
     agent_id += 1
 
-for i in range(4):
+for i in range(1):
     ps.append(subprocess.Popen(common_params + \
-        ["--id", str(agent_id)]))
+        ["--visualize", "--step-limit", str(200), "--id", str(agent_id)]))
     agent_id += 1
 
 for i in range(0):
     ps.append(subprocess.Popen(common_params + \
-        ["--random_start", "--id", str(agent_id)]))
+        ["--step-limit", str(200), "--id", str(agent_id)]))
+    agent_id += 1
+
+for i in range(1):
+    ps.append(subprocess.Popen(common_params + \
+        ["--random-start", "--id", str(agent_id)]))
+    agent_id += 1
+
+for i in range(2):
+    ps.append(subprocess.Popen(common_params + \
+        ["--id", str(agent_id)]))
     agent_id += 1
 
 
@@ -65,4 +83,3 @@ atexit.register(on_exit)
 
 while True:
     time.sleep(60)
-

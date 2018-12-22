@@ -4,7 +4,16 @@ from .base_algo import BaseAlgo
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
 
 
-class TD3(BaseAlgo):
+def huber_loss(source, target, weights, kappa=1.0):
+    err = tf.subtract(source, target)
+    loss = tf.where(
+        tf.abs(err) < kappa,
+        0.5 * tf.square(err),
+        kappa * (tf.abs(err) - 0.5 * kappa))
+    return tf.reduce_mean(tf.multiply(loss, weights))
+
+
+class QuantileTD3(BaseAlgo):
     def __init__(
         self,
         state_shapes,
@@ -61,6 +70,11 @@ class TD3(BaseAlgo):
         self._training_schedule = training_schedule
         
         with tf.name_scope(scope):
+            self.num_atoms = self._critic1.num_atoms
+            tau_min = 1 / (2 * self.num_atoms)
+            tau_max = 1 - tau_min
+            self.tau = tf.lin_space(
+                start=tau_min, stop=tau_max, num=self.num_atoms)
             self.create_placeholders()
             self.build_graph()
 
@@ -108,32 +122,45 @@ class TD3(BaseAlgo):
             self.gradients = self.get_gradients_wrt_actions()
 
         with tf.name_scope("actor_update"):
-            q_values = self._critic1(
-                [self.states_ph, self._actor(self.states_ph)])
-            self.policy_loss = -tf.reduce_mean(q_values)
+            q_values1 = tf.reduce_mean(self._critic1(
+                [self.states_ph, self._actor(self.states_ph)]), axis=-1)
+            q_values2 = tf.reduce_mean(self._critic2(
+                [self.states_ph, self._actor(self.states_ph)]), axis=-1)
+            q_values_min = tf.minimum(q_values1, q_values2)
+            self.policy_loss = -tf.reduce_mean(q_values_min)
             self.actor_update = self.get_actor_update(self.policy_loss)
 
         with tf.name_scope("critic_update"):
-            q_values1 = self._critic1([self.states_ph, self.actions_ph])
-            q_values2 = self._critic2([self.states_ph, self.actions_ph])
+            atoms1 = self._critic1([self.states_ph, self.actions_ph])
+            atoms2 = self._critic2([self.states_ph, self.actions_ph])
+
             next_actions = self._target_actor(self.next_states_ph)
             actions_noise = tf.random_normal(
                 tf.shape(next_actions), mean=0.0, stddev=self._act_noise_std)
             clipped_noise = tf.clip_by_value(
                 actions_noise, -self._act_noise_clip, self._act_noise_clip)
             next_actions = next_actions + clipped_noise
-            next_q_values1 = self._target_critic1(
+
+            next_atoms1 = self._target_critic1(
                 [self.next_states_ph, next_actions])
-            next_q_values2 = self._target_critic2(
+            next_atoms2 = self._target_critic2(
                 [self.next_states_ph, next_actions])
-            next_q_values_min = tf.minimum(next_q_values1, next_q_values2)
+            next_q_values1 = tf.reduce_mean(next_atoms1, axis=-1)
+            next_q_values2 = tf.reduce_mean(next_atoms2, axis=-1)
+            q_diff = next_q_values1 - next_q_values2
+            mask = tf.where(
+                q_diff < 0,
+                tf.ones_like(q_diff),
+                tf.zeros_like(q_diff))[:, None]
+            next_atoms = mask * next_atoms1 + (1 - mask) * next_atoms2
             gamma = self._gamma ** self._n_step
-            td_targets = self.rewards_ph[:, None] + gamma * (
-                1 - self.dones_ph[:, None]) * next_q_values_min
-            self.value_loss = tf.losses.huber_loss(
-                q_values1, tf.stop_gradient(td_targets))
-            self.value_loss2 = tf.losses.huber_loss(
-                q_values2, tf.stop_gradient(td_targets))
+            target_atoms = self.rewards_ph[:, None] + gamma * (
+                1 - self.dones_ph[:, None]) * next_atoms
+            target_atoms = tf.stop_gradient(target_atoms)
+
+            self.value_loss = self.quantile_loss(atoms1, target_atoms)
+            self.value_loss2 = self.quantile_loss(atoms2, target_atoms)
+
             self.critic1_update = self.get_critic1_update(self.value_loss)
             self.critic2_update = self.get_critic2_update(self.value_loss2)
             self.critic_update = tf.group(
@@ -145,6 +172,18 @@ class TD3(BaseAlgo):
             self.target_critic_update_op = tf.group(
                 self.get_target_critic1_update(),
                 self.get_target_critic2_update())
+
+    def quantile_loss(self, atoms, target_atoms):
+        atoms_diff = target_atoms[:, None, :] - atoms[:, :, None]
+        delta_atoms_diff = tf.where(
+            atoms_diff < 0,
+            tf.ones_like(atoms_diff),
+            tf.zeros_like(atoms_diff))
+        weights = tf.abs(
+            self.tau[None, :, None] - delta_atoms_diff) / self.num_atoms
+        loss = huber_loss(
+            atoms[:, :, None], target_atoms[:, None, :], weights)
+        return loss
 
     def _get_info(self):
         info = {}

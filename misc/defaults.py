@@ -165,7 +165,7 @@ def parse_agent_args():
         action="store_true",
         default=False)
     parser.add_argument(
-        "--hparams",
+        "--config",
         type=str, required=True)
     parser.add_argument(
         "--logdir",
@@ -180,6 +180,25 @@ def parse_agent_args():
         dest="store_episodes",
         action="store_true",
         default=False)
+    parser.add_argument(
+        "--random-start",
+        dest="random_start",
+        action="store_true",
+        default=False)
+    parser.add_argument(
+        "--left-knee",
+        dest="left_knee",
+        type=str,
+        default="0.0")
+    parser.add_argument(
+        "--right-knee",
+        dest="right_knee",
+        type=str,
+        default="0.0")
+    parser.add_argument(
+        "--step-limit",
+        dest="step_limit",
+        type=int,
+        default=0)
     args = parser.parse_args()
-    args, hparams = default_parse_fn(args, [])
-    return args, hparams
+    return args
