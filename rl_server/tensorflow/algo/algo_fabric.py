@@ -9,9 +9,9 @@ from rl_server.tensorflow.algo.base_algo import create_placeholders
 
 
 def create_algorithm(
-    observation_shapes,
-    state_shapes,
-    action_size,
+    # observation_shapes,
+    # state_shapes,
+    # action_size,
     algo_config,
     placeholders=None,
     scope_postfix=0

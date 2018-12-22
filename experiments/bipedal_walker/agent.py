@@ -3,10 +3,10 @@
 import sys
 sys.path.append("../../")
 
-from misc.defaults import parse_agent_args
+from misc.common import parse_agent_args
 from rl_agent import RLAgent
 
-args, hparams = parse_agent_args()
+args = parse_agent_args()
 
 from envs.bipedal_walker import BipedalWalker
 env = BipedalWalker(

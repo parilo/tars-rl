@@ -1,13 +1,15 @@
-#!/usr/bin/env python
-
 import gym
 import numpy as np
 
+
 class BipedalWalker:
 
-    def __init__(self, frame_skip=1, visualize=False):
+    def __init__(self, frame_skip=1, visualize=False, hardcore=False):
         self.visualize = visualize
-        self.env = gym.make("BipedalWalkerHardcore-v2")
+        if hardcore:
+            self.env = gym.make("BipedalWalkerHardcore-v2")
+        else:
+            self.env = gym.make("BipedalWalker-v2")
         self.frame_skip = frame_skip
         self.observation_shapes = [(24,)]
         self.action_size = 4
@@ -40,3 +42,9 @@ class BipedalWalker:
         if self.time_step % 10 == 0:
             self.init_action = np.round(np.random.uniform(-1.0, 1.0, size=self.action_size))
         return self.init_action
+
+
+class BipedalWalkerHardcore(BipedalWalker):
+
+    def __init__(self, frame_skip=1, visualize=False):
+        super().__init__(frame_skip, visualize, hardcore=True)
