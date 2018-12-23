@@ -5,11 +5,16 @@
       visualize: True
 
     - agents_count: 1
+      visualize: False
+
+    - agents_count: 1
       visualize: True
       exploration:
-        normal_noise: 0.1
+        normal_noise: 0.2
+        random_action_prob: 0.1
 
-    - agents_count: 5
+    - agents_count: 4
       visualize: False
       exploration:
         normal_noise: 0.1
+        random_action_prob: 0.1

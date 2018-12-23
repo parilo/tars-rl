@@ -5,12 +5,12 @@ env:
   is_gym: True
   obs_size: 24
   action_size: 4
-  frame_skip: 1
+  frame_skip: 8
   step_limit: 0
   agent_buffer_size: 2010
   history_length: 1
   reward_scale: 0.1
-  reinit_random_action_every: 1
+  reinit_random_action_every: 5
 
 server:
   seed: 42
@@ -25,7 +25,7 @@ server:
   show_stats_period: 100
   save_model_period: 25000
   client_start_port: 10977
-  logdir: "logs/asd"
+  logdir: "logs/asd2"
   #load_checkpoint: ""
 
 algo_name: "quantile_td3"
@@ -33,14 +33,14 @@ algo_name: "quantile_td3"
 use_lstm_networks: False
 
 actor:
-  hiddens: [[128, 128]]
+  hiddens: [[128, 128, 128]]
   layer_norm: False
   noisy_layer: False
   activations: ["relu"]
   output_activation: "tanh"
 
 critic:
-  hiddens: [[128]]
+  hiddens: [[128, 128]]
   layer_norm: False
   noisy_layer: False
   activations: ["relu"]
@@ -51,35 +51,35 @@ critic:
 actor_optim:
   schedule:
     - limit: 0  # of train ops
-      lr: 0.0001
+      lr: 0.001
     - limit: 500000
-      lr: 0.00005
+      lr: 0.0005
     - limit: 1000000
-      lr: 0.00005
+      lr: 0.0005
     - limit: 1500000
-      lr: 0.000025
+      lr: 0.00025
 
 critic_optim:
   schedule:
     - limit: 0  # of train ops
-      lr: 0.0001
+      lr: 0.001
     - limit: 500000
-      lr: 0.00005
+      lr: 0.0005
     - limit: 1000000
-      lr: 0.00005
+      lr: 0.0005
     - limit: 1500000
-      lr: 0.000025
+      lr: 0.00025
 
 training:
   schedule:
     - limit: 0  # of train ops
-      batch_size: 256
+      batch_size: 2560
     - limit: 500000
-      batch_size: 256
+      batch_size: 2560
     - limit: 1000000
-      batch_size: 512
+      batch_size: 5120
     - limit: 1500000
-      batch_size: 512
+      batch_size: 5120
 
 algorithm:
   n_step: 1

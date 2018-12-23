@@ -2,7 +2,7 @@
 
 from misc.common import parse_agent_args, dict_to_prop_tree
 from misc.config import ExperimentConfig
-from rl_server.server.rl_agent import RLAgent
+from rl_server.server.rl_agent_loop import RLAgent
 
 
 def run_agent(exp_config, agent_config):

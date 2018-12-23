@@ -1,3 +1,6 @@
+import random
+import copy
+
 import numpy as np
 
 from rl_server.server.rl_client import RLClient
@@ -21,12 +24,25 @@ class RLAgent:
         self._exp_config = exp_config
         self._logdir = exp_config.server.logdir
         self._validation = agent_config.exploration is None
-        self._exploration = agent_config.exploration
+        self._exploration = copy.deepcopy(agent_config.exploration)
         self._step_limit = exp_config.env.step_limit
         self._store_episodes = agent_config.store_episodes
         self._id = agent_config.agent_id
         self._seed = agent_config.seed
         self._history_len = exp_config.env.history_length
+
+        if self._exploration is not None:
+            if hasattr(self._exploration, 'normal_noise'):
+                # exploration with normal noise
+                self._exploration.normal_noise = np.float(self._exploration.normal_noise)
+            else:
+                self._exploration.normal_noise = None
+
+            if hasattr(self._exploration, 'random_action_prob'):
+                # exploration with random action
+                self._exploration.random_action_prob = np.float(self._exploration.random_action_prob)
+            else:
+                self._exploration.random_action_prob = None
 
         (
             self._observation_shapes,
@@ -116,12 +132,15 @@ class RLAgent:
             action = np.array(action)
 
             if not self._validation:
-                if hasattr(self._exploration, 'normal_noise'):
+                if self._exploration.normal_noise is not None:
                     # exploration with normal noise
                     action += np.random.normal(
-                       scale=np.float(self._exploration.normal_noise),
+                       scale=self._exploration.normal_noise,
                        size=self._action_size
                     )
+                if self._exploration.random_action_prob is not None:
+                    if random.random() < self._exploration.random_action_prob:
+                        action = self._env.get_random_action()
 
             # action remap function
             # env_action = (action + 1.) / 2.
