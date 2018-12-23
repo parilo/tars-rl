@@ -16,14 +16,14 @@ def create_algorithm(
     placeholders=None,
     scope_postfix=0
 ):
-    if algo_config['use_lstm_networks']:
+    if algo_config.use_lstm_networks:
         from rl_server.tensorflow.networks.actor_networks_lstm import ActorNetwork
         from rl_server.tensorflow.networks.critic_networks_lstm import CriticNetwork
     else:
         from rl_server.tensorflow.networks.actor_networks import ActorNetwork, GaussActorNetwork
         from rl_server.tensorflow.networks.critic_networks_new import CriticNetwork
 
-    name = algo_config['algo_name']
+    name = algo_config.algo_name
     print('--- creating {}'.format(name))
     
     scope_postfix = str(scope_postfix)
@@ -32,6 +32,7 @@ def create_algorithm(
     algo_scope = "algorithm_" + scope_postfix
     
     if placeholders is None:
+        _, state_shapes, action_size = algo_config.get_env_shapes()
         placeholders = create_placeholders(state_shapes, action_size)
     
     actor_lr = placeholders[0]
@@ -171,18 +172,18 @@ def create_algorithm(
         actor = ActorNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config["actor"],
+            **algo_config.as_obj()["actor"],
             scope=actor_scope)
        
         critic1 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config["critic"],
+            **algo_config.as_obj()["critic"],
             scope="critic1_" + scope_postfix)
         critic2 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config["critic"],
+            **algo_config.as_obj()["critic"],
             scope="critic2_" + scope_postfix)
 
         agent_algorithm = QuantileTD3(
@@ -197,11 +198,11 @@ def create_algorithm(
                 learning_rate=critic_lr),
             critic2_optimizer=tf.train.AdamOptimizer(
                 learning_rate=critic_lr),
-            **algo_config["algorithm"],
+            **algo_config.as_obj()["algorithm"],
             scope=algo_scope,
             placeholders=placeholders,
-            actor_optim_schedule=algo_config["actor_optim"],
-            critic_optim_schedule=algo_config["critic_optim"],
-            training_schedule=algo_config["training"])
+            actor_optim_schedule=algo_config.as_obj()["actor_optim"],
+            critic_optim_schedule=algo_config.as_obj()["critic_optim"],
+            training_schedule=algo_config.as_obj()["training"])
     
     return agent_algorithm

@@ -36,20 +36,17 @@ def parse_agent_args():
         type=int,
         default=0)
     parser.add_argument(
+        "--seed",
+        dest="seed",
+        type=int,
+        default=0)
+    parser.add_argument(
         "--visualize",
         dest="visualize",
         action="store_true",
         default=False)
     parser.add_argument(
-        "--validation",
-        dest="validation",
-        action="store_true",
-        default=False)
-    parser.add_argument(
         "--config",
-        type=str, required=True)
-    parser.add_argument(
-        "--logdir",
         type=str, required=True)
     parser.add_argument(
         "--store-episodes",
@@ -61,11 +58,6 @@ def parse_agent_args():
         dest="random_start",
         action="store_true",
         default=False)
-    # parser.add_argument(
-    #     "--step-limit",
-    #     dest="step_limit",
-    #     type=int,
-    #     default=0)
     return parser.parse_args()
 
 
@@ -76,8 +68,28 @@ def parse_server_args():
         "--config",
         type=str,
         required=True)
-    parser.add_argument(
-        "--logdir",
-        type=str,
-        required=True)
     return parser.parse_args()
+
+
+def parse_run_agents_args():
+    parser = argparse.ArgumentParser(
+        description="Run several RL agents")
+    parser.add_argument(
+        "--config",
+        type=str, required=True)
+    return parser.parse_args()
+
+
+class PropertyTree: pass
+
+
+def dict_to_prop_tree(input_value):
+    if type(input_value) == dict:
+        output_value = PropertyTree()
+        for key, value in input_value.items():
+            setattr(output_value, key, dict_to_prop_tree(value))
+    elif type(input_value) == list:
+        output_value = [dict_to_prop_tree(v) for v in input_value]
+    else:
+        return input_value
+    return output_value

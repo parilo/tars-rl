@@ -1,21 +1,12 @@
-import tensorflow as tf
-
 from rl_server.server.rl_trainer_tf import make_session
 from rl_server.tensorflow.algo.algo_fabric import create_algorithm
 
 
 class AgentModel:
     
-    def __init__(self, experiment_config, agent_config, rl_client):
-
-        observation_shapes, state_shapes, action_size = experiment_config.get_env_shapes()
+    def __init__(self, exp_config, rl_client):
         self._rl_client = rl_client
-        self._agent_algorithm = create_algorithm(
-            observation_shapes,
-            state_shapes,
-            action_size,
-            agent_config
-        )
+        self._agent_algorithm = create_algorithm(exp_config)
         self._sess = make_session(num_cpu=1)
         
     def set_weights(self, weights):

@@ -6,11 +6,9 @@ sys.path.append("../../")
 import os
 import json
 import argparse
-import random
 import numpy as np
-import gym
 from rl_server.server.rl_client import RLClient
-from agent_replay_buffer import AgentBuffer
+from rl_server.server.agent_replay_buffer import AgentBuffer
 from envs.pendulum import Pendulum
 
 # parse input arguments

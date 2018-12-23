@@ -10,7 +10,7 @@ import argparse
 import numpy as np
 
 from rl_server.server.rl_client import RLClient
-from agent_replay_buffer import AgentBuffer
+from rl_server.server.agent_replay_buffer import AgentBuffer
 from envs.lunar_lander import LunarLander
 from misc.defaults import default_parse_fn
 from tensorboardX import SummaryWriter

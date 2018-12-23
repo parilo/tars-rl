@@ -1,54 +1,33 @@
-#!/usr/bin/env python
-
 from rl_server.server.rl_server_api import RLServerAPI
 from rl_server.server.rl_trainer_tf import TFRLTrainer as RLTrainer
 
 
 class RLServer:
 
-    def __init__(self,
-                 num_clients,
-                 action_size,
-                 observation_shapes,
-                 state_shapes,
-                 agent_algorithm,
-                 experience_replay_buffer_size=1000000,
-                 use_prioritized_buffer=True,
-                 use_synchronous_update=True,
-                 n_step=1,
-                 gamma=0.99,
-                 train_every_nth=4,
-                 history_length=3,
-                 start_learning_after=5000,
-                 target_critic_update_period=500,
-                 target_actor_update_period=500,
-                 show_stats_period=20,
-                 save_model_period=10000,
-                 init_port=8777,
-                 ckpt_path="ckpt/"):
-
+    def __init__(self, exp_config, agent_algorithm):
+        observation_shapes, state_shapes, action_size = exp_config.get_env_shapes()
         self._server_api = RLServerAPI(
-            num_clients,
+            exp_config.server.num_clients,
             observation_shapes,
             state_shapes,
-            init_port=init_port)
+            init_port=exp_config.server.client_start_port)
 
         self._train_loop = RLTrainer(
             observation_shapes=observation_shapes,
             action_size=action_size,
-            experience_replay_buffer_size=experience_replay_buffer_size,
-            use_prioritized_buffer=use_prioritized_buffer,
-            use_synchronous_update=use_synchronous_update,
-            n_step=n_step,
-            gamma=gamma,
-            train_every_nth=train_every_nth,
-            history_length=history_length,
-            start_learning_after=start_learning_after,
-            target_critic_update_period=target_critic_update_period,
-            target_actor_update_period=target_actor_update_period,
-            show_stats_period=show_stats_period,
-            save_model_period=save_model_period,
-            logdir=ckpt_path)
+            experience_replay_buffer_size=exp_config.server.experience_replay_buffer_size,
+            # use_prioritized_buffer=use_prioritized_buffer,
+            use_synchronous_update=exp_config.server.use_synchronous_update,
+            n_step=exp_config.algorithm.n_step,
+            gamma=exp_config.algorithm.gamma,
+            train_every_nth=exp_config.server.train_every_nth,
+            history_length=exp_config.env.history_length,
+            start_learning_after=exp_config.server.start_learning_after,
+            target_critic_update_period=exp_config.server.target_critic_update_period,
+            target_actor_update_period=exp_config.server.target_actor_update_period,
+            show_stats_period=exp_config.server.show_stats_period,
+            save_model_period=exp_config.server.save_model_period,
+            logdir=exp_config.server.logdir)
 
         self._train_loop.set_algorithm(agent_algorithm)
         self._train_loop.init()

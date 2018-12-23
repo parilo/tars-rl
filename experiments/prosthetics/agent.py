@@ -5,7 +5,7 @@ sys.path.append("../../")
 
 from misc.defaults import parse_agent_args
 from misc.config import EnsembleConfig
-from rl_agent import RLAgent
+from rl_server.server.rl_agent import RLAgent
 
 args = parse_agent_args()
 experiment_config = EnsembleConfig(args.config)
