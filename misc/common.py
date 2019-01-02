@@ -5,13 +5,13 @@ import argparse
 
 
 def set_global_seeds(i):
-    try:
-        import torch
-    except ImportError:
-        pass
-    else:
-        torch.manual_seed(i)
-        torch.cuda.manual_seed_all(i)
+    # try:
+    #     import torch
+    # except ImportError:
+    #     pass
+    # else:
+    #     torch.manual_seed(i)
+    #     torch.cuda.manual_seed_all(i)
     try:
         import tensorflow as tf
     except ImportError:

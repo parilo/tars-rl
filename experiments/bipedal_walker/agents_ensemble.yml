@@ -1,0 +1,42 @@
+agents:
+  - algorithm_id: 0
+    experiment_config: experiments/bipedal_walker/config_ensemble.yml
+    agents:
+      - agents_count: 1
+        visualize: True
+
+      - agents_count: 1
+        visualize: False
+
+      - agents_count: 1
+        visualize: True
+        exploration:
+          normal_noise: 0.5
+          random_action_prob: 0.2
+
+      - agents_count: 2
+        visualize: False
+        exploration:
+          normal_noise: 0.5
+          random_action_prob: 0.2
+
+  - algorithm_id: 1
+    experiment_config: experiments/bipedal_walker/config_ensemble.yml
+    agents:
+      - agents_count: 1
+        visualize: True
+
+      - agents_count: 1
+        visualize: False
+
+      - agents_count: 1
+        visualize: True
+        exploration:
+          normal_noise: 0.5
+          random_action_prob: 0.2
+
+      - agents_count: 2
+        visualize: False
+        exploration:
+          normal_noise: 0.5
+          random_action_prob: 0.2

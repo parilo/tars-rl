@@ -30,6 +30,7 @@ class RLAgent:
         self._id = agent_config.agent_id
         self._seed = agent_config.seed
         self._history_len = exp_config.env.history_length
+        self._algorithm_id = agent_config.algorithm_id
 
         if self._exploration is not None:
             if hasattr(self._exploration, 'normal_noise'):
@@ -72,7 +73,8 @@ class RLAgent:
 
     def fetch_model(self):
         # self._agent_model.fetch(self._id % self._algos_count)
-        self._agent_model.fetch()
+        print('--- fetching', self._algorithm_id)
+        self._agent_model.fetch(self._algorithm_id)
 
     def init_agent_buffers(self):
         buf_capacity = self._exp_config.env.agent_buffer_size
@@ -95,6 +97,9 @@ class RLAgent:
         #     self.augmented_agent_buffers.append(aug_agent_buffer)
 
     def run(self):
+
+        while True:
+            pass
 
         self.init_agent_buffers()
 

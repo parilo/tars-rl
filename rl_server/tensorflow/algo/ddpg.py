@@ -22,13 +22,24 @@ class DDPG(BaseAlgo):
             scope="algorithm",
             placeholders=None):
         super(DDPG, self).__init__(
-            state_shapes, action_size, actor, critic,
-            actor_optimizer, critic_optimizer, n_step,
-            actor_grad_val_clip, actor_grad_norm_clip,
-            critic_grad_val_clip, critic_grad_norm_clip,
-            gamma, target_actor_update_rate, target_critic_update_rate,
-            scope, placeholders)
-            
+            state_shapes=state_shapes,
+            action_size=action_size,
+            actor=actor,
+            critic=critic,
+            actor_optimizer=actor_optimizer,
+            critic_optimizer=critic_optimizer,
+            n_step=n_step,
+            actor_grad_val_clip=actor_grad_val_clip,
+            actor_grad_norm_clip=actor_grad_norm_clip,
+            critic_grad_val_clip=critic_grad_val_clip,
+            critic_grad_norm_clip=critic_grad_norm_clip,
+            gamma=gamma,
+            target_actor_update_rate=target_actor_update_rate,
+            target_critic_update_rate=target_critic_update_rate,
+            scope=scope,
+            placeholders=placeholders
+        )
+
         with tf.name_scope(scope):
             self.create_placeholders()
             self.build_graph()
@@ -50,6 +61,7 @@ class DDPG(BaseAlgo):
             # next_actions = self._target_actor(self.next_states_ph)
             next_q_values = self._target_critic(
                 [self.next_states_ph, next_actions])
+            # print(self._gamma, self._n_step)
             gamma = self._gamma ** self._n_step
             td_targets = self.rewards_ph[:, None] + gamma * (
                 1 - self.dones_ph[:, None]) * next_q_values

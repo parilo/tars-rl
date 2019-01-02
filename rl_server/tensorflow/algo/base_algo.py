@@ -126,8 +126,6 @@ class BaseAlgo:
         critic,
         actor_optimizer,
         critic_optimizer,
-        actor_lr_ph,
-        critic_lr_ph,
         n_step=1,
         actor_grad_val_clip=1.0,
         actor_grad_norm_clip=None,
@@ -150,8 +148,6 @@ class BaseAlgo:
         self._critic_weights_tool = ModelWeightsTool(critic)
         self._actor_optimizer = actor_optimizer
         self._critic_optimizer = critic_optimizer
-        self._actor_lr_ph = actor_lr_ph
-        self._critic_lr_ph = critic_lr_ph
         self._n_step = n_step
         self._actor_grad_val_clip = actor_grad_val_clip
         self._actor_grad_norm_clip = actor_grad_norm_clip

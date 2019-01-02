@@ -9,9 +9,6 @@ from rl_server.tensorflow.algo.base_algo import create_placeholders
 
 
 def create_algorithm(
-    # observation_shapes,
-    # state_shapes,
-    # action_size,
     algo_config,
     placeholders=None,
     scope_postfix=0
@@ -30,9 +27,9 @@ def create_algorithm(
     actor_scope = "actor_" + scope_postfix
     critic_scope = "critic_" + scope_postfix
     algo_scope = "algorithm_" + scope_postfix
-    
+
+    _, state_shapes, action_size = algo_config.get_env_shapes()
     if placeholders is None:
-        _, state_shapes, action_size = algo_config.get_env_shapes()
         placeholders = create_placeholders(state_shapes, action_size)
     
     actor_lr = placeholders[0]
@@ -43,28 +40,28 @@ def create_algorithm(
         actor = ActorNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config["actor"],
+            **algo_config.as_obj()["actor"],
             scope=actor_scope)
 
         if name == "ddpg":
             critic = CriticNetwork(
                 state_shape=state_shapes[0],
                 action_size=action_size,
-                **algo_config["critic"],
+                **algo_config.as_obj()["critic"],
                 scope=critic_scope)
             DDPG_algorithm = DDPG
         elif name == "categorical":
             critic = CriticNetwork(
                 state_shape=state_shapes[0],
                 action_size=action_size,
-                **algo_config["critic"],
+                **algo_config.as_obj()["critic"],
                 scope=critic_scope)
             DDPG_algorithm = CategoricalDDPG
         elif name == "quantile":
             critic = CriticNetwork(
                 state_shape=state_shapes[0],
                 action_size=action_size,
-                **algo_config["critic"],
+                **algo_config.as_obj()["critic"],
                 # num_atoms=128,
                 scope=critic_scope)
             DDPG_algorithm = QuantileDDPG
@@ -80,7 +77,7 @@ def create_algorithm(
                 learning_rate=actor_lr),
             critic_optimizer=tf.train.AdamOptimizer(
                 learning_rate=critic_lr),
-            **algo_config["algorithm"],
+            **algo_config.as_obj()["algorithm"],
             scope=algo_scope,
             placeholders=placeholders)
 
@@ -89,10 +86,10 @@ def create_algorithm(
         actor = GaussActorNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config["actor"],
+            **algo_config.as_obj()["actor"],
             scope=actor_scope)
 
-        critic_v_params = dict(algo_config["critic"])
+        critic_v_params = dict(algo_config.as_obj()["critic"])
         critic_v_params['action_insert_block'] = -1
         critic_v = CriticNetwork(
             state_shape=state_shapes[0],
@@ -102,12 +99,12 @@ def create_algorithm(
         critic_q1 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config["critic"],
+            **algo_config.as_obj()["critic"],
             scope="critic_q1_" + scope_postfix)
         critic_q2 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config["critic"],
+            **algo_config.as_obj()["critic"],
             scope="critic_q2_" + scope_postfix)
 
         agent_algorithm = SAC(
@@ -125,7 +122,7 @@ def create_algorithm(
                 learning_rate=critic_lr),
             critic_q2_optimizer=tf.train.AdamOptimizer(
                 learning_rate=critic_lr),
-            **algo_config["algorithm"],
+            **algo_config.as_obj()["algorithm"],
             scope=algo_scope,
             placeholders=placeholders)
 
@@ -134,18 +131,18 @@ def create_algorithm(
         actor = ActorNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config["actor"],
+            **algo_config.as_obj()["actor"],
             scope=actor_scope)
        
         critic1 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config["critic"],
+            **algo_config.as_obj()["critic"],
             scope="critic1_" + scope_postfix)
         critic2 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config["critic"],
+            **algo_config.as_obj()["critic"],
             scope="critic2_" + scope_postfix)
 
         agent_algorithm = TD3(
@@ -160,12 +157,12 @@ def create_algorithm(
                 learning_rate=critic_lr),
             critic2_optimizer=tf.train.AdamOptimizer(
                 learning_rate=critic_lr),
-            **algo_config["algorithm"],
+            **algo_config.as_obj()["algorithm"],
             scope=algo_scope,
             placeholders=placeholders,
-            actor_optim_schedule=algo_config["actor_optim"],
-            critic_optim_schedule=algo_config["critic_optim"],
-            training_schedule=algo_config["training"])
+            actor_optim_schedule=algo_config.as_obj()["actor_optim"],
+            critic_optim_schedule=algo_config.as_obj()["critic_optim"],
+            training_schedule=algo_config.as_obj()["training"])
         
     elif name == "quantile_td3":
 

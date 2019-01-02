@@ -7,13 +7,13 @@ import atexit
 import time
 
 from misc.common import parse_run_agents_args
-from misc.config import RunAgentsConfig
+from misc.config import load_config
 from rl_server.server.agent import run_agent
 
 
 args = parse_run_agents_args()
 
-config = RunAgentsConfig(args.config)
+config = load_config(args.config)
 
 ps = []
 
@@ -25,10 +25,19 @@ def set_default(obj, param_name, value):
         obj[param_name] = value
 
 
-for algo_agents_config_obj, exp_config in zip(config.as_obj(), config.get_exp_configs()):
-    for agents_config in algo_agents_config_obj['agents']:
+for algorithm_agents_info in config.as_obj()['agents']:
+
+    if config.is_ensemble():
+        algorithm_id = algorithm_agents_info['algorithm_id']
+        algo_config = config.get_algo_config(algorithm_id)
+    else:
+        algorithm_id = 0
+        algo_config = config
+
+    for agents_config in algorithm_agents_info['agents']:
         for _ in range(int(agents_config['agents_count'])):
             agent_config = copy.deepcopy(agents_config)
+            agent_config['algorithm_id'] = algorithm_id
 
             del agent_config['agents_count']
 
@@ -39,7 +48,7 @@ for algo_agents_config_obj, exp_config in zip(config.as_obj(), config.get_exp_co
             set_default(agent_config, 'seed', agent_id)
 
             print(agent_config)
-            p = Process(target=run_agent, args=(exp_config, agent_config))
+            p = Process(target=run_agent, args=(algo_config, agent_config))
             p.start()
             ps.append(p)
 

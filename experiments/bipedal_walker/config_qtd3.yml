@@ -30,6 +30,13 @@ server:
 
 algo_name: "quantile_td3"
 
+algorithm:
+  n_step: 1
+  gamma: 0.99
+  actor_grad_val_clip: 1.0
+  target_actor_update_rate: 0.0025
+  target_critic_update_rate: 0.005
+
 use_lstm_networks: False
 
 actor:
@@ -80,10 +87,3 @@ training:
       batch_size: 5120
     - limit: 1500000
       batch_size: 5120
-
-algorithm:
-  n_step: 1
-  gamma: 0.99
-  actor_grad_val_clip: 1.0
-  target_actor_update_rate: 0.0025
-  target_critic_update_rate: 0.005
