@@ -2,16 +2,23 @@
 # they uses the same batch for training
 
 env:
-  name: BipedalWalker-v2
+  name: Pendulum-v0
   is_gym: True
-  obs_size: 24
-  action_size: 4
-  frame_skip: 8
+  obs_size: 3
+  action_size: 1
+  frame_skip: 2
   step_limit: 0
-  agent_buffer_size: 2010
-  history_length: 1
+  agent_buffer_size: 110
+  history_length: 2
   reward_scale: 0.1
   reinit_random_action_every: 5
+  remap_action:
+    low:
+      before: -1.
+      after: -2.
+    high:
+      before: 1.
+      after: 2.
 
 server:
   seed: 42
@@ -192,7 +199,7 @@ agents:
           normal_noise: 0.5
           random_action_prob: 0.2
 
-      - agents_count: 1
+      - agents_count: 2
         visualize: False
         exploration:
           normal_noise: 0.5

@@ -27,8 +27,6 @@ def run_agent(exp_config, agent_config):
         exp_config=exp_config,
         agent_config=dict_to_prop_tree(agent_config)
     )
-    while True:
-        pass
     agent.run()
 
 

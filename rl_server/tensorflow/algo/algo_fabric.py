@@ -79,7 +79,10 @@ def create_algorithm(
                 learning_rate=critic_lr),
             **algo_config.as_obj()["algorithm"],
             scope=algo_scope,
-            placeholders=placeholders)
+            placeholders=placeholders,
+            actor_optim_schedule=algo_config.as_obj()["actor_optim"],
+            critic_optim_schedule=algo_config.as_obj()["critic_optim"],
+            training_schedule=algo_config.as_obj()["training"])
 
     elif name == "sac":
 

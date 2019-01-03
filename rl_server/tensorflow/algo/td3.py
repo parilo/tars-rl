@@ -27,9 +27,9 @@ class TD3(BaseAlgo):
         target_critic_update_rate=1.0,
         scope="algorithm",
         placeholders=None,
-        actor_optim_schedule=[{'limit': 0, 'lr': 1e-4}],
-        critic_optim_schedule=[{'limit': 0, 'lr': 1e-4}],
-        training_schedule=[{'limit': 0, 'batch_size_mult': 1}]
+        actor_optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
+        critic_optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
+        training_schedule={'schedule': [{'limit': 0, 'batch_size_mult': 1}]}
     ):
         self._state_shapes = state_shapes
         self._action_size = action_size

@@ -4,23 +4,27 @@ from .base_algo import BaseAlgo
 
 class DDPG(BaseAlgo):
     def __init__(
-            self,
-            state_shapes,
-            action_size,
-            actor,
-            critic,
-            actor_optimizer,
-            critic_optimizer,
-            n_step=1,
-            actor_grad_val_clip=1.0,
-            actor_grad_norm_clip=None,
-            critic_grad_val_clip=None,
-            critic_grad_norm_clip=None,
-            gamma=0.99,
-            target_actor_update_rate=1.0,
-            target_critic_update_rate=1.0,
-            scope="algorithm",
-            placeholders=None):
+        self,
+        state_shapes,
+        action_size,
+        actor,
+        critic,
+        actor_optimizer,
+        critic_optimizer,
+        n_step=1,
+        actor_grad_val_clip=1.0,
+        actor_grad_norm_clip=None,
+        critic_grad_val_clip=None,
+        critic_grad_norm_clip=None,
+        gamma=0.99,
+        target_actor_update_rate=1.0,
+        target_critic_update_rate=1.0,
+        scope="algorithm",
+        placeholders=None,
+        actor_optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
+        critic_optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
+        training_schedule={'schedule': [{'limit': 0, 'batch_size_mult': 1}]}
+    ):
         super(DDPG, self).__init__(
             state_shapes=state_shapes,
             action_size=action_size,
@@ -37,7 +41,10 @@ class DDPG(BaseAlgo):
             target_actor_update_rate=target_actor_update_rate,
             target_critic_update_rate=target_critic_update_rate,
             scope=scope,
-            placeholders=placeholders
+            placeholders=placeholders,
+            actor_optim_schedule=actor_optim_schedule,
+            critic_optim_schedule=critic_optim_schedule,
+            training_schedule=training_schedule
         )
 
         with tf.name_scope(scope):

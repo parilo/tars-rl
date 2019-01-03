@@ -32,6 +32,7 @@ class RLAgent:
         self._history_len = exp_config.env.history_length
         self._algorithm_id = agent_config.algorithm_id
 
+        # exploration
         if self._exploration is not None:
             if hasattr(self._exploration, 'normal_noise'):
                 # exploration with normal noise
@@ -44,6 +45,18 @@ class RLAgent:
                 self._exploration.random_action_prob = np.float(self._exploration.random_action_prob)
             else:
                 self._exploration.random_action_prob = None
+
+        # action remap
+        if hasattr(exp_config.env, 'remap_action'):
+            low_from = exp_config.env.remap_action.low.before
+            low_to = exp_config.env.remap_action.low.after
+            high_from = exp_config.env.remap_action.high.before
+            high_to = exp_config.env.remap_action.high.after
+            def remap_func (action):
+                return (action - low_from) / (high_from - low_from) * (high_to - low_to) + low_to
+            self._action_remap_function = remap_func
+        else:
+            self._action_remap_function = None
 
         (
             self._observation_shapes,
@@ -73,7 +86,6 @@ class RLAgent:
 
     def fetch_model(self):
         # self._agent_model.fetch(self._id % self._algos_count)
-        print('--- fetching', self._algorithm_id)
         self._agent_model.fetch(self._algorithm_id)
 
     def init_agent_buffers(self):
@@ -97,9 +109,6 @@ class RLAgent:
         #     self.augmented_agent_buffers.append(aug_agent_buffer)
 
     def run(self):
-
-        while True:
-            pass
 
         self.init_agent_buffers()
 
@@ -150,7 +159,10 @@ class RLAgent:
             # action remap function
             # env_action = (action + 1.) / 2.
             # env_action = np.clip(env_action, 0., 1.)
-            env_action = action
+            if self._action_remap_function is not None:
+                env_action = self._action_remap_function(action)
+            else:
+                env_action = action
 
             next_obs, reward, done, info = self._env.step(env_action)
             transition = [[next_obs], action, reward, done]
@@ -172,7 +184,7 @@ class RLAgent:
                 self._logger.log(episode_index, n_steps)
                 episode = self._agent_buffer.get_complete_episode()
                 self._rl_client.store_episode(episode)
-                
+
                 # for augmented_agent_buffer in self.augmented_agent_buffers:
                 #     aug_episode = augmented_agent_buffer.get_complete_episode()
                 #     self._rl_client.store_episode(aug_episode)
