@@ -47,6 +47,7 @@ class RLAgent:
                 self._exploration.random_action_prob = None
 
         # action remap
+        self._action_remap_function = None
         if hasattr(exp_config.env, 'remap_action'):
             low_from = exp_config.env.remap_action.low.before
             low_to = exp_config.env.remap_action.low.after
@@ -55,8 +56,13 @@ class RLAgent:
             def remap_func (action):
                 return (action - low_from) / (high_from - low_from) * (high_to - low_to) + low_to
             self._action_remap_function = remap_func
-        else:
-            self._action_remap_function = None
+
+        # action clipping function
+        self._clipping_function = None
+        if exp_config.actor.output_activation == 'tanh':
+            def tanh_clipping(action):
+                return np.clip(action, -1., 1.)
+            self._clipping_function = tanh_clipping
 
         (
             self._observation_shapes,
@@ -155,6 +161,8 @@ class RLAgent:
                 if self._exploration.random_action_prob is not None:
                     if random.random() < self._exploration.random_action_prob:
                         action = self._env.get_random_action()
+
+                action = self._clipping_function(action)
 
             # action remap function
             # env_action = (action + 1.) / 2.
