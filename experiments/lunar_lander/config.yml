@@ -1,11 +1,11 @@
 framework: tensorflow
 
 env:
-  name: BipedalWalker-v2
+  name: LunarLanderContinuous-v2
   is_gym: True
-  obs_size: 24
-  action_size: 4
-  frame_skip: 8
+  obs_size: 8
+  action_size: 2
+  frame_skip: 2
   step_limit: 0
   agent_buffer_size: 2010
   history_length: 1

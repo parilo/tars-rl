@@ -50,14 +50,14 @@ def create_algorithm(
                 **algo_config.as_obj()["critic"],
                 scope=critic_scope)
             DDPG_algorithm = DDPG
-        elif name == "categorical":
+        elif name == "categorical_ddpg":
             critic = CriticNetwork(
                 state_shape=state_shapes[0],
                 action_size=action_size,
                 **algo_config.as_obj()["critic"],
                 scope=critic_scope)
             DDPG_algorithm = CategoricalDDPG
-        elif name == "quantile":
+        elif name == "quantile_ddpg":
             critic = CriticNetwork(
                 state_shape=state_shapes[0],
                 action_size=action_size,

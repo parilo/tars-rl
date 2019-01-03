@@ -1,5 +1,6 @@
 import tensorflow as tf
-from .base_algo import BaseAlgo
+from .base_algo import BaseAlgo, network_update, target_network_update
+from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
 
 
 class DDPG(BaseAlgo):
@@ -25,42 +26,83 @@ class DDPG(BaseAlgo):
         critic_optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
         training_schedule={'schedule': [{'limit': 0, 'batch_size_mult': 1}]}
     ):
-        super(DDPG, self).__init__(
-            state_shapes=state_shapes,
-            action_size=action_size,
-            actor=actor,
-            critic=critic,
-            actor_optimizer=actor_optimizer,
-            critic_optimizer=critic_optimizer,
-            n_step=n_step,
-            actor_grad_val_clip=actor_grad_val_clip,
-            actor_grad_norm_clip=actor_grad_norm_clip,
-            critic_grad_val_clip=critic_grad_val_clip,
-            critic_grad_norm_clip=critic_grad_norm_clip,
-            gamma=gamma,
-            target_actor_update_rate=target_actor_update_rate,
-            target_critic_update_rate=target_critic_update_rate,
-            scope=scope,
-            placeholders=placeholders,
-            actor_optim_schedule=actor_optim_schedule,
-            critic_optim_schedule=critic_optim_schedule,
-            training_schedule=training_schedule
+        super().__init__(
+            state_shapes,
+            action_size,
+            placeholders,
+            actor_optim_schedule,
+            critic_optim_schedule,
+            training_schedule
         )
 
+        self._actor = actor
+        self._critic = critic
+        self._target_actor = actor.copy(scope=scope + "/target_actor")
+        self._target_critic = critic.copy(scope=scope + "/target_critic")
+        self._actor_weights_tool = ModelWeightsTool(actor)
+        self._critic_weights_tool = ModelWeightsTool(critic)
+        self._actor_optimizer = actor_optimizer
+        self._critic_optimizer = critic_optimizer
+        self._n_step = n_step
+        self._actor_grad_val_clip = actor_grad_val_clip
+        self._actor_grad_norm_clip = actor_grad_norm_clip
+        self._critic_grad_val_clip = critic_grad_val_clip
+        self._critic_grad_norm_clip = critic_grad_norm_clip
+        self._gamma = gamma
+        self._target_actor_update_rate = target_actor_update_rate
+        self._target_critic_update_rate = target_critic_update_rate
+
         with tf.name_scope(scope):
-            self.create_placeholders()
             self.build_graph()
 
+    def _get_gradients_wrt_actions(self):
+        q_values = self._critic([self.states_ph, self.actions_ph])
+        gradients = tf.gradients(q_values, self.actions_ph)[0]
+        return gradients
+
+    def _get_actor_update(self, loss):
+        update_op = network_update(
+            loss, self._actor, self._actor_optimizer,
+            self._actor_grad_val_clip, self._actor_grad_norm_clip)
+        return update_op
+
+    def _get_critic_update(self, loss):
+        update_op = network_update(
+            loss, self._critic, self._critic_optimizer,
+            self._critic_grad_val_clip, self._critic_grad_norm_clip)
+        return update_op
+
+    def _get_target_actor_update(self):
+        update_op = target_network_update(
+            self._target_actor, self._actor,
+            self._target_actor_update_rate)
+        return update_op
+
+    def _get_target_critic_update(self):
+        update_op = target_network_update(
+            self._target_critic, self._critic,
+            self._target_critic_update_rate)
+        return update_op
+
+    def get_targets_init(self):
+        actor_init = target_network_update(
+            self._target_actor, self._actor, 1.0)
+        critic_init = target_network_update(
+            self._target_critic, self._critic, 1.0)
+        return tf.group(actor_init, critic_init)
+
     def build_graph(self):
+        self.create_placeholders()
+
         with tf.name_scope("taking_action"):
-            self.actions = self._actor(self.states_ph)
-            self.gradients = self.get_gradients_wrt_actions()
+            self._actions = self._actor(self.states_ph)
+            self._gradients = self._get_gradients_wrt_actions()
 
         with tf.name_scope("actor_update"):
             q_values = self._critic(
                 [self.states_ph, self._actor(self.states_ph)])
-            self.policy_loss = -tf.reduce_mean(q_values)
-            self.actor_update = self.get_actor_update(self.policy_loss)
+            self._policy_loss = -tf.reduce_mean(q_values)
+            self._actor_update = self._get_actor_update(self._policy_loss)
 
         with tf.name_scope("critic_update"):
             q_values = self._critic([self.states_ph, self.actions_ph])
@@ -72,11 +114,62 @@ class DDPG(BaseAlgo):
             gamma = self._gamma ** self._n_step
             td_targets = self.rewards_ph[:, None] + gamma * (
                 1 - self.dones_ph[:, None]) * next_q_values
-            self.value_loss = tf.losses.huber_loss(
+            self._value_loss = tf.losses.huber_loss(
                 q_values, tf.stop_gradient(td_targets))
-            self.critic_update = self.get_critic_update(self.value_loss)
+            self._critic_update = self._get_critic_update(self._value_loss)
 
         with tf.name_scope("targets_update"):
-            self.targets_init_op = self.get_targets_init()
-            self.target_actor_update_op = self.get_target_actor_update()
-            self.target_critic_update_op = self.get_target_critic_update()
+            self._targets_init_op = self.get_targets_init()
+            self._target_actor_update_op = self._get_target_actor_update()
+            self._target_critic_update_op = self._get_target_critic_update()
+
+    def target_network_init(self, sess):
+        sess.run(self._targets_init_op)
+
+    def act_batch(self, sess, states):
+        feed_dict = dict(zip(self.states_ph, states))
+        actions = sess.run(self._actions, feed_dict=feed_dict)
+        return actions.tolist()
+
+    def act_batch_with_gradients(self, sess, states):
+        feed_dict = dict(zip(self.states_ph, states))
+        actions = sess.run(self._actions, feed_dict=feed_dict)
+        feed_dict = {**feed_dict, **{self.actions_ph: actions}}
+        gradients = sess.run(self._gradients, feed_dict=feed_dict)
+        return actions.tolist(), gradients.tolist()
+
+    def train(self, sess, step_index, batch, actor_update=True, critic_update=True):
+        actor_lr = self.get_actor_lr(step_index)
+        critic_lr = self.get_critic_lr(step_index)
+        feed_dict = {
+            self.actor_lr_ph: actor_lr,
+            self.critic_lr_ph: critic_lr,
+            **dict(zip(self.states_ph, batch.s)),
+            **{self.actions_ph: batch.a},
+            **{self.rewards_ph: batch.r},
+            **dict(zip(self.next_states_ph, batch.s_)),
+            **{self.dones_ph: batch.done}}
+        ops = [self._value_loss, self._policy_loss]
+        if critic_update:
+            ops.append(self._critic_update)
+        if actor_update:
+            ops.append(self._actor_update)
+        ops_ = sess.run(ops, feed_dict=feed_dict)
+        losses_values = ops_[:2]
+        return [critic_lr, actor_lr] + losses_values
+
+    def target_actor_update(self, sess):
+        sess.run(self._target_actor_update_op)
+
+    def target_critic_update(self, sess):
+        sess.run(self._target_critic_update_op)
+
+    def get_weights(self, sess, index=0):
+        return {
+            'actor': self._actor_weights_tool.get_weights(sess),
+            'critic': self._critic_weights_tool.get_weights(sess)
+        }
+
+    def set_weights(self, sess, weights):
+        self._actor_weights_tool.set_weights(sess, weights['actor'])
+        self._critic_weights_tool.set_weights(sess, weights['critic'])
