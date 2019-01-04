@@ -1,4 +1,5 @@
 import tensorflow as tf
+
 from rl_server.tensorflow.algo.ddpg import DDPG
 from rl_server.tensorflow.algo.categorical_ddpg import CategoricalDDPG
 from rl_server.tensorflow.algo.quantile_ddpg import QuantileDDPG
@@ -6,6 +7,7 @@ from rl_server.tensorflow.algo.td3 import TD3
 from rl_server.tensorflow.algo.quantile_td3 import QuantileTD3
 from rl_server.tensorflow.algo.sac import SAC
 from rl_server.tensorflow.algo.base_algo import create_placeholders
+from rl_server.tensorflow.algo.prioritized_ddpg import PrioritizedDDPG
 
 
 def create_algorithm(
@@ -49,8 +51,14 @@ def create_algorithm(
                 action_size=action_size,
                 **algo_config.as_obj()["critic"],
                 scope=critic_scope)
-            DDPG_algorithm = DDPG
+
+            if algo_config.server.use_prioritized_buffer:
+                DDPG_algorithm = PrioritizedDDPG
+            else:
+                DDPG_algorithm = DDPG
         elif name == "categorical_ddpg":
+            assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(
+                name)
             critic = CriticNetwork(
                 state_shape=state_shapes[0],
                 action_size=action_size,
@@ -58,6 +66,8 @@ def create_algorithm(
                 scope=critic_scope)
             DDPG_algorithm = CategoricalDDPG
         elif name == "quantile_ddpg":
+            assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(
+                name)
             critic = CriticNetwork(
                 state_shape=state_shapes[0],
                 action_size=action_size,
@@ -85,6 +95,8 @@ def create_algorithm(
             training_schedule=algo_config.as_obj()["training"])
 
     elif name == "sac":
+
+        assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(name)
 
         actor = GaussActorNetwork(
             state_shape=state_shapes[0],
@@ -127,9 +139,14 @@ def create_algorithm(
                 learning_rate=critic_lr),
             **algo_config.as_obj()["algorithm"],
             scope=algo_scope,
-            placeholders=placeholders)
+            placeholders=placeholders,
+            actor_optim_schedule=algo_config.as_obj()["actor_optim"],
+            critic_optim_schedule=algo_config.as_obj()["critic_optim"],
+            training_schedule=algo_config.as_obj()["training"])
 
     elif name == "td3":
+
+        assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(name)
 
         actor = ActorNetwork(
             state_shape=state_shapes[0],
@@ -168,6 +185,8 @@ def create_algorithm(
             training_schedule=algo_config.as_obj()["training"])
         
     elif name == "quantile_td3":
+
+        assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(name)
 
         actor = ActorNetwork(
             state_shape=state_shapes[0],

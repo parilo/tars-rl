@@ -16,7 +16,7 @@ class RLServer:
             observation_shapes=observation_shapes,
             action_size=action_size,
             experience_replay_buffer_size=exp_config.server.experience_replay_buffer_size,
-            # use_prioritized_buffer=use_prioritized_buffer,
+            use_prioritized_buffer=exp_config.server.use_prioritized_buffer,
             use_synchronous_update=exp_config.server.use_synchronous_update,
             n_step=exp_config.algorithm.n_step,
             gamma=exp_config.algorithm.gamma,

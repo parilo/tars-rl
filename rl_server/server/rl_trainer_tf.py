@@ -1,12 +1,6 @@
 import os
 import tensorflow as tf
-import time
-from rl_server.server.server_replay_buffer import ServerBuffer
-from threading import Lock, Thread
 import multiprocessing
-from tensorboardX import SummaryWriter
-from misc.defaults import create_if_need
-from datetime import datetime
 from rl_server.server.rl_trainer import RLTrainer
 
 
@@ -66,7 +60,7 @@ class TFRLTrainer(RLTrainer):
                 beta=self._beta,
                 gamma=self._gamma)
             batch, indices, is_weights = prio_batch
-            loss = self._algo.train(self._sess, batch, is_weights)
+            loss = self._algo.train(self._sess, self._step_index, batch, is_weights)
             td_errors = self._algo.get_td_errors(self._sess, batch).ravel()
             self.server_buffer.update_td_errors(indices, td_errors)
             self._beta = min(1.0, self._beta + 1e-6)

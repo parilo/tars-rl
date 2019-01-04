@@ -1,12 +1,11 @@
 import os
 import time
 from rl_server.server.server_replay_buffer import ServerBuffer
-from threading import Lock, Thread
+from threading import Lock
 import multiprocessing
 from tensorboardX import SummaryWriter
 from misc.defaults import create_if_need
 from datetime import datetime
-from rl_server.server.parallel_batch_fetcher import ParallelBatchFetcher
 
 
 def make_session(num_cpu=None, make_default=False, graph=None):

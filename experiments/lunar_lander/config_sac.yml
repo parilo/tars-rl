@@ -7,16 +7,16 @@ env:
   action_size: 2
   frame_skip: 2
   step_limit: 0
-  agent_buffer_size: 2010
+  agent_buffer_size: 510
   history_length: 1
-  reward_scale: 0.1
+  reward_scale: 1.
   reinit_random_action_every: 5
 
 server:
   seed: 42
   num_clients: 16
   experience_replay_buffer_size: 5000000
-  use_prioritized_buffer: true
+  use_prioritized_buffer: false
   use_synchronous_update: false
   train_every_nth: 1.
   start_learning_after: 5000
@@ -28,14 +28,19 @@ server:
   logdir: "logs/asd2"
   #load_checkpoint: ""
 
-algo_name: "td3"
+algo_name: "sac"
 
 algorithm:
   n_step: 1
   gamma: 0.99
   actor_grad_val_clip: 1.0
-  target_actor_update_rate: 0.0025
-  target_critic_update_rate: 0.005
+#  actor_grad_norm_clip: None
+#  critic_grad_val_clip: None
+#  critic_grad_norm_clip: None
+  action_squash_func: "tanh"
+  reward_scale: 1.
+  mu_and_sig_reg: 0.003
+  target_critic_update_rate: 1.0
 
 
 use_lstm_networks: False
@@ -94,18 +99,24 @@ agents:
     agents:
       - agents_count: 1
         visualize: True
+        exploration:
+          built_in_algo: True
+          validation: True
 
       - agents_count: 1
         visualize: False
+        exploration:
+          built_in_algo: True
+          validation: False
 
       - agents_count: 1
         visualize: True
         exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.2
+          built_in_algo: True
+          validation: False
 
       - agents_count: 4
         visualize: False
         exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.2
+          built_in_algo: True
+          validation: False

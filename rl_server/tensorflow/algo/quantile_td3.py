@@ -91,10 +91,3 @@ class QuantileTD3(TD3):
         loss = huber_loss(
             atoms[:, :, None], target_atoms[:, None, :], weights)
         return loss
-
-    def _get_info(self):
-        info = {}
-        info["algo"] = "td3"
-        info["actor"] = self._actor.get_info()
-        info["critic"] = self._critic1.get_info()
-        return info

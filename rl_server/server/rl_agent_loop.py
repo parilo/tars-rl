@@ -148,25 +148,34 @@ class RLAgent:
             # env_action = np.clip(env_action, 0., 1.)
             # env_action = np.random.binomial([1]*self._env.action_size, env_action).astype(np.float32)
 
-            action = self._agent_model.act_batch(prepare_state(state))[0]
-            action = np.array(action)
+            if self._exploration.built_in_algo:
+                if self._exploration.validation:
+                    action = self._agent_model.act_batch(
+                        prepare_state(state),
+                        mode='deterministic'
+                    )[0]
+                else:
+                    action = self._agent_model.act_batch(prepare_state(state))[0]
+                action = np.array(action)
 
-            if not self._validation:
-                if self._exploration.normal_noise is not None:
-                    # exploration with normal noise
-                    action += np.random.normal(
-                       scale=self._exploration.normal_noise,
-                       size=self._action_size
-                    )
-                if self._exploration.random_action_prob is not None:
-                    if random.random() < self._exploration.random_action_prob:
-                        action = self._env.get_random_action()
+            else:
+                action = self._agent_model.act_batch(prepare_state(state))[0]
+                action = np.array(action)
 
-                action = self._clipping_function(action)
+                if not self._validation:
+                    if self._exploration.normal_noise is not None:
+                        # exploration with normal noise
+                        action += np.random.normal(
+                           scale=self._exploration.normal_noise,
+                           size=self._action_size
+                        )
+                    if self._exploration.random_action_prob is not None:
+                        if random.random() < self._exploration.random_action_prob:
+                            action = self._env.get_random_action()
+
+                    action = self._clipping_function(action)
 
             # action remap function
-            # env_action = (action + 1.) / 2.
-            # env_action = np.clip(env_action, 0., 1.)
             if self._action_remap_function is not None:
                 env_action = self._action_remap_function(action)
             else:

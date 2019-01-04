@@ -15,7 +15,7 @@ class AgentModel:
     def act_batch(self, states, mode="default"):
         if mode == "default":
             actions = self._agent_algorithm.act_batch(self._sess, states)
-        elif mode == "sac_deterministic":
+        elif mode == "deterministic":
             actions = self._agent_algorithm.act_batch_deterministic(self._sess, states)
         elif mode == "with_gradients":
             # actually, here it will return actions and grads

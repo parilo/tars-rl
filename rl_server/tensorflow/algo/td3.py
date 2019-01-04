@@ -217,13 +217,6 @@ class TD3(BaseAlgo):
         self._critic1_weights_tool.set_weights(sess, weights['critic1'])
         self._critic2_weights_tool.set_weights(sess, weights['critic2'])
 
-    def _get_info(self):
-        info = {}
-        info["algo"] = "td3"
-        info["actor"] = self._actor.get_info()
-        info["critic"] = self._critic1.get_info()
-        return info
-
     # interface methods for one-batch ensemble
     def get_target_actor_update_op(self):
         return self._target_actor_update_op

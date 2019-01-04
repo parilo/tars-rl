@@ -3,7 +3,7 @@ from datetime import datetime
 
 from tensorboardX import SummaryWriter
 
-from misc.defaults import create_if_need
+from misc.common import create_if_need
 
 
 class RLLogger:

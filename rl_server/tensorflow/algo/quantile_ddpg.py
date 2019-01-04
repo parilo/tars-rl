@@ -61,6 +61,6 @@ class QuantileDDPG(DDPG):
             self._critic_update = self._get_critic_update(self._value_loss)
 
         with tf.name_scope("targets_update"):
-            self._targets_init_op = self.get_targets_init()
+            self._targets_init_op = self._get_targets_init()
             self._target_actor_update_op = self._get_target_actor_update()
             self._target_critic_update_op = self._get_target_critic_update()
