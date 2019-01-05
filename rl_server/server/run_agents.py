@@ -47,7 +47,6 @@ for algorithm_agents_info in config.as_obj()['agents']:
             set_default(agent_config, 'store_episodes', False)
             set_default(agent_config, 'seed', agent_id)
 
-            print(agent_config)
             p = Process(target=run_agent, args=(algo_config, agent_config))
             p.start()
             ps.append(p)

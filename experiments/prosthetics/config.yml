@@ -1,0 +1,129 @@
+framework: tensorflow
+
+env:
+  env_module: envs.prosthetics_round2
+  env_class: ProstheticsEnvWrap
+  is_gym: False
+  obs_size: 345
+  action_size: 19
+  frame_skip: 3
+  step_limit: 0
+  agent_buffer_size: 2010
+  history_length: 1
+  reward_scale: 0.1
+  reinit_random_action_every: 5
+  additional_env_parameters:
+    randomized_start: False
+    max_episode_length: 1000
+    death_penalty: 0.0
+    living_bonus: 0.0
+    crossing_legs_penalty: 1.0
+    bending_knees_bonus: 0.0
+    left_knee_bonus: 0.
+    right_knee_bonus: 0.
+    max_reward: 2.0
+    activations_penalty: 0.
+    bonus_for_knee_angles_scale: 0.
+    bonus_for_knee_angles_angle: 0.
+  remap_action:
+    low:
+      before: -1.
+      after: 0.
+    high:
+      before: 1.
+      after: 1.
+
+server:
+  seed: 42
+  num_clients: 16
+  experience_replay_buffer_size: 5000000
+  use_prioritized_buffer: false
+  use_synchronous_update: false
+  train_every_nth: 1.
+  start_learning_after: 5000
+  target_critic_update_period: 1
+  target_actor_update_period: 1
+  show_stats_period: 100
+  save_model_period: 25000
+  client_start_port: 10977
+  logdir: "logs/asd2"
+  #load_checkpoint: ""
+
+algo_name: "quantile_td3"
+
+algorithm:
+  n_step: 1
+  gamma: 0.99
+  actor_grad_val_clip: 1.0
+  target_actor_update_rate: 0.0025
+  target_critic_update_rate: 0.005
+
+
+use_lstm_networks: False
+
+actor:
+  hiddens: [[128, 128, 128]]
+  layer_norm: False
+  noisy_layer: False
+  activations: ["relu"]
+  output_activation: "tanh"
+
+critic:
+  hiddens: [[128, 128]]
+  layer_norm: False
+  noisy_layer: False
+  activations: ["relu"]
+  output_activation: "linear"
+  action_insert_block: 0
+  num_atoms: 128
+
+actor_optim:
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.001
+    - limit: 500000
+      lr: 0.0005
+    - limit: 1000000
+      lr: 0.0005
+    - limit: 1500000
+      lr: 0.00025
+
+critic_optim:
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.001
+    - limit: 500000
+      lr: 0.0005
+    - limit: 1000000
+      lr: 0.0005
+    - limit: 1500000
+      lr: 0.00025
+
+training:
+  schedule:
+    - limit: 0  # of train ops
+      batch_size: 2560
+    - limit: 500000
+      batch_size: 2560
+    - limit: 1000000
+      batch_size: 5120
+    - limit: 1500000
+      batch_size: 5120
+
+agents:
+  - algorithm_id: 0
+    agents:
+      - agents_count: 1
+        visualize: True
+
+#      - agents_count: 1
+#        visualize: True
+#        exploration:
+#          normal_noise: 0.5
+#          random_action_prob: 0.2
+#
+#      - agents_count: 2
+#        visualize: False
+#        exploration:
+#          normal_noise: 0.5
+#          random_action_prob: 0.2

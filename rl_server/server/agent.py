@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import importlib
+
 from misc.common import parse_agent_args, dict_to_prop_tree
 from misc.config import ExperimentConfig
 from rl_server.server.rl_agent_loop import RLAgent
@@ -18,6 +20,28 @@ def run_agent(exp_config, agent_config):
             visualize=agent_config['visualize'],
             reinit_random_action_every=exp_config.env.reinit_random_action_every
         )
+
+    elif hasattr(exp_config.env, 'env_class'):
+
+        env_module = importlib.import_module(exp_config.env.env_module)
+        EnvClass = getattr(env_module, exp_config.env.env_class)
+
+        if hasattr(exp_config.env, 'additional_env_parameters'):
+            print(exp_config.as_obj()['env']['additional_env_parameters'])
+            env = EnvClass(
+                reward_scale=exp_config.env.reward_scale,
+                frame_skip=exp_config.env.frame_skip,
+                visualize=agent_config['visualize'],
+                reinit_random_action_every=exp_config.env.reinit_random_action_every,
+                **exp_config.as_obj()['env']['additional_env_parameters']
+            )
+        else:
+            env = EnvClass(
+                reward_scale=exp_config.env.reward_scale,
+                frame_skip=exp_config.env.frame_skip,
+                visualize=agent_config['visualize'],
+                reinit_random_action_every=exp_config.env.reinit_random_action_every
+            )
 
     else:
         raise NotImplementedError(exp_config.env.name)

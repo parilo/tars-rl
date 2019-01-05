@@ -4,19 +4,29 @@ from osim.env import L2RunEnv
 import numpy as np
 
 
-class ExtRunEnv(L2RunEnv):
+class L2RunEnvWrapper(L2RunEnv):
 
-    def __init__(self, frame_skip=1, visualize=False):
-        self.vis = visualize
-        self.env = L2RunEnv(visualize=visualize)
+    def __init__(
+        self,
+        reward_scale=1.,
+        frame_skip=1,
+        visualize=False,
+        reinit_random_action_every=1
+    ):
+        self.reward_scale = reward_scale
         self.frame_skip = frame_skip
-        self.observation_shapes = [(41,)]
+        self.vis = visualize
+        self.reinit_random_action_every = reinit_random_action_every
+
+        self.env = L2RunEnv(visualize=visualize)
+        self.observation_shapes = [(43,)]
         self.action_size = 18
 
     def reset(self):
         self.time_step = 0
         self.total_reward = 0
-        self.init_action = np.round(np.random.uniform(0., 0.7, size=self.action_size))
+        self.total_reward_shaped = 0
+        self.random_action = np.round(np.random.uniform(0., 1., size=self.action_size))
         obs = self.env.reset()
         return self.preprocess_obs(obs)
 
@@ -28,8 +38,9 @@ class ExtRunEnv(L2RunEnv):
             if done: break
         observation = self.preprocess_obs(observation)
         self.total_reward += reward
+        self.total_reward_shaped += reward * self.reward_scale
         self.time_step += 1
-        return observation, reward, done, info
+        return observation, reward * self.reward_scale, done, info
 
     def preprocess_obs(self, obs):
 
@@ -69,7 +80,10 @@ class ExtRunEnv(L2RunEnv):
     def get_total_reward(self):
         return self.total_reward
 
+    def get_total_reward_shaped(self):
+        return self.total_reward_shaped
+
     def get_random_action(self, resample=True):
-        if resample:
-            self.init_action = np.round(np.random.uniform(0., 0.7, size=self.action_size))
-        return self.init_action
+        if self.time_step % self.reinit_random_action_every == 0 or resample:
+            self.random_action = np.round(np.random.uniform(0., 1., size=self.action_size))
+        return self.random_action

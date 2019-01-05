@@ -148,7 +148,7 @@ class RLAgent:
             # env_action = np.clip(env_action, 0., 1.)
             # env_action = np.random.binomial([1]*self._env.action_size, env_action).astype(np.float32)
 
-            if self._exploration.built_in_algo:
+            if hasattr(self._exploration, 'built_in_algo') and self._exploration.built_in_algo:
                 if self._exploration.validation:
                     action = self._agent_model.act_batch(
                         prepare_state(state),

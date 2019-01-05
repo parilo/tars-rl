@@ -5,7 +5,6 @@ from rl_server.server.server_replay_buffer import ServerBuffer
 from threading import Lock, Thread
 import multiprocessing
 from tensorboardX import SummaryWriter
-from misc.defaults import create_if_need
 from datetime import datetime
 from rl_server.server.rl_trainer import RLTrainer
 

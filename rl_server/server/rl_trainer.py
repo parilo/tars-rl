@@ -4,7 +4,7 @@ from rl_server.server.server_replay_buffer import ServerBuffer
 from threading import Lock
 import multiprocessing
 from tensorboardX import SummaryWriter
-from misc.defaults import create_if_need
+from misc.common import create_if_need
 from datetime import datetime
 
 

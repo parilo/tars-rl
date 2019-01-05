@@ -1,34 +1,173 @@
+import os
 import math
-import copy
 import random
+
 import numpy as np
 from osim.env import ProstheticsEnv, rect
 from gym.spaces import Box
 
-from envs.prosthetics_preprocess import preprocess_obs_round2, \
-    euler_angles_to_rotation_matrix, get_simbody_state
+
+norm_file = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    'prosthetics_norm_v21.npz')
+with np.load(norm_file) as data:
+    obs_means = data['means']
+    obs_stds = data['stds']
+
+
+# Calculates Rotation Matrix given euler angles.
+def euler_angles_to_rotation_matrix(theta):
+    R_x = np.array([
+        [1, 0, 0],
+        [0, math.cos(theta[0]), -math.sin(theta[0])],
+        [0, math.sin(theta[0]), math.cos(theta[0])]
+    ])
+    R_y = np.array([
+        [math.cos(theta[1]), 0, math.sin(theta[1])],
+        [0, 1, 0],
+        [-math.sin(theta[1]), 0, math.cos(theta[1])]
+    ])
+    R_z = np.array([
+        [math.cos(theta[2]), -math.sin(theta[2]), 0],
+        [math.sin(theta[2]), math.cos(theta[2]), 0],
+        [0, 0, 1]
+    ])
+    R = np.dot(R_z, np.dot(R_y, R_x))
+    return R
+
+
+def preprocess_obs(state_desc):
+
+    res = []
+
+    force_mult = 5e-4
+    acc_mult = 1e-2
+
+    # body parts
+    body_parts = ['pelvis', 'femur_r', 'pros_tibia_r', 'pros_foot_r', 'femur_l',
+                  'tibia_l', 'talus_l', 'calcn_l', 'toes_l', 'torso', 'head']
+    # calculate linear coordinates of pelvis to switch
+    # to the reference frame attached to the pelvis
+    x, y, z = state_desc['body_pos']['pelvis']
+    rx, ry, rz = state_desc['body_pos_rot']['pelvis']
+    res += [y, z]
+    res += [rx, ry, rz]
+    # 30 components -- relative linear coordinates of body parts (except pelvis)
+    for body_part in body_parts:
+        if body_part != 'pelvis':
+            x_, y_, z_ = state_desc['body_pos'][body_part]
+            res += [x_-x, y_-y, z_-z]
+    # 2 components -- relative linear coordinates of center mass
+    x_, y_, z_ = state_desc['misc']['mass_center_pos']
+    res += [x_-x, y_-y, z_-z]
+    # 35 components -- linear velocities of body parts (and center mass)
+    for body_part in body_parts:
+        res += state_desc['body_vel'][body_part]
+    res += state_desc['misc']['mass_center_vel']
+    # 35 components -- linear accelerations of body parts (and center mass)
+    for body_part in body_parts:
+        res += state_desc['body_acc'][body_part]
+    res += state_desc['misc']['mass_center_acc']
+    # calculate angular coordinates of pelvis to switch
+    # to the reference frame attached to the pelvis
+    # 30 components -- relative angular coordinates of body parts (except pelvis)
+    for body_part in body_parts:
+        if body_part != 'pelvis':
+            rx_, ry_, rz_ = state_desc['body_pos_rot'][body_part]
+            res += [rx_-rx, ry_-ry, rz_-rz]
+    # 33 components -- linear velocities of body parts
+    for body_part in body_parts:
+        res += state_desc['body_vel_rot'][body_part]
+    # 33 components -- linear accelerations of body parts
+    for body_part in body_parts:
+        res += state_desc['body_acc_rot'][body_part]
+
+    # joints
+    for joint_val in ['joint_pos', 'joint_vel', 'joint_acc']:
+        for joint in ['ground_pelvis', 'hip_r', 'knee_r', 'ankle_r',
+                      'hip_l', 'knee_l', 'ankle_l']:
+            res += state_desc[joint_val][joint][:3]
+
+    # muscles
+    muscles = ['abd_r', 'add_r', 'hamstrings_r', 'bifemsh_r',
+       'glut_max_r', 'iliopsoas_r', 'rect_fem_r', 'vasti_r',
+       'abd_l', 'add_l', 'hamstrings_l', 'bifemsh_l',
+       'glut_max_l', 'iliopsoas_l', 'rect_fem_l', 'vasti_l',
+       'gastroc_l', 'soleus_l', 'tib_ant_l']
+    for muscle in muscles:
+        res += [state_desc['muscles'][muscle]['activation']]
+        res += [state_desc['muscles'][muscle]['fiber_length']]
+        res += [state_desc['muscles'][muscle]['fiber_velocity']]
+    for muscle in muscles:
+        res += [state_desc['muscles'][muscle]['fiber_force']*force_mult]
+    forces = ['abd_r', 'add_r', 'hamstrings_r', 'bifemsh_r',
+      'glut_max_r', 'iliopsoas_r', 'rect_fem_r', 'vasti_r',
+      'abd_l', 'add_l', 'hamstrings_l', 'bifemsh_l',
+      'glut_max_l', 'iliopsoas_l', 'rect_fem_l', 'vasti_l',
+      'gastroc_l', 'soleus_l', 'tib_ant_l', 'ankleSpring',
+      'pros_foot_r_0', 'foot_l', 'HipLimit_r', 'HipLimit_l',
+      'KneeLimit_r', 'KneeLimit_l', 'AnkleLimit_r', 'AnkleLimit_l',
+      'HipAddLimit_r', 'HipAddLimit_l']
+
+    # forces
+    for force in forces:
+        f = state_desc['forces'][force]
+        if len(f) == 1:
+            res += [f[0] * force_mult]
+
+    res = (np.array(res) - obs_means) / obs_stds
+
+    return res.tolist()
+
+
+def get_simbody_state(state_desc):
+    res = []
+    # joints
+    for joint_val in ["joint_pos", "joint_vel"]:
+        for joint in ["ground_pelvis", "hip_r", "hip_l", "back",
+                      "knee_r", "knee_l", "ankle_r", "ankle_l"]:
+            res += state_desc[joint_val][joint]
+    # muscles
+    muscles = ["abd_r", "add_r", "hamstrings_r", "bifemsh_r",
+               "glut_max_r", "iliopsoas_r", "rect_fem_r", "vasti_r",
+               "abd_l", "add_l", "hamstrings_l", "bifemsh_l",
+               "glut_max_l", "iliopsoas_l", "rect_fem_l", "vasti_l",
+               "gastroc_l", "soleus_l", "tib_ant_l"]
+    for muscle in muscles:
+        res += [state_desc["muscles"][muscle]["activation"]]
+        res += [state_desc["muscles"][muscle]["fiber_length"]]
+    return res
+
+
+def preprocess_obs_round2(state_desc, step_index):
+    res = preprocess_obs(state_desc)
+    res += state_desc["target_vel"]
+    res += [float(step_index) / 500. - 1.]
+    return res
 
 
 class ProstheticsEnvWrap:
     def __init__(
-            self,
-            frame_skip=1,
-            visualize=False,
-            randomized_start=False,
-            max_episode_length=300,
-            reward_scale=0.1,
-            death_penalty=0.0,
-            living_bonus=0.0,
-            crossing_legs_penalty=0.0,
-            bending_knees_bonus=0.0,
-            left_knee_bonus=0.,
-            right_knee_bonus=0.,
-            max_reward=10.0,
-            activations_penalty=0.,
-            num_of_augmented_targets=4,
-            bonus_for_knee_angles_scale=0.,
-            bonus_for_knee_angles_angle=0.):
+        self,
+        reward_scale=0.1,
+        frame_skip=1,
+        visualize=False,
+        reinit_random_action_every=1,
+        randomized_start=False,
+        max_episode_length=300,
+        death_penalty=0.0,
+        living_bonus=0.0,
+        crossing_legs_penalty=0.0,
+        bending_knees_bonus=0.0,
+        left_knee_bonus=0.,
+        right_knee_bonus=0.,
+        max_reward=10.0,
+        activations_penalty=0.,
+        bonus_for_knee_angles_scale=0.,
+        bonus_for_knee_angles_angle=0.
+    ):
 
+        self.reinit_random_action_every = reinit_random_action_every
         self.visualize = visualize
         self.randomized_start = randomized_start
         self.env = ProstheticsEnv(visualize=visualize, integrator_accuracy=1e-3)
@@ -41,7 +180,6 @@ class ProstheticsEnvWrap:
         self.action_size = 19
         self.max_ep_length = max_episode_length - 2
         self.activations_penalty = activations_penalty
-        self.num_of_augmented_targets = num_of_augmented_targets
         self.bonus_for_knee_angles_scale = bonus_for_knee_angles_scale
         self.bonus_for_knee_angles_angle = bonus_for_knee_angles_angle
 
@@ -67,64 +205,17 @@ class ProstheticsEnvWrap:
         self.episodes = 1
         self.ep2reload = 10
 
-    def generate_new_augmented_targets(self, poisson_lambda = 50):
-        nsteps = self.max_ep_length + 3
-        rg = np.array(range(nsteps))
-        velocity = np.zeros(nsteps)
-        heading = np.zeros(nsteps)
-
-        velocity[0] = random.uniform(-0.5,0.5)
-        heading[0] = random.uniform(-math.pi/8,math.pi/8)
-
-        change = np.cumsum(np.random.poisson(poisson_lambda, 10))
-
-        for i in range(1,nsteps):
-            velocity[i] = velocity[i-1]
-            heading[i] = heading[i-1]
-
-            if i in change:
-                velocity[i] += random.uniform(-0.5,0.5)
-                heading[i] += random.uniform(-math.pi/8,math.pi/8)
-
-        trajectory_polar = np.vstack((velocity,heading)).transpose()
-        return np.apply_along_axis(rect, 1, trajectory_polar)
-
-    def augmented_reward_round2(self, target):
-        state_desc = self.env.get_state_desc()
-        prev_state_desc = self.env.get_prev_state_desc()
-        penalty = 0
-
-        # Small penalty for too much activation (cost of transport)
-        penalty += np.sum(np.array(self.env.osim_model.get_activations())**2) * 0.001
-
-        # Big penalty for not matching the vector on the X,Z projection.
-        # No penalty for the vertical axis
-        # augmented_target = self.augmented_targets[self.time_step,:]
-        penalty += (state_desc["body_vel"]["pelvis"][0] - target[0])**2
-        penalty += (state_desc["body_vel"]["pelvis"][2] - target[2])**2
-        
-        # Reward for not falling
-        reward = 10.0
-        
-        return reward - penalty 
-
     def reset(self):
         self.time_step = 0
         self.init_action = np.round(
             np.random.uniform(0, 0.7, size=self.action_size))
         self.total_reward = 0.
         self.total_reward_shaped = 0.
-        
-        self.augmented_targets = [self.generate_new_augmented_targets() for _ in range(self.num_of_augmented_targets)]
 
         state_desc = self.env.reset(project=False)
         if self.randomized_start:
             state = get_simbody_state(state_desc)
-            # noise = np.random.normal(scale=0.4, size=72)
-            # noise[9] = 1.  # left leg
-            # noise[6] = 1.  # right leg
-            # state = (np.array(state) + noise).tolist()
-            
+
             amplitude = random.gauss(0.8, 0.05)
             direction = random.choice([-1., 1])
             amplitude_knee = random.gauss(-1.2, 0.05)
@@ -144,22 +235,9 @@ class ProstheticsEnvWrap:
     def step(self, action):
         reward = 0
         reward_origin = 0
-        augmented_targets_at_step = [[] for _ in range(self.frame_skip)]
-        augmented_targets_rewards = [0 for _ in range(self.num_of_augmented_targets)]
-        augmented_targets_observations = [[] for _ in range(self.frame_skip)]
         for i in range(self.frame_skip):
             observation, r, _, info = self.env.step(action, project=False)
             reward_origin += r
-            for ati in range(self.num_of_augmented_targets):
-                augmented_target = self.augmented_targets[ati][self.time_step].tolist()
-                augmented_targets_at_step[i].append(augmented_target)
-                augmented_targets_rewards[ati] += self.shape_reward(
-                    self.augmented_reward_round2(augmented_target)
-                ) * self.reward_scale
-                augmented_observation = copy.deepcopy(observation)
-                augmented_observation["target_vel"] = augmented_target
-                augmented_observation = preprocess_obs_round2(augmented_observation, self.time_step)
-                augmented_targets_observations[i].append(augmented_observation)
             done = self.is_done(observation)
             reward += self.shape_reward(r)
             if done:
@@ -169,11 +247,6 @@ class ProstheticsEnvWrap:
         observation = preprocess_obs_round2(observation, self.time_step)
         reward *= self.reward_scale
         info["reward_origin"] = reward_origin
-        info["augmented_targets"] = {
-            'targets': augmented_targets_at_step,
-            'rewards': augmented_targets_rewards,
-            'observations': augmented_targets_observations
-        }
         self.time_step += 1
         self.total_reward += reward_origin
         self.total_reward_shaped += reward
@@ -214,11 +287,7 @@ class ProstheticsEnvWrap:
         
         reward += self.bonus_for_knee_angles_scale * math.exp(-((r_knee_flexion + self.bonus_for_knee_angles_angle) * 6.0)**2)
         reward += self.bonus_for_knee_angles_scale * math.exp(-((l_knee_flexion + self.bonus_for_knee_angles_angle) * 6.0)**2)
-        # print('--- knee {} {}'.format(
-        #     self.bonus_for_knee_angles_scale * math.exp(-((r_knee_flexion + self.bonus_for_knee_angles_angle) * 6.0)**2),
-        #     self.bonus_for_knee_angles_scale * math.exp(-((l_knee_flexion + self.bonus_for_knee_angles_angle) * 6.0)**2)
-        # ))
-        
+
         r_knee_flexion = math.fabs(state_desc['joint_vel']['knee_r'][0])
         l_knee_flexion = math.fabs(state_desc['joint_vel']['knee_l'][0])
         reward += r_knee_flexion * self.right_knee_bonus
@@ -237,6 +306,3 @@ class ProstheticsEnvWrap:
         
     def get_total_reward_shaped(self):
         return self.total_reward_shaped
-
-
-ENV = ProstheticsEnvWrap
