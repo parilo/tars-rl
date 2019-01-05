@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.python import keras
 from tensorflow.python.keras.layers import Dense, Reshape, Lambda, Activation
 from tensorflow.python.keras.initializers import RandomUniform
+
 from .layer_norm import LayerNorm
 from .noisy_dense import NoisyDense
 
@@ -153,6 +154,18 @@ class GMMActorNetwork(ActorNetwork):
                  num_components=1,
                  layer_norm=False, noisy_layer=False,
                  output_activation=None, scope=None):
+        """
+        Gaussian mixture model
+        :param state_shape:
+        :param action_size:
+        :param hiddens:
+        :param activations:
+        :param num_components:
+        :param layer_norm:
+        :param noisy_layer:
+        :param output_activation:
+        :param scope:
+        """
 
         self.state_shape = state_shape
         self.action_size = action_size

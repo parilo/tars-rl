@@ -1,12 +1,13 @@
 import random
 import copy
+import os
+import pickle
 
 import numpy as np
 
 from rl_server.server.rl_client import RLClient
 from rl_server.server.agent_replay_buffer import AgentBuffer
-# from misc.defaults import set_agent_seed, init_episode_storage
-from misc.common import set_global_seeds
+from misc.common import set_global_seeds, create_if_need
 from misc.rl_logger import RLLogger
 
 np.set_printoptions(suppress=True)
@@ -64,6 +65,11 @@ class RLAgent:
                 return np.clip(action, -1., 1.)
             self._clipping_function = tanh_clipping
 
+        # store episodes
+        self._store_episodes = False
+        if hasattr(agent_config, 'store_episodes') and agent_config.store_episodes:
+            self._store_episodes = True
+
         (
             self._observation_shapes,
             self._state_shapes,
@@ -105,22 +111,19 @@ class RLAgent:
         )
         self._agent_buffer.push_init_observation([first_obs])
 
-        # self.augmented_agent_buffers = []
-        # for _ in range(self._num_of_augmented_targets):
-        #     aug_agent_buffer = AgentBuffer(
-        #         buf_capacity,
-        #         self._env.observation_shapes,
-        #         self._env.action_size)
-        #     aug_agent_buffer.push_init_observation([first_obs])
-        #     self.augmented_agent_buffers.append(aug_agent_buffer)
+    def init_episode_storage(self):
+        storage_path = os.path.join(self._logdir, 'episodes')
+        create_if_need(storage_path)
+        stored_episode_files = len(next(os.walk(storage_path))[2])
+        return storage_path, stored_episode_files
 
     def run(self):
 
         self.init_agent_buffers()
 
-        # if self._store_episodes:
-        #     path_to_episode_storage, stored_episode_index = init_episode_storage(self._id, self._logdir)
-        #     print('stored episodes: {}'.format(stored_episode_index))
+        if self._store_episodes:
+            path_to_episode_storage, stored_episode_index = self.init_episode_storage()
+            print('--- stored episodes: {}'.format(stored_episode_index))
 
         n_steps = 0
         episode_index = 0
@@ -184,16 +187,7 @@ class RLAgent:
             next_obs, reward, done, info = self._env.step(env_action)
             transition = [[next_obs], action, reward, done]
             self._agent_buffer.push_transition(transition)
-            
-            # for i in range(self._num_of_augmented_targets):
-            #     augmented_reward = info['augmented_targets']['rewards'][i]
-            #     augmented_obs = info['augmented_targets']['observations'][-1][i]
-            #     aug_transition = [[augmented_obs], action, augmented_reward, done]
-            #     self.augmented_agent_buffers[i].push_transition(aug_transition)
-            
-            # next_state = self.agent_buffer.get_current_state(
-            #     history_len=self._history_len
-            # )[0].ravel()
+
             n_steps += 1
 
             if done or (self._step_limit > 0 and n_steps > self._step_limit):
@@ -202,24 +196,20 @@ class RLAgent:
                 episode = self._agent_buffer.get_complete_episode()
                 self._rl_client.store_episode(episode)
 
-                # for augmented_agent_buffer in self.augmented_agent_buffers:
-                #     aug_episode = augmented_agent_buffer.get_complete_episode()
-                #     self._rl_client.store_episode(aug_episode)
-                
                 self.fetch_model()
 
                 # save episode on disk
-                # if self._store_episodes:
-                #     ep_path = os.path.join(path_to_episode_storage, 'episode_' + str(stored_episode_index)+'.pkl')
-                #     with open(ep_path, 'wb') as f:
-                #         pickle.dump(
-                #         [
-                #             [obs_part.tolist() for obs_part in episode[0]],
-                #             episode[1].tolist(),
-                #             episode[2].tolist(),
-                #             episode[3].tolist()
-                #         ], f, pickle.HIGHEST_PROTOCOL)
-                #     stored_episode_index += 1
+                if self._store_episodes:
+                    ep_path = os.path.join(path_to_episode_storage, 'episode_' + str(stored_episode_index)+'.pkl')
+                    with open(ep_path, 'wb') as f:
+                        pickle.dump(
+                        [
+                            [obs_part.tolist() for obs_part in episode[0]],
+                            episode[1].tolist(),
+                            episode[2].tolist(),
+                            episode[3].tolist()
+                        ], f, pickle.HIGHEST_PROTOCOL)
+                    stored_episode_index += 1
 
                 episode_index += 1
                 self.init_agent_buffers()

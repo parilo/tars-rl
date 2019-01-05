@@ -1,3 +1,5 @@
+# will be reworked to use with redis
+
 import queue
 from time import sleep
 from multiprocessing import Process, Queue, Value

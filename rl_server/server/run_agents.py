@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import copy
-
 from multiprocessing import Process
 import atexit
 import time
@@ -10,13 +9,9 @@ from misc.common import parse_run_agents_args
 from misc.config import load_config
 from rl_server.server.agent import run_agent
 
-
 args = parse_run_agents_args()
-
 config = load_config(args.config)
-
 ps = []
-
 agent_id = 0
 
 

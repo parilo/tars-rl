@@ -16,8 +16,7 @@ server:
   seed: 42
   num_clients: 16
   experience_replay_buffer_size: 5000000
-  use_prioritized_buffer: true
-  use_synchronous_update: false
+  use_prioritized_buffer: false
   train_every_nth: 1.
   start_learning_after: 5000
   target_critic_update_period: 1
@@ -36,7 +35,6 @@ algorithm:
   actor_grad_val_clip: 1.0
   target_actor_update_rate: 0.0025
   target_critic_update_rate: 0.005
-
 
 use_lstm_networks: False
 

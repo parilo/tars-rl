@@ -1,4 +1,5 @@
 import numpy as np
+
 from .tcp_client_server import TCPServer
 from .serialization import serialize, deserialize
 
@@ -78,12 +79,6 @@ class RLServerAPI:
         self._init_port = init_port
         self._timeout = network_timeout
 
-    def set_act_batch_callback(self, callback):
-        self._act_batch_callback = callback
-
-    def set_act_with_gradient_batch_callback(self, callback):
-        self._act_with_gradient_batch_callback = callback
-
     def set_store_episode_callback(self, callback):
         self._store_episode_callback = callback
 
@@ -102,16 +97,7 @@ class RLServerAPI:
         req = deserialize(request)
         method = req["method"]
 
-        if method == "act_batch":
-            states = string_to_obs(req["states"], self._state_shapes)
-            mode = req["mode"]
-            response = self._act_batch_callback(states, mode)
-
-        elif method == "act_with_gradient_batch":
-            states = string_to_obs(req["states"], self._state_shapes)
-            response = self._act_with_gradient_batch_callback(states)
-
-        elif method == "store_episode":
+        if method == "store_episode":
             episode = req_to_episode(req, self._observation_shapes)
             self._store_episode_callback(episode)
             response = ""

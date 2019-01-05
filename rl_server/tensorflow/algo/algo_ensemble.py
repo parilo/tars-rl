@@ -74,10 +74,3 @@ class AlgoEnsemble:
 
     def get_weights(self, sess, index=0):
         return self._algos[index].get_weights(sess)
-
-    def _get_info(self):
-        info = {}
-        info["algo"] = "ensemble"
-        info["algos_info"] = [algo._get_info() for algo in self._algos]
-        return info
-    

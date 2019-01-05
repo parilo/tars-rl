@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow.contrib.distributions import MultivariateNormalDiag as Normal
+
 from .base_algo import BaseAlgo, network_update, target_network_update
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
 

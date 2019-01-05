@@ -20,7 +20,7 @@ def create_algorithm(
         from rl_server.tensorflow.networks.critic_networks_lstm import CriticNetwork
     else:
         from rl_server.tensorflow.networks.actor_networks import ActorNetwork, GaussActorNetwork
-        from rl_server.tensorflow.networks.critic_networks_new import CriticNetwork
+        from rl_server.tensorflow.networks.critic_networks import CriticNetwork
 
     name = algo_config.algo_name
     print('--- creating {}'.format(name))

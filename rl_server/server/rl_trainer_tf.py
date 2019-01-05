@@ -1,6 +1,8 @@
 import os
-import tensorflow as tf
 import multiprocessing
+
+import tensorflow as tf
+
 from rl_server.server.rl_trainer import RLTrainer
 
 
@@ -18,37 +20,20 @@ def make_session(num_cpu=None, make_default=False, graph=None):
         return tf.Session(config=tf_config, graph=graph)
 
 
-def single_threaded_session():
-    """Returns a session which will only use a single CPU"""
-    return make_session(num_cpu=1)
-
-
 class TFRLTrainer(RLTrainer):
     def init(self):
         self._sess = make_session(num_cpu=1, make_default=True)
-        self._logger = tf.summary.FileWriter("logs")
-
-        self._logger.add_graph(self._sess.graph)
-        self._sess.run(tf.global_variables_initializer())
         self._saver = tf.train.Saver(max_to_keep=None)
+        self._algo.init(self._sess)
         self._algo.target_network_init(self._sess)
 
     def load_checkpoint(self, path):
         self._saver.restore(self._sess, path)
 
-    def act_batch(self, states, mode="default"):
-        if mode == "default":
-            actions = self._algo.act_batch(self._sess, states)
-        if mode == "sac_deterministic":
-            actions = self._algo.act_batch_deterministic(self._sess, states)
-        if mode == "with_gradients":
-            # actually, here it will return actions and grads
-            actions = self._algo.act_batch_with_gradients(self._sess, states)
-        if self._use_synchronous_update:
-            self.train_loop_step()
-        return actions
-
     def train_step(self):
+
+        queue_size = self.server_buffer.get_stored_in_buffer()
+        self._logger.log_buffer_size(queue_size, self._step_index)
 
         if self._use_prioritized_buffer:
 
@@ -60,7 +45,7 @@ class TFRLTrainer(RLTrainer):
                 beta=self._beta,
                 gamma=self._gamma)
             batch, indices, is_weights = prio_batch
-            loss = self._algo.train(self._sess, self._step_index, batch, is_weights)
+            train_info = self._algo.train(self._sess, self._step_index, batch, is_weights)
             td_errors = self._algo.get_td_errors(self._sess, batch).ravel()
             self.server_buffer.update_td_errors(indices, td_errors)
             self._beta = min(1.0, self._beta + 1e-6)
@@ -71,26 +56,25 @@ class TFRLTrainer(RLTrainer):
                 history_len=self._hist_len,
                 n_step=self._n_step,
                 gamma=self._gamma)
-            loss = self._algo.train(self._sess, self._step_index, batch)
-            
-            # parallel buffer
-            # batch = self.server_buffer.get_batch()
-            # if batch is not None:
-            #     loss = self._algo.train(self._sess, batch)
-            # else:
-            #     loss = None
+            train_info = self._algo.train(self._sess, self._step_index, batch)
+
+        self._logger.log_train(train_info, self._step_index)
 
         if self._step_index % self._target_critic_update_period == 0:
             self._algo.target_critic_update(self._sess)
-        
+
         if self._step_index % self._target_actor_update_period == 0:
             self._algo.target_actor_update(self._sess)
         
         if self._step_index % self._show_stats_period == 0:
-            queue_size = self.server_buffer.get_stored_in_buffer()
             print(
-                "trains: {} {} loss: {} stored: {}".format(
-                    self._step_index, batch_size, loss, queue_size))
+                "step: {} {} train: {} stored: {}".format(
+                    self._step_index,
+                    batch_size,
+                    train_info,
+                    queue_size
+                )
+            )
 
         self.save()
 
@@ -101,10 +85,6 @@ class TFRLTrainer(RLTrainer):
                     self._step_index)))
             print("Model saved in file: %s" % save_path)
             self._n_saved += 1
-            # self._logger.add_scalar(
-            #     "num saved",
-            #     self._n_saved,
-            #     self._step_index)
 
     def get_weights(self, index=0):
         return self._algo.get_weights(self._sess, index)

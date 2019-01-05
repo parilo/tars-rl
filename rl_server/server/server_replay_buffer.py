@@ -1,9 +1,12 @@
 import random
-import numpy as np
 from collections import namedtuple
 from threading import RLock
 
+import numpy as np
+
+
 Transition = namedtuple("Transition", ("s", "a", "r", "s_", "done"))
+
 
 class ServerBuffer:
 

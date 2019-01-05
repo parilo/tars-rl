@@ -17,7 +17,6 @@ class RLServer:
             action_size=action_size,
             experience_replay_buffer_size=exp_config.server.experience_replay_buffer_size,
             use_prioritized_buffer=exp_config.server.use_prioritized_buffer,
-            use_synchronous_update=exp_config.server.use_synchronous_update,
             n_step=exp_config.algorithm.n_step,
             gamma=exp_config.algorithm.gamma,
             train_every_nth=exp_config.server.train_every_nth,
@@ -31,7 +30,6 @@ class RLServer:
 
         self._train_loop.set_algorithm(agent_algorithm)
         self._train_loop.init()
-        self._server_api.set_act_batch_callback(self._train_loop.act_batch)
         self._server_api.set_store_episode_callback(self._train_loop.store_episode)
         self._server_api.set_get_weights_callback(self._train_loop.get_weights)
         
