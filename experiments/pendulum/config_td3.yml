@@ -1,16 +1,23 @@
 framework: tensorflow
 
 env:
-  name: LunarLanderContinuous-v2
+  name: Pendulum-v0
   is_gym: True
-  obs_size: 8
-  action_size: 2
+  obs_size: 3
+  action_size: 1
   frame_skip: 2
   step_limit: 0
-  agent_buffer_size: 2010
-  history_length: 10
+  agent_buffer_size: 110
+  history_length: 2
   reward_scale: 0.1
   reinit_random_action_every: 5
+  remap_action:
+    low:
+      before: -1.
+      after: -1.5
+    high:
+      before: 1.
+      after: 1.5
 
 server:
   seed: 42
@@ -22,9 +29,9 @@ server:
   target_critic_update_period: 1
   target_actor_update_period: 1
   show_stats_period: 100
-  save_model_period: 25000
+  save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/asd2"
+  logdir: "logs/pendulum_td3"
   #load_checkpoint: ""
 
 algo_name: "td3"
@@ -37,47 +44,22 @@ algorithm:
   target_critic_update_rate: 0.005
 
 actor:
-  lstm_network: True
-  embedding_layers: [128]
-  embedding_activations: ["relu"]
-  lstm_layers: [64]
-  lstm_activations: ["relu"]
-  output_layers: [128]
-  output_layers_activations: ["relu"]
+  lstm_network: False
+  hiddens: [128, 128, 128]
+  activations: ["relu", "relu", "relu"]
   layer_norm: False
   noisy_layer: False
   output_activation: "tanh"
 
-#actor:
-#  lstm_network: False
-#  hiddens: [128, 128, 128]
-#  activations: ["relu", "relu", "relu"]
-#  layer_norm: False
-#  noisy_layer: False
-#  output_activation: "tanh"
-
 critic:
-  lstm_network: True
-  embedding_layers: [128]
-  embedding_activations: ["relu"]
-  lstm_layers: [64]
-  lstm_activations: ["relu"]
-  output_layers: [128]
-  output_layers_activations: ["relu"]
+  lstm_network: False
+  hiddens: [128, 128, 128]
+  activations: ["relu", "relu", "relu"]
   layer_norm: False
   noisy_layer: False
   output_activation: "linear"
+  action_insert_block: 0
   num_atoms: 1
-
-#critic:
-#  lstm_network: False
-#  hiddens: [128, 128, 128]
-#  activations: ["relu", "relu", "relu"]
-#  layer_norm: False
-#  noisy_layer: False
-#  output_activation: "linear"
-#  action_insert_block: 0
-#  num_atoms: 1
 
 actor_optim:
   schedule:

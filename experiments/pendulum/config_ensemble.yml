@@ -15,10 +15,10 @@ env:
   remap_action:
     low:
       before: -1.
-      after: -2.
+      after: -1.5.
     high:
       before: 1.
-      after: 2.
+      after: 1.5.
 
 server:
   seed: 42

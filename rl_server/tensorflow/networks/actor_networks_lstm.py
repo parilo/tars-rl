@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.python import keras
 from tensorflow.python.keras.layers import Dense, Reshape, Lambda, Activation, LSTM
 from tensorflow.python.keras.initializers import RandomUniform
+
 from .layer_norm import LayerNorm
 from .noisy_dense import NoisyDense
 
@@ -9,7 +10,6 @@ from .noisy_dense import NoisyDense
 def dense_block(input_layer, num_units, activation="relu",
                 layer_norm=False, noisy_layer=False):
     out = input_layer
-    # for num_units in hiddens:
     if noisy_layer:
         out = NoisyDense(num_units, None)(out)
     else:
@@ -49,8 +49,6 @@ class ActorNetwork:
         self.model = self.build_model()
 
     def build_model(self):
-        print('--- actor')
-        print('--- state shape {}'.format(self.state_shape))
 
         with tf.variable_scope(self.scope):
             input_state = keras.layers.Input(shape=self.state_shape, name="state_input")
@@ -63,7 +61,6 @@ class ActorNetwork:
                     self.layer_norm,
                     self.noisy_layer
                 )
-            print('--- {}'.format(out))
 
             for layer_size, activation in zip(self.lstm_layers[:-1], self.lstm_activations[:-1]):
                 out = LSTM(layer_size, activation=activation, return_sequences=True)(out)
@@ -71,7 +68,6 @@ class ActorNetwork:
                 units=self.lstm_layers[-1],
                 activation=self.lstm_activations[-1]
             )(out)
-            print('--- lstm output {}'.format(out))
 
             for layer_size, activation in zip(self.output_layers, self.output_layers_activations):
                 out = dense_block(
@@ -81,7 +77,6 @@ class ActorNetwork:
                     self.layer_norm,
                     self.noisy_layer
                 )
-            print('--- output layers {}'.format(out))
 
             out = Dense(
                 self.action_size,
@@ -90,8 +85,6 @@ class ActorNetwork:
                 bias_initializer=RandomUniform(-3e-3, 3e-3)
             )(out)
 
-            print('--- output {}'.format(out))
-                        
             model = keras.models.Model(inputs=[input_state], outputs=out)
         return model
 

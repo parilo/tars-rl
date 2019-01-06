@@ -1,6 +1,7 @@
 import os
 import copy
 from operator import itemgetter
+from shutil import copy2
 
 import yaml
 
@@ -42,6 +43,9 @@ class BaseConfig:
 
     def as_obj(self):
         return self._config_as_obj
+
+    def store(self, logdir):
+        copy2(self._path, logdir)
 
 
 class ExperimentConfig(BaseConfig):

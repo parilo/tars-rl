@@ -1,31 +1,16 @@
 import tensorflow as tf
 from tensorflow.python import keras
-from tensorflow.python.keras.layers import (
-    Dense, Concatenate, Reshape, Activation)
+from tensorflow.python.keras.layers import Dense, Concatenate, Reshape, Activation
 from tensorflow.python.keras.initializers import RandomUniform
-from .layer_norm import LayerNorm
-from .noisy_dense import NoisyDense
 
-
-def dense_block(input_layer, hiddens, activation="relu",
-                layer_norm=False, noisy_layer=False):
-    out = input_layer
-    for num_units in hiddens:
-        if noisy_layer:
-            out = NoisyDense(num_units, None)(out)
-        else:
-            out = Dense(num_units, None)(out)
-        if layer_norm:
-            out = LayerNorm()(out)
-        out = Activation(activation)(out)
-    return out
+from .actor_networks import dense_block
 
 
 class CriticNetwork:
 
     def __init__(self, state_shape, action_size,
-                 hiddens=[[256, 128], [64, 32]],
-                 activations=["relu", "tanh"],
+                 hiddens=[256, 128, 64, 32],
+                 activations=["relu", "relu", "relu", "tanh"],
                  action_insert_block=0, num_atoms=1,
                  v=(-10., 10.),
                  layer_norm=False, noisy_layer=False,

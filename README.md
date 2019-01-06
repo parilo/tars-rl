@@ -1,3 +1,10 @@
+# TODO
+
+3. train envs, make videos, write docs
+4. release TARS-RL
+5. add HER
+6. support pytorch
+
 # IMPORTANT
 Start carefully recording all results and conclusions.
 

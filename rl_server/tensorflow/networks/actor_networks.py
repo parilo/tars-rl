@@ -10,22 +10,21 @@ from .noisy_dense import NoisyDense
 def dense_block(input_layer, hiddens, activation="relu",
                 layer_norm=False, noisy_layer=False):
     out = input_layer
-    for num_units in hiddens:
-        if noisy_layer:
-            out = NoisyDense(num_units, None)(out)
-        else:
-            out = Dense(num_units, None)(out)
-        if layer_norm:
-            out = LayerNorm()(out)
-        out = Activation(activation)(out)
+    if noisy_layer:
+        out = NoisyDense(hiddens, None)(out)
+    else:
+        out = Dense(hiddens, None)(out)
+    if layer_norm:
+        out = LayerNorm()(out)
+    out = Activation(activation)(out)
     return out
 
 
 class ActorNetwork:
 
     def __init__(self, state_shape, action_size,
-                 hiddens = [[256, 128], [64, 32]],
-                 activations=["relu", "tanh"],
+                 hiddens = [256, 128, 64, 32],
+                 activations=["relu", "relu", "relu", "tanh"],
                  layer_norm=False, noisy_layer=False,
                  output_activation=None, scope=None):
 
@@ -70,7 +69,7 @@ class ActorNetwork:
         return self.model.trainable_weights
 
     def copy(self, scope=None):
-        """copy network architecture"""
+        """copy only network architecture"""
         scope = scope or self.scope + "_copy"
         with tf.variable_scope(scope):
             return ActorNetwork(state_shape=self.state_shape,
@@ -95,8 +94,8 @@ class ActorNetwork:
 class GaussActorNetwork(ActorNetwork):
 
     def __init__(self, state_shape, action_size,
-                 hiddens = [[256, 128], [64, 32]],
-                 activations=["relu", "tanh"],
+                 hiddens = [256, 128, 64, 32],
+                 activations=["relu", "relu", "relu", "tanh"],
                  layer_norm=False, noisy_layer=False,
                  output_activation=None, scope=None):
 
@@ -149,8 +148,8 @@ class GaussActorNetwork(ActorNetwork):
 class GMMActorNetwork(ActorNetwork):
 
     def __init__(self, state_shape, action_size,
-                 hiddens = [[256, 128], [64, 32]],
-                 activations=["relu", "tanh"],
+                 hiddens = [256, 128, 64, 32],
+                 activations=["relu", "relu", "relu", "tanh"],
                  num_components=1,
                  layer_norm=False, noisy_layer=False,
                  output_activation=None, scope=None):

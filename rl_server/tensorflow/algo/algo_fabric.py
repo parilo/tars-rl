@@ -1,3 +1,5 @@
+import copy
+
 import tensorflow as tf
 
 from rl_server.tensorflow.algo.ddpg import DDPG
@@ -8,6 +10,13 @@ from rl_server.tensorflow.algo.quantile_td3 import QuantileTD3
 from rl_server.tensorflow.algo.sac import SAC
 from rl_server.tensorflow.algo.base_algo import create_placeholders
 from rl_server.tensorflow.algo.prioritized_ddpg import PrioritizedDDPG
+from rl_server.tensorflow.networks.actor_networks_lstm import ActorNetwork as ActorNetworkLSTM
+from rl_server.tensorflow.networks.critic_networks_lstm import CriticNetwork as CriticNetworkLSTM
+from rl_server.tensorflow.networks.actor_networks import (
+    ActorNetwork as ActorNetworkFF,
+    GaussActorNetwork as GaussActorNetworkFF
+)
+from rl_server.tensorflow.networks.critic_networks import CriticNetwork as CriticNetworkFF
 
 
 def create_algorithm(
@@ -15,13 +24,25 @@ def create_algorithm(
     placeholders=None,
     scope_postfix=0
 ):
-    if algo_config.use_lstm_networks:
-        from rl_server.tensorflow.networks.actor_networks_lstm import ActorNetwork
-        from rl_server.tensorflow.networks.critic_networks_lstm import CriticNetwork
+    # networks
+    if algo_config.actor.lstm_network:
+        ActorNetwork = ActorNetworkLSTM
+        GaussActorNetwork = None
     else:
-        from rl_server.tensorflow.networks.actor_networks import ActorNetwork, GaussActorNetwork
-        from rl_server.tensorflow.networks.critic_networks import CriticNetwork
+        ActorNetwork = ActorNetworkFF
+        GaussActorNetwork = GaussActorNetworkFF
 
+    if algo_config.critic.lstm_network:
+        CriticNetwork = CriticNetworkLSTM
+    else:
+        CriticNetwork = CriticNetworkFF
+
+    actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
+    del actor_params['lstm_network']
+    critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
+    del critic_params['lstm_network']
+
+    # algorithm
     name = algo_config.algo_name
     print('--- creating {}'.format(name))
     
@@ -42,14 +63,14 @@ def create_algorithm(
         actor = ActorNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config.as_obj()["actor"],
+            **actor_params,
             scope=actor_scope)
 
         if name == "ddpg":
             critic = CriticNetwork(
                 state_shape=state_shapes[0],
                 action_size=action_size,
-                **algo_config.as_obj()["critic"],
+                **critic_params,
                 scope=critic_scope)
 
             if algo_config.server.use_prioritized_buffer:
@@ -62,7 +83,7 @@ def create_algorithm(
             critic = CriticNetwork(
                 state_shape=state_shapes[0],
                 action_size=action_size,
-                **algo_config.as_obj()["critic"],
+                **critic_params,
                 scope=critic_scope)
             DDPG_algorithm = CategoricalDDPG
         elif name == "quantile_ddpg":
@@ -71,8 +92,7 @@ def create_algorithm(
             critic = CriticNetwork(
                 state_shape=state_shapes[0],
                 action_size=action_size,
-                **algo_config.as_obj()["critic"],
-                # num_atoms=128,
+                **critic_params,
                 scope=critic_scope)
             DDPG_algorithm = QuantileDDPG
         else:
@@ -97,14 +117,15 @@ def create_algorithm(
     elif name == "sac":
 
         assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(name)
+        assert not algo_config.actor.lstm_network, '{} actor network don\'t support LSTM'.format(name)
 
         actor = GaussActorNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config.as_obj()["actor"],
+            **actor_params,
             scope=actor_scope)
 
-        critic_v_params = dict(algo_config.as_obj()["critic"])
+        critic_v_params = copy.deepcopy(critic_params)
         critic_v_params['action_insert_block'] = -1
         critic_v = CriticNetwork(
             state_shape=state_shapes[0],
@@ -114,12 +135,12 @@ def create_algorithm(
         critic_q1 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config.as_obj()["critic"],
+            **critic_params,
             scope="critic_q1_" + scope_postfix)
         critic_q2 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config.as_obj()["critic"],
+            **critic_params,
             scope="critic_q2_" + scope_postfix)
 
         agent_algorithm = SAC(
@@ -151,18 +172,18 @@ def create_algorithm(
         actor = ActorNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config.as_obj()["actor"],
+            **actor_params,
             scope=actor_scope)
        
         critic1 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config.as_obj()["critic"],
+            **critic_params,
             scope="critic1_" + scope_postfix)
         critic2 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config.as_obj()["critic"],
+            **critic_params,
             scope="critic2_" + scope_postfix)
 
         agent_algorithm = TD3(
@@ -191,18 +212,18 @@ def create_algorithm(
         actor = ActorNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config.as_obj()["actor"],
+            **actor_params,
             scope=actor_scope)
        
         critic1 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config.as_obj()["critic"],
+            **critic_params,
             scope="critic1_" + scope_postfix)
         critic2 = CriticNetwork(
             state_shape=state_shapes[0],
             action_size=action_size,
-            **algo_config.as_obj()["critic"],
+            **critic_params,
             scope="critic2_" + scope_postfix)
 
         agent_algorithm = QuantileTD3(
