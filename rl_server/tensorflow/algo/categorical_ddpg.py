@@ -28,8 +28,8 @@ class CategoricalDDPG(DDPG):
             logits = self._critic(
                 [self.states_ph, self._actor(self.states_ph)])
             probs = tf.nn.softmax(logits)
-            q_values = tf.reduce_sum(probs * self._z, axis=-1)
-            self._policy_loss = -tf.reduce_mean(q_values)
+            self._q_values = tf.reduce_sum(probs * self._z, axis=-1)
+            self._policy_loss = -tf.reduce_mean(self._q_values)
             self._actor_update = self._get_actor_update(self._policy_loss)
 
         with tf.name_scope("critic_update"):

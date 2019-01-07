@@ -2,6 +2,7 @@ import time
 from datetime import datetime
 
 from tensorboardX import SummaryWriter
+import numpy as np
 
 from misc.common import create_if_need
 
@@ -18,16 +19,20 @@ class RLLogger:
         self._agent_id = agent_id
         self._env = env
         self._validation = validation
-        path_to_rewards_train = f"{self._logdir}/rewards-train-{self._agent_id}.txt"
-        path_to_rewards_test = f"{self._logdir}/rewards-test-{self._agent_id}.txt"
+        self._log_every_n_steps = 1000
+        self._steps_after_last_logging = 0
+        self._ep_rewards_after_last_logging = []
+        self._ep_logged_count = 0
+        path_to_rewards_train = "{}/rewards-train-{}.txt".format(self._logdir, self._agent_id)
+        path_to_rewards_test = "{}/rewards-test-{}.txt".format(self._logdir, self._agent_id)
 
         current_date = datetime.now().strftime('%y-%m-%d-%H-%M-%S-%M-%f')
         if validation:
             self._path_to_rewards = path_to_rewards_test
-            logpath = f"{self._logdir}/agent-valid-{self._agent_id}-{current_date}"
+            logpath = "{}/agent-valid-{}-{}".format(self._logdir, self._agent_id, current_date)
         else:
             self._path_to_rewards = path_to_rewards_train
-            logpath = f"{self._logdir}/agent-train-{self._agent_id}-{current_date}"
+            logpath = "{}/agent-train-{}-{}".format(self._logdir, self._agent_id, current_date)
         create_if_need(logpath)
         self._logger = SummaryWriter(logpath)
         self._start_time = time.time()
@@ -40,8 +45,26 @@ class RLLogger:
                 self._env.get_total_reward(), self._env.get_total_reward_shaped()))
 
         self._logger.add_scalar("steps", n_steps, episode_index)
-        self._logger.add_scalar(
-            "reward", self._env.get_total_reward(), episode_index)
+
+        # for fair comparison we
+        # need to log episode reward per steps
+        # so for now logging one time per 1000 steps
+        self._steps_after_last_logging += n_steps
+        self._ep_rewards_after_last_logging.append(self._env.get_total_reward())
+        if self._steps_after_last_logging >= self._log_every_n_steps:
+            self._steps_after_last_logging -= self._log_every_n_steps
+            mean_ep_reward = np.mean(self._ep_rewards_after_last_logging)
+            self._logger.add_scalar(
+                "reward", mean_ep_reward, self._ep_logged_count)
+
+            with open(self._path_to_rewards, "a") as f:
+                f.write(
+                    str(self._agent_id) + " " +
+                    str(self._ep_logged_count) + " " +
+                    str(mean_ep_reward) + "\n")
+            self._ep_rewards_after_last_logging = []
+            self._ep_logged_count += 1
+
         self._logger.add_scalar(
             "episode per minute",
             episode_index / elapsed_time * 60,
@@ -51,12 +74,6 @@ class RLLogger:
             n_steps / elapsed_time,
             episode_index)
 
-        with open(self._path_to_rewards, "a") as f:
-            f.write(
-                str(self._agent_id) + " " +
-                str(episode_index) + " " +
-                str(self._env.get_total_reward()) + "\n")
-                
         self._start_time = time.time()
 
 

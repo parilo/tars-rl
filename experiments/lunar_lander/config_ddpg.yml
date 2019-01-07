@@ -1,24 +1,16 @@
 framework: tensorflow
 
 env:
-  name: Pendulum-v0
+  name: LunarLanderContinuous-v2
   is_gym: True
-  obs_size: 3
-  action_size: 1
+  obs_size: 8
+  action_size: 2
   frame_skip: 2
   step_limit: 0
-  agent_buffer_size: 110
-  history_length: 2
+  agent_buffer_size: 510
+  history_length: 3
   reward_scale: 0.1
   reinit_random_action_every: 5
-  # example of action remapping
-  remap_action:
-    low:
-      before: -1.
-      after: -1.
-    high:
-      before: 1.
-      after: 1.
 
 server:
   seed: 42
@@ -32,10 +24,10 @@ server:
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/pendulum_td3"
+  logdir: "logs/lunar_lander_ddpg"
   #load_checkpoint: ""
 
-algo_name: "td3"
+algo_name: "ddpg"
 
 algorithm:
   n_step: 1

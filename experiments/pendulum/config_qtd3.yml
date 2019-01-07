@@ -11,28 +11,28 @@ env:
   history_length: 2
   reward_scale: 0.1
   reinit_random_action_every: 5
+  # example of action remapping
   remap_action:
     low:
       before: -1.
-      after: -2.
+      after: -1.
     high:
       before: 1.
-      after: 2.
+      after: 1.
 
 server:
   seed: 42
   num_clients: 16
   experience_replay_buffer_size: 5000000
-#  use_prioritized_buffer: false
-  use_synchronous_update: false
+  use_prioritized_buffer: false
   train_every_nth: 1.
   start_learning_after: 5000
   target_critic_update_period: 1
   target_actor_update_period: 1
   show_stats_period: 100
-  save_model_period: 25000
+  save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/asd2"
+  logdir: "logs/pendulum_qtd3"
   #load_checkpoint: ""
 
 algo_name: "quantile_td3"
@@ -44,20 +44,20 @@ algorithm:
   target_actor_update_rate: 0.0025
   target_critic_update_rate: 0.005
 
-use_lstm_networks: False
-
 actor:
-  hiddens: [[128, 128, 128]]
+  lstm_network: False
+  hiddens: [128, 128, 128]
+  activations: ["relu", "relu", "relu"]
   layer_norm: False
   noisy_layer: False
-  activations: ["relu"]
   output_activation: "tanh"
 
 critic:
-  hiddens: [[128, 128]]
+  lstm_network: False
+  hiddens: [128, 128]  # atoms will be additional layer
+  activations: ["relu", "relu"]
   layer_norm: False
   noisy_layer: False
-  activations: ["relu"]
   output_activation: "linear"
   action_insert_block: 0
   num_atoms: 128

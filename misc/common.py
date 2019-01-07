@@ -80,6 +80,21 @@ def parse_run_agents_args():
     return parser.parse_args()
 
 
+def parse_play_args():
+    parser = argparse.ArgumentParser(
+        description="Play")
+    parser.add_argument(
+        "--config",
+        type=str, required=True)
+    parser.add_argument(
+        "--checkpoint",
+        type=str, required=True)
+    parser.add_argument(
+        "--algorithm_id",
+        type=int, required=False, default=0)
+    return parser.parse_args()
+
+
 class PropertyTree: pass
 
 

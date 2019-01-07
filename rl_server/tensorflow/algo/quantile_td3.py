@@ -33,8 +33,8 @@ class QuantileTD3(TD3):
                 [self.states_ph, self._actor(self.states_ph)]), axis=-1)
             q_values2 = tf.reduce_mean(self._critic2(
                 [self.states_ph, self._actor(self.states_ph)]), axis=-1)
-            q_values_min = tf.minimum(q_values1, q_values2)
-            self._policy_loss = -tf.reduce_mean(q_values_min)
+            self._q_values_min = tf.minimum(q_values1, q_values2)
+            self._policy_loss = -tf.reduce_mean(self._q_values_min)
             self._actor_update = self._get_actor_update(self._policy_loss)
 
         with tf.name_scope("critic_update"):

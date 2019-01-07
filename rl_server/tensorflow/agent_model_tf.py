@@ -1,3 +1,5 @@
+import tensorflow as tf
+
 from rl_server.server.rl_trainer_tf import make_session
 from rl_server.tensorflow.algo.algo_fabric import create_algorithm
 
@@ -26,3 +28,7 @@ class AgentModel:
         
     def fetch(self, index=0):
         self.set_weights(self._rl_client.get_weights(index=index))
+
+    def load_checkpoint(self, path):
+        self._saver = tf.train.Saver(max_to_keep=None)
+        self._saver.restore(self._sess, path)

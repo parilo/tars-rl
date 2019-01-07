@@ -1,24 +1,16 @@
 framework: tensorflow
 
 env:
-  name: Pendulum-v0
+  name: BipedalWalkerHardcore-v2
   is_gym: True
-  obs_size: 3
-  action_size: 1
-  frame_skip: 2
+  obs_size: 24
+  action_size: 4
+  frame_skip: 4
   step_limit: 0
-  agent_buffer_size: 110
-  history_length: 2
+  agent_buffer_size: 1010
+  history_length: 15
   reward_scale: 0.1
-  reinit_random_action_every: 5
-  # example of action remapping
-  remap_action:
-    low:
-      before: -1.
-      after: -1.
-    high:
-      before: 1.
-      after: 1.
+  reinit_random_action_every: 8
 
 server:
   seed: 42
@@ -32,7 +24,7 @@ server:
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/pendulum_td3"
+  logdir: "logs/bipedal_walker_hardcore_td3_lstm"
   #load_checkpoint: ""
 
 algo_name: "td3"
@@ -45,21 +37,28 @@ algorithm:
   target_critic_update_rate: 0.005
 
 actor:
-  lstm_network: False
-  hiddens: [128, 128, 128]
-  activations: ["relu", "relu", "relu"]
+  lstm_network: True
+  embedding_layers: [128]
+  embedding_activations: ["relu"]
+  lstm_layers: [128]
+  lstm_activations: ["relu"]
+  output_layers: [128]
+  output_layers_activations: ["relu"]
   layer_norm: False
   noisy_layer: False
   output_activation: "tanh"
 
 critic:
-  lstm_network: False
-  hiddens: [128, 128, 128]
-  activations: ["relu", "relu", "relu"]
+  lstm_network: True
+  embedding_layers: [128]
+  embedding_activations: ["relu"]
+  lstm_layers: [128]
+  lstm_activations: ["relu"]
+  output_layers: [128]
+  output_layers_activations: ["relu"]
   layer_norm: False
   noisy_layer: False
   output_activation: "linear"
-  action_insert_block: 0
   num_atoms: 1
 
 actor_optim:

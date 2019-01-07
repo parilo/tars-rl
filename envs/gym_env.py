@@ -48,7 +48,7 @@ class GymEnvWrapper:
     def get_total_reward_shaped(self):
         return self.total_reward_shaped
 
-    def get_random_action(self, resample=True):
+    def get_random_action(self, resample=False):
         if self.time_step % self.reinit_random_action_every == 0 or resample:
             self.random_action = self.env.action_space.sample()
         return self.random_action

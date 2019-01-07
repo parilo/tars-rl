@@ -125,9 +125,10 @@ class TD3(BaseAlgo):
             self._gradients = self._get_gradients_wrt_actions()
 
         with tf.name_scope("actor_update"):
-            q_values = self._critic1(
-                [self.states_ph, self._actor(self.states_ph)])
-            self._policy_loss = -tf.reduce_mean(q_values)
+            q_values1 = self._critic1([self.states_ph, self._actor(self.states_ph)])
+            q_values2 = self._critic2([self.states_ph, self._actor(self.states_ph)])
+            self._q_values_min = tf.minimum(q_values1, q_values2)
+            self._policy_loss = -tf.reduce_mean(self._q_values_min)
             self._actor_update = self._get_actor_update(self._policy_loss)
 
         with tf.name_scope("critic_update"):
@@ -193,8 +194,12 @@ class TD3(BaseAlgo):
         if actor_update:
             ops.append(self._actor_update)
         ops_ = sess.run(ops, feed_dict=feed_dict)
-        losses_values = ops_[:2]
-        return [critic_lr, actor_lr] + losses_values
+        return {
+            'critic lr':  critic_lr,
+            'actor lr': actor_lr,
+            'q loss': ops_[0],
+            'pi loss': ops_[1]
+        }
 
     def target_actor_update(self, sess):
         sess.run(self._target_actor_update_op)

@@ -14,9 +14,9 @@ class PrioritizedDDPG(DDPG):
             self._gradients = self._get_gradients_wrt_actions()
 
         with tf.name_scope("actor_update"):
-            q_values = self._critic(
+            self._q_values = self._critic(
                 [self.states_ph, self._actor(self.states_ph)])
-            self._policy_loss = -tf.reduce_mean(q_values)
+            self._policy_loss = -tf.reduce_mean(self._q_values)
             self._actor_update = self._get_actor_update(self._policy_loss)
 
         with tf.name_scope("critic_update"):
@@ -58,14 +58,19 @@ class PrioritizedDDPG(DDPG):
             **{self.dones_ph: batch.done},
             self._is_weights: is_weights
         }
-        ops = [self._value_loss, self._policy_loss]
+        ops = [self._q_values, self._value_loss, self._policy_loss]
         if critic_update:
             ops.append(self._critic_update)
         if actor_update:
             ops.append(self._actor_update)
         ops_ = sess.run(ops, feed_dict=feed_dict)
-        losses_values = ops_[:2]
-        return [critic_lr, actor_lr] + losses_values
+        return {
+            'critic lr':  critic_lr,
+            'actor lr': actor_lr,
+            'q values': ops_[0],
+            'q loss': ops_[1],
+            'pi loss': ops_[2]
+        }
 
     def get_td_errors(self, sess, batch):
 

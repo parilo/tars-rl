@@ -236,7 +236,13 @@ class SAC(BaseAlgo):
             ops.append(self._actor_update)
         ops_ = sess.run(ops, feed_dict=feed_dict)
         q_loss, v_loss, policy_loss = ops_[:3]
-        return [critic_lr, actor_lr, q_loss, v_loss, policy_loss]
+        return {
+            'critic lr': critic_lr,
+            'actor lr': actor_lr,
+            'q loss': q_loss,
+            'v loss': v_loss,
+            'pi loss': policy_loss
+        }
 
     def target_actor_update(self, sess):
         pass

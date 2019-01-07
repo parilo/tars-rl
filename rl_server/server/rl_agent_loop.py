@@ -19,7 +19,8 @@ class RLAgent:
         self,
         env,
         exp_config,
-        agent_config
+        agent_config,
+        checkpoint_path=None
     ):
         self._env = env
         self._exp_config = exp_config
@@ -32,6 +33,7 @@ class RLAgent:
         self._seed = agent_config.seed
         self._history_len = exp_config.env.history_length
         self._algorithm_id = agent_config.algorithm_id
+        self._checkpoint_path = checkpoint_path
 
         # exploration
         if self._exploration is not None:
@@ -46,6 +48,9 @@ class RLAgent:
                 self._exploration.random_action_prob = np.float(self._exploration.random_action_prob)
             else:
                 self._exploration.random_action_prob = None
+
+        if hasattr(self._exploration, 'built_in_algo') and self._exploration.built_in_algo:
+            self._validation = self._exploration.validation
 
         # action remap
         self._action_remap_function = None
@@ -84,9 +89,11 @@ class RLAgent:
             self._env
         )
 
-        self._rl_client = RLClient(
-            port=self._exp_config.server.client_start_port + self._id
-        )
+        self._rl_client = None
+        if self._checkpoint_path is None:
+            self._rl_client = RLClient(
+                port=self._exp_config.server.client_start_port + self._id
+            )
 
         if self._exp_config.framework == 'tensorflow':
             from rl_server.tensorflow.agent_model_tf import AgentModel
@@ -94,11 +101,15 @@ class RLAgent:
                 self._exp_config,
                 self._rl_client
             )
-            self.fetch_model()
+
+            if self._checkpoint_path is None:
+                self.fetch_model()
+            else:
+                self._agent_model.load_checkpoint(self._checkpoint_path)
 
     def fetch_model(self):
-        # self._agent_model.fetch(self._id % self._algos_count)
-        self._agent_model.fetch(self._algorithm_id)
+        if self._checkpoint_path is None:
+            self._agent_model.fetch(self._algorithm_id)
 
     def init_agent_buffers(self):
         buf_capacity = self._exp_config.env.agent_buffer_size
@@ -194,7 +205,8 @@ class RLAgent:
 
                 self._logger.log(episode_index, n_steps)
                 episode = self._agent_buffer.get_complete_episode()
-                self._rl_client.store_episode(episode)
+                if self._checkpoint_path is None:
+                    self._rl_client.store_episode(episode)
 
                 self.fetch_model()
 

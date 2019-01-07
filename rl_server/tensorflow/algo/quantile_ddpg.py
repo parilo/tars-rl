@@ -37,8 +37,8 @@ class QuantileDDPG(DDPG):
         with tf.name_scope("actor_update"):
             atoms = self._critic(
                 [self.states_ph, self._actor(self.states_ph)])
-            q_values = tf.reduce_mean(atoms, axis=-1)
-            self._policy_loss = -tf.reduce_mean(q_values)
+            self._q_values = tf.reduce_mean(atoms, axis=-1)
+            self._policy_loss = -tf.reduce_mean(self._q_values)
             self._actor_update = self._get_actor_update(self._policy_loss)
 
         with tf.name_scope("critic_update"):

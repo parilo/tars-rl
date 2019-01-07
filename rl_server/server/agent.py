@@ -7,7 +7,7 @@ from misc.config import ExperimentConfig
 from rl_server.server.rl_agent_loop import RLAgent
 
 
-def run_agent(exp_config, agent_config):
+def run_agent(exp_config, agent_config, checkpoint_path=None):
 
     if exp_config.env.is_gym:
 
@@ -49,7 +49,8 @@ def run_agent(exp_config, agent_config):
     agent = RLAgent(
         env=env,
         exp_config=exp_config,
-        agent_config=dict_to_prop_tree(agent_config)
+        agent_config=dict_to_prop_tree(agent_config),
+        checkpoint_path=checkpoint_path
     )
     agent.run()
 
