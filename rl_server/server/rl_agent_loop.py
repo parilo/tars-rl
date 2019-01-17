@@ -34,6 +34,8 @@ class RLAgent:
         self._history_len = exp_config.env.history_length
         self._algorithm_id = agent_config.algorithm_id
         self._checkpoint_path = checkpoint_path
+        self._repeat_action = agent_config.repeat_action
+        self._random_repeat_action = agent_config.random_repeat_action
 
         # exploration
         if self._exploration is not None:
@@ -128,6 +130,12 @@ class RLAgent:
         stored_episode_files = len(next(os.walk(storage_path))[2])
         return storage_path, stored_episode_files
 
+    def get_action_repeat_times(self):
+        if self._random_repeat_action:
+            return random.randint(1, self._repeat_action)
+        else:
+            return self._repeat_action
+
     def run(self):
 
         self.init_agent_buffers()
@@ -138,6 +146,11 @@ class RLAgent:
 
         n_steps = 0
         episode_index = 0
+
+        action = None
+        env_action = None
+        action_repeated = 0
+        action_repeat_times = self.get_action_repeat_times()
 
         # exploration parameters for gradient exploration
         # explore_start_temp = self._exp_config.config["env"]["ge_temperature"]
@@ -151,51 +164,57 @@ class RLAgent:
 
         while True:
 
-            # obtain current state from the buffer
-            state = self._agent_buffer.get_current_state(
-                history_len=self._history_len
-            )[0]
+            if action is None or action_repeated == action_repeat_times:
 
-            # Bernoulli exploration
-            # action = np.array(self._agent_model.act_batch(prepare_state(state))[0])
-            # env_action = (action + 1.) / 2.
-            # env_action = np.clip(env_action, 0., 1.)
-            # env_action = np.random.binomial([1]*self._env.action_size, env_action).astype(np.float32)
+                action_repeated = 0
+                action_repeat_times = self.get_action_repeat_times()
 
-            if hasattr(self._exploration, 'built_in_algo') and self._exploration.built_in_algo:
-                if self._exploration.validation:
-                    action = self._agent_model.act_batch(
-                        prepare_state(state),
-                        mode='deterministic'
-                    )[0]
+                # obtain current state from the buffer
+                state = self._agent_buffer.get_current_state(
+                    history_len=self._history_len
+                )[0]
+
+                # Bernoulli exploration
+                # action = np.array(self._agent_model.act_batch(prepare_state(state))[0])
+                # env_action = (action + 1.) / 2.
+                # env_action = np.clip(env_action, 0., 1.)
+                # env_action = np.random.binomial([1]*self._env.action_size, env_action).astype(np.float32)
+
+                if hasattr(self._exploration, 'built_in_algo') and self._exploration.built_in_algo:
+                    if self._exploration.validation:
+                        action = self._agent_model.act_batch(
+                            prepare_state(state),
+                            mode='deterministic'
+                        )[0]
+                    else:
+                        action = self._agent_model.act_batch(prepare_state(state))[0]
+                    action = np.array(action)
+
                 else:
                     action = self._agent_model.act_batch(prepare_state(state))[0]
-                action = np.array(action)
+                    action = np.array(action)
 
-            else:
-                action = self._agent_model.act_batch(prepare_state(state))[0]
-                action = np.array(action)
+                    if not self._validation:
+                        if self._exploration.normal_noise is not None:
+                            # exploration with normal noise
+                            action += np.random.normal(
+                               scale=self._exploration.normal_noise,
+                               size=self._action_size
+                            )
+                        if self._exploration.random_action_prob is not None:
+                            if random.random() < self._exploration.random_action_prob:
+                                action = self._env.get_random_action()
 
-                if not self._validation:
-                    if self._exploration.normal_noise is not None:
-                        # exploration with normal noise
-                        action += np.random.normal(
-                           scale=self._exploration.normal_noise,
-                           size=self._action_size
-                        )
-                    if self._exploration.random_action_prob is not None:
-                        if random.random() < self._exploration.random_action_prob:
-                            action = self._env.get_random_action()
+                        action = self._clipping_function(action)
 
-                    action = self._clipping_function(action)
-
-            # action remap function
-            if self._action_remap_function is not None:
-                env_action = self._action_remap_function(action)
-            else:
-                env_action = action
+                # action remap function
+                if self._action_remap_function is not None:
+                    env_action = self._action_remap_function(action)
+                else:
+                    env_action = action
 
             next_obs, reward, done, info = self._env.step(env_action)
+            action_repeated += 1
             transition = [[next_obs], action, reward, done]
             self._agent_buffer.push_transition(transition)
 

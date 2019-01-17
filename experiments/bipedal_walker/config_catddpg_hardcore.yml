@@ -5,13 +5,12 @@ env:
   is_gym: True
   obs_size: 24
   action_size: 4
-  frame_skip: 2
+  frame_skip: 8
   step_limit: 0
-  agent_buffer_size: 1010
-  history_length: 15
+  agent_buffer_size: 510
+  history_length: 3
   reward_scale: 0.1
-  reinit_random_action_every: 1
-
+  reinit_random_action_every: 5
 
 server:
   seed: 42
@@ -25,10 +24,10 @@ server:
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/bipedal_walker_hardcore_td3_lstm"
+  logdir: "logs/bipedal_walker_hardcore_catddpg"
   #load_checkpoint: ""
 
-algo_name: "td3"
+algo_name: "categorical_ddpg"
 
 algorithm:
   n_step: 1
@@ -38,29 +37,22 @@ algorithm:
   target_critic_update_rate: 0.005
 
 actor:
-  lstm_network: True
-  embedding_layers: [128]
-  embedding_activations: ["relu"]
-  lstm_layers: [128]
-  lstm_activations: ["relu"]
-  output_layers: [128]
-  output_layers_activations: ["relu"]
+  lstm_network: False
+  hiddens: [128, 128, 128]
+  activations: ["relu", "relu", "relu"]
   layer_norm: False
   noisy_layer: False
   output_activation: "tanh"
 
 critic:
-  lstm_network: True
-  embedding_layers: [128]
-  embedding_activations: ["relu"]
-  lstm_layers: [128]
-  lstm_activations: ["relu"]
-  output_layers: [128]
-  output_layers_activations: ["relu"]
+  lstm_network: False
+  hiddens: [128, 128]
+  activations: ["relu", "relu"]
   layer_norm: False
   noisy_layer: False
   output_activation: "linear"
-  num_atoms: 1
+  action_insert_block: 0
+  num_atoms: 128
 
 actor_optim:
   schedule:
@@ -88,34 +80,60 @@ training:
   schedule:
     - limit: 0  # of train ops
       batch_size: 2560
-    - limit: 500000
-      batch_size: 2560
-    - limit: 1000000
-      batch_size: 5120
-    - limit: 1500000
-      batch_size: 5120
+#    - limit: 500000
+#      batch_size: 2560
+#    - limit: 1000000
+#      batch_size: 5120
+#    - limit: 1500000
+#      batch_size: 5120
 
 agents:
   - algorithm_id: 0
     agents:
       - agents_count: 1
         visualize: True
-        repeat_action: 1
+        #repeat_action: 1
 
       - agents_count: 1
         visualize: False
-        repeat_action: 1
+        #repeat_action: 1
 
       - agents_count: 1
         visualize: True
-        repeat_action: 4
+        #repeat_action: 4
+        #random_repeat_action: True
         exploration:
-          normal_noise: 0.5
+          normal_noise: 0.2
+          random_action_prob: 0.1
+
+      - agents_count: 1
+        visualize: False
+        #repeat_action: 4
+        #random_repeat_action: True
+        exploration:
+          normal_noise: 0.1
+          random_action_prob: 0.1
+
+      - agents_count: 1
+        visualize: False
+        #repeat_action: 4
+        #random_repeat_action: True
+        exploration:
+          normal_noise: 0.2
+          random_action_prob: 0.1
+
+      - agents_count: 1
+        visualize: False
+        #repeat_action: 4
+        #random_repeat_action: True
+        exploration:
+          normal_noise: 0.2
           random_action_prob: 0.2
 
-      - agents_count: 4
+      - agents_count: 1
         visualize: False
-        repeat_action: 4
+        #repeat_action: 4
+        #random_repeat_action: True
         exploration:
           normal_noise: 0.5
           random_action_prob: 0.2

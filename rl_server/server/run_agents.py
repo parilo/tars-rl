@@ -41,6 +41,8 @@ for algorithm_agents_info in config.as_obj()['agents']:
             set_default(agent_config, 'exploration', None)
             set_default(agent_config, 'store_episodes', False)
             set_default(agent_config, 'seed', agent_id)
+            set_default(agent_config, 'repeat_action', 1)
+            set_default(agent_config, 'random_repeat_action', False)
 
             p = Process(target=run_agent, args=(algo_config, agent_config))
             p.start()

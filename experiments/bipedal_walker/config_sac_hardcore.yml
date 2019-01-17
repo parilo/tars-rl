@@ -5,13 +5,12 @@ env:
   is_gym: True
   obs_size: 24
   action_size: 4
-  frame_skip: 2
+  frame_skip: 8
   step_limit: 0
-  agent_buffer_size: 1010
-  history_length: 15
-  reward_scale: 0.1
-  reinit_random_action_every: 1
-
+  agent_buffer_size: 510
+  history_length: 3
+  reward_scale: 1.0
+  reinit_random_action_every: 5
 
 server:
   seed: 42
@@ -25,41 +24,39 @@ server:
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/bipedal_walker_hardcore_td3_lstm"
+  logdir: "logs/bipedal_walker_hardcore_sac"
   #load_checkpoint: ""
 
-algo_name: "td3"
+algo_name: "sac"
 
 algorithm:
   n_step: 1
   gamma: 0.99
   actor_grad_val_clip: 1.0
-  target_actor_update_rate: 0.0025
-  target_critic_update_rate: 0.005
+#  actor_grad_norm_clip: None
+#  critic_grad_val_clip: None
+#  critic_grad_norm_clip: None
+  action_squash_func: "tanh"
+  reward_scale: 10.
+  mu_and_sig_reg: 0.00003
+  target_critic_update_rate: 1.0
 
 actor:
-  lstm_network: True
-  embedding_layers: [128]
-  embedding_activations: ["relu"]
-  lstm_layers: [128]
-  lstm_activations: ["relu"]
-  output_layers: [128]
-  output_layers_activations: ["relu"]
+  lstm_network: False
+  hiddens: [128, 128, 128]
   layer_norm: False
   noisy_layer: False
+  activations: ["relu", "relu", "relu"]
   output_activation: "tanh"
 
 critic:
-  lstm_network: True
-  embedding_layers: [128]
-  embedding_activations: ["relu"]
-  lstm_layers: [128]
-  lstm_activations: ["relu"]
-  output_layers: [128]
-  output_layers_activations: ["relu"]
+  lstm_network: False
+  hiddens: [128, 128, 128]
   layer_norm: False
   noisy_layer: False
+  activations: ["relu", "relu", "relu"]
   output_activation: "linear"
+  action_insert_block: 0
   num_atoms: 1
 
 actor_optim:
@@ -100,22 +97,24 @@ agents:
     agents:
       - agents_count: 1
         visualize: True
-        repeat_action: 1
+        exploration:
+          built_in_algo: True
+          validation: True
 
       - agents_count: 1
         visualize: False
-        repeat_action: 1
+        exploration:
+          built_in_algo: True
+          validation: True
 
       - agents_count: 1
         visualize: True
-        repeat_action: 4
         exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.2
+          built_in_algo: True
+          validation: False
 
       - agents_count: 4
         visualize: False
-        repeat_action: 4
         exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.2
+          built_in_algo: True
+          validation: False
