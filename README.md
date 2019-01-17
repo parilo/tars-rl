@@ -81,6 +81,12 @@ is needed if you don't want agents
 to not interrupt server train operations 
 ```
 
+## Credits
+
+- Oleksii Hrinchuk, [e-mail](oleksii.hrinchuk@gmail.com), [github](https://github.com/AlexGrinch) 
+- Anton Pechenko, [github](https://github.com/parilo), [linkedin](https://www.linkedin.com/in/antonpechenko), [youtube](https://www.youtube.com/c/AntonPechenko) 
+- Sergey Kolesnikov, [github](https://github.com/Scitator)
+
 ## References
 1. Continuous Control with Deep Reinforcement Learning (DDPG) ([pdf](https://arxiv.org/pdf/1509.02971.pdf)).
 2. A Distributional Perspective on Reinforcement Learning (C51) ([pdf](https://arxiv.org/pdf/1707.06887.pdf)).
