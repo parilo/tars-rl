@@ -88,7 +88,8 @@ class RLAgent:
             self._logdir,
             self._id,
             self._validation,
-            self._env
+            self._env,
+            exp_config.env.log_every_n_steps
         )
 
         self._rl_client = None

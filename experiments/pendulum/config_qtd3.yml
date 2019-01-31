@@ -11,17 +11,18 @@ env:
   history_length: 2
   reward_scale: 0.1
   reinit_random_action_every: 5
+  log_every_n_steps: 1000
   # example of action remapping
-  remap_action:
-    low:
-      before: -1.
-      after: -1.
-    high:
-      before: 1.
-      after: 1.
+#  remap_action:
+#    low:
+#      before: -1.
+#      after: -1.
+#    high:
+#      before: 1.
+#      after: 1.
 
 server:
-  seed: 42
+  seed: 44
   num_clients: 16
   experience_replay_buffer_size: 5000000
   use_prioritized_buffer: false
@@ -32,7 +33,7 @@ server:
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/pendulum_qtd3"
+  logdir: "experiments/pendulum/logs/pendulum_qtd3_seed_44"
   #load_checkpoint: ""
 
 algo_name: "quantile_td3"
@@ -54,7 +55,7 @@ actor:
 
 critic:
   lstm_network: False
-  hiddens: [128, 128]  # atoms will be additional layer
+  hiddens: [128, 128]
   activations: ["relu", "relu"]
   layer_norm: False
   noisy_layer: False

@@ -13,13 +13,14 @@ class RLLogger:
         logdir,
         agent_id,
         validation,
-        env
+        env,
+        log_every_n_steps
     ):
         self._logdir = logdir
         self._agent_id = agent_id
         self._env = env
         self._validation = validation
-        self._log_every_n_steps = 1000
+        self._log_every_n_steps = log_every_n_steps
         self._steps_after_last_logging = 0
         self._ep_rewards_after_last_logging = []
         self._ep_logged_count = 0
@@ -51,7 +52,7 @@ class RLLogger:
         # so for now logging one time per 1000 steps
         self._steps_after_last_logging += n_steps
         self._ep_rewards_after_last_logging.append(self._env.get_total_reward())
-        if self._steps_after_last_logging >= self._log_every_n_steps:
+        while self._steps_after_last_logging >= self._log_every_n_steps:
             self._steps_after_last_logging -= self._log_every_n_steps
             mean_ep_reward = np.mean(self._ep_rewards_after_last_logging)
             self._logger.add_scalar(
@@ -62,8 +63,8 @@ class RLLogger:
                     str(self._agent_id) + " " +
                     str(self._ep_logged_count) + " " +
                     str(mean_ep_reward) + "\n")
-            self._ep_rewards_after_last_logging = []
             self._ep_logged_count += 1
+        self._ep_rewards_after_last_logging = []
 
         self._logger.add_scalar(
             "episode per minute",
