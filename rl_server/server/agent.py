@@ -15,6 +15,7 @@ def run_agent(exp_config, agent_config, checkpoint_path=None):
         from envs.gym_env import GymEnvWrapper
         env = GymEnvWrapper(
             gym.make(exp_config.env.name),
+            seed=agent_config['seed'],
             reward_scale=exp_config.env.reward_scale,
             frame_skip=exp_config.env.frame_skip,
             visualize=agent_config['visualize'],
@@ -29,6 +30,7 @@ def run_agent(exp_config, agent_config, checkpoint_path=None):
         if hasattr(exp_config.env, 'additional_env_parameters'):
             print(exp_config.as_obj()['env']['additional_env_parameters'])
             env = EnvClass(
+                seed=agent_config['seed'],
                 reward_scale=exp_config.env.reward_scale,
                 frame_skip=exp_config.env.frame_skip,
                 visualize=agent_config['visualize'],

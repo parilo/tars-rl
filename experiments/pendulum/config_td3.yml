@@ -22,7 +22,7 @@ env:
 #      after: 1.
 
 server:
-  seed: 44
+  seed: 45
   num_clients: 16
   experience_replay_buffer_size: 5000000
   use_prioritized_buffer: false
@@ -33,7 +33,7 @@ server:
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "experiments/pendulum/logs/pendulum_td3_seed_44"
+  logdir: "experiments/pendulum/logs/pendulum_td3_seed_45"
   #load_checkpoint: ""
 
 algo_name: "td3"

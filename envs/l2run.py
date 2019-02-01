@@ -8,6 +8,7 @@ class L2RunEnvWrapper(L2RunEnv):
 
     def __init__(
         self,
+        seed=0,
         reward_scale=1.,
         frame_skip=1,
         visualize=False,

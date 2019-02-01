@@ -92,6 +92,12 @@ def parse_play_args():
     parser.add_argument(
         "--algorithm_id",
         type=int, required=False, default=0)
+    parser.add_argument(
+        "--agent_id",
+        type=int, required=False, default=0)
+    parser.add_argument(
+        "--seed",
+        type=int, required=False, default=0)
     return parser.parse_args()
 
 

@@ -3,6 +3,7 @@ class GymEnvWrapper:
     def __init__(
         self,
         env,
+        seed=0,
         reward_scale=1.,
         frame_skip=1,
         visualize=False,
@@ -12,10 +13,12 @@ class GymEnvWrapper:
         self.reward_scale = reward_scale
         self.frame_skip = frame_skip
         self.visualize = visualize
+        self.seed = seed
 
         self.reinit_random_action_every = reinit_random_action_every
         self.random_action = self.env.action_space.sample()
 
+        self.env.seed(seed)
         self.reset()
 
     def reset(self):

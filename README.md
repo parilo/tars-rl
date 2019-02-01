@@ -78,7 +78,10 @@ $ CUDA_VISIBLE_DEVICES="" python -m rl_server.server.run_agents --config experim
  
 CUDA_VISIBLE_DEVICES=""
 is needed if you don't want agents
-to not interrupt server train operations 
+to not interrupt server train operations
+
+run trained policy from a checkpoint without server
+python -m rl_server.server.play --config path/to/config.yml --checkpoint path/to/model-10000.ckpt --seed 1234
 ```
 
 ## Credits

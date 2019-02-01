@@ -187,10 +187,12 @@ critic:
   # 128 is good choice for them
   num_atoms: 1
 
+# schedule of learning rate for actor 
 actor_optim:
   schedule:
     - limit: 0  # of train ops
       lr: 0.001
+    # if number of train ops > 500000 lr will be 0.0005
     - limit: 500000
       lr: 0.0005
     - limit: 1000000
@@ -198,6 +200,7 @@ actor_optim:
     - limit: 1500000
       lr: 0.00025
 
+# schedule of learning rate for critic 
 critic_optim:
   schedule:
     - limit: 0  # of train ops
@@ -209,6 +212,7 @@ critic_optim:
     - limit: 1500000
       lr: 0.00025
 
+# scheduling of batch size
 training:
   schedule:
     - limit: 0  # of train ops
@@ -220,19 +224,26 @@ training:
     - limit: 1500000
       batch_size: 5120
 
+# parameters of agents that will be used during training
 agents:
-  - algorithm_id: 0
+  # if you are using ensemble of algorithms
+  # each algorithm has its own agents
+  - algorithm_id: 0  # agents belonging to algo 0
     agents:
-      - agents_count: 1
-        visualize: True
+      - agents_count: 1  # how many agents to start with this settings
+        visualize: True  # visualize policy
 
       - agents_count: 1
         visualize: False
 
       - agents_count: 1
         visualize: True
+        # exploration parameters
         exploration:
+          # normal noise added to action
           normal_noise: 0.5
+          # probability to perform completely random action
+          # (sampled from uniform distribution)
           random_action_prob: 0.2
 
       - agents_count: 4
