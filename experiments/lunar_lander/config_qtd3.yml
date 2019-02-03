@@ -11,9 +11,10 @@ env:
   history_length: 3
   reward_scale: 0.1
   reinit_random_action_every: 5
+  log_every_n_steps: 1000
 
 server:
-  seed: 42
+  seed: 45
   num_clients: 16
   experience_replay_buffer_size: 5000000
   use_prioritized_buffer: false
@@ -24,7 +25,7 @@ server:
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/lunar_lander_qtd3"
+  logdir: "experiments/lunar_lander/logs/lunar_lander_qtd3_seed_45"
   #load_checkpoint: ""
 
 algo_name: "quantile_td3"

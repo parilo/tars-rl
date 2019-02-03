@@ -206,7 +206,7 @@ class RLAgent:
                             if random.random() < self._exploration.random_action_prob:
                                 action = self._env.get_random_action()
 
-                        action = self._clipping_function(action)
+                    action = self._clipping_function(action)
 
                 # action remap function
                 if self._action_remap_function is not None:

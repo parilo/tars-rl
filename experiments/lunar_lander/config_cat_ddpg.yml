@@ -11,9 +11,10 @@ env:
   history_length: 3
   reward_scale: 0.1
   reinit_random_action_every: 5
+  log_every_n_steps: 1000
 
 server:
-  seed: 42
+  seed: 44
   num_clients: 16
   experience_replay_buffer_size: 5000000
   use_prioritized_buffer: false
@@ -24,10 +25,10 @@ server:
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/lunar_lander_td3"
+  logdir: "experiments/lunar_lander/logs/lunar_lander_cat_ddpg_seed_44"
   #load_checkpoint: ""
 
-algo_name: "td3"
+algo_name: "categorical_ddpg"
 
 algorithm:
   n_step: 1
@@ -46,13 +47,14 @@ actor:
 
 critic:
   lstm_network: False
-  hiddens: [128, 128, 128]
-  activations: ["relu", "relu", "relu"]
+  hiddens: [128, 128]
+  activations: ["relu", "relu"]
   layer_norm: False
   noisy_layer: False
   output_activation: "linear"
   action_insert_block: 0
-  num_atoms: 1
+  num_atoms: 128
+  v: [-35., 35.]
 
 actor_optim:
   schedule:

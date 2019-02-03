@@ -157,9 +157,12 @@ actor:
   output_layers_activations: ["relu"]
   
   # layers normalization for all fully connected layers
+  # Layer Normalization (https://arxiv.org/abs/1607.06450)
   layer_norm: False
   
   # make all fully connected layers noisy
+  # Parameter Space Noise for Exploration (https://arxiv.org/abs/1706.01905)
+  # Noisy Networks for Exploration (https://arxiv.org/abs/1706.10295)
   noisy_layer: False
   
   # actor output activation function
@@ -186,6 +189,12 @@ critic:
   # it is number of atoms used in distribution
   # 128 is good choice for them
   num_atoms: 1
+
+  # if you use categortical_ddpg
+  # you need to specify bounds of
+  # episode reward (Q function values limits)
+  # multiplied by env.reward_scale
+  v: [-35., 35.]
 
 # schedule of learning rate for actor 
 actor_optim:

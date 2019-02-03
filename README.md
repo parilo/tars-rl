@@ -96,6 +96,9 @@ python -m rl_server.server.play --config path/to/config.yml --checkpoint path/to
 3. Distributional Reinforcement Learning with Quantile Regression (QR-DQN) ([pdf](https://arxiv.org/pdf/1710.10044.pdf)).
 4. Soft Actor-Critic: Off-Policy Maximum Entropy Deep RL with a Stochastic Actor (SAC-GMM) ([pdf](https://arxiv.org/pdf/1801.01290.pdf)).
 7. Addressing Function Approximation Error in Actor-Critic Methods (TD3) ([pdf](https://arxiv.org/pdf/1802.09477.pdf)).
+8. Layer Normalization ([pdf](https://arxiv.org/abs/1607.06450))
+9. Parameter Space Noise for Exploration ([pdf](https://arxiv.org/abs/1706.01905))
+10. Noisy Networks for Exploration ([pdf](https://arxiv.org/abs/1706.10295))
 
 ## Roadmap
 
