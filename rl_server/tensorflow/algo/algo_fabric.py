@@ -25,22 +25,36 @@ def create_algorithm(
     scope_postfix=0
 ):
     # networks
-    if algo_config.actor.lstm_network:
-        ActorNetwork = ActorNetworkLSTM
-        GaussActorNetwork = None
-    else:
-        ActorNetwork = ActorNetworkFF
-        GaussActorNetwork = GaussActorNetworkFF
+    if hasattr(algo_config.actor, 'nn_engine'):
+        if algo_config.actor.nn_engine == 'keras':
+            from rl_server.tensorflow.networks.actor_networks_keras import ActorNetwork as ActorNetworkKeras
+            ActorNetwork = ActorNetworkKeras
+            actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
+            del actor_params['nn_engine']
 
-    if algo_config.critic.lstm_network:
-        CriticNetwork = CriticNetworkLSTM
+            from rl_server.tensorflow.networks.critic_networks_keras import CriticNetwork as CriticNetworkKeras
+            CriticNetwork = CriticNetworkKeras
+            critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
+            del critic_params['nn_engine']
+        else:
+            raise NotImplementedError()
     else:
-        CriticNetwork = CriticNetworkFF
+        if algo_config.actor.lstm_network:
+            ActorNetwork = ActorNetworkLSTM
+            GaussActorNetwork = None
+        else:
+            ActorNetwork = ActorNetworkFF
+            GaussActorNetwork = GaussActorNetworkFF
 
-    actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
-    del actor_params['lstm_network']
-    critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
-    del critic_params['lstm_network']
+        if algo_config.critic.lstm_network:
+            CriticNetwork = CriticNetworkLSTM
+        else:
+            CriticNetwork = CriticNetworkFF
+
+        actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
+        del actor_params['lstm_network']
+        critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
+        del critic_params['lstm_network']
 
     # algorithm
     name = algo_config.algo_name
@@ -61,14 +75,14 @@ def create_algorithm(
     if name != "sac" and name != "td3" and name != "quantile_td3":
 
         actor = ActorNetwork(
-            state_shape=state_shapes[0],
+            state_shapes=state_shapes,
             action_size=action_size,
             **actor_params,
             scope=actor_scope)
 
         if name == "ddpg":
             critic = CriticNetwork(
-                state_shape=state_shapes[0],
+                state_shapes=state_shapes,
                 action_size=action_size,
                 **critic_params,
                 scope=critic_scope)
