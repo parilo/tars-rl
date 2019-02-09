@@ -15,7 +15,7 @@ create_if_need(exp_config.server.logdir)
 
 if exp_config.is_ensemble():
 
-    _, state_shapes, action_size = exp_config.get_env_shapes()
+    _, _, state_shapes, action_size = exp_config.get_env_shapes()
 
     big_batch_ph = create_placeholders(
         state_shapes,

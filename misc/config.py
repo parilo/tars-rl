@@ -64,14 +64,15 @@ class ExperimentConfig(BaseConfig):
         self._config_as_obj['agents'].sort(key=itemgetter('algorithm_id'), reverse=False)
 
     def get_env_shapes(self):
-        if 'obs_size' in self._config_as_obj['env']:
+
+        env_config = self._config_as_obj['env']
+        if 'obs_size' in env_config:
             observation_shapes = [(self._config.env.obs_size,)]
             state_shapes = [(
                 self._config.env.history_length,
                 self._config.env.obs_size,)]
-        elif 'obs_shapes' in self._config_as_obj['env']:
+        elif 'obs_shapes' in env_config:
             observation_shapes = self._config.env.obs_shapes
-            print(observation_shapes)
             state_shapes = []
             for obs_shape in observation_shapes:
                 state_shapes = [
@@ -79,9 +80,14 @@ class ExperimentConfig(BaseConfig):
                 ]
         else:
             raise NotImplementedError()
-        print(state_shapes)
+
+        if 'obs_dtypes' in env_config:
+            obs_dtypes = self._config.env.obs_dtypes
+        else:
+            obs_dtypes = [('float32',) for _ in observation_shapes]
+
         action_size = self._config.env.action_size
-        return observation_shapes, state_shapes, action_size
+        return observation_shapes, obs_dtypes, state_shapes, action_size
 
     def is_ensemble(self):
         return False

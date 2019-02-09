@@ -10,18 +10,30 @@ Transition = namedtuple("Transition", ("s", "a", "r", "s_", "done"))
 
 class ServerBuffer:
 
-    def __init__(self, capacity, observation_shapes, action_size):
+    def __init__(
+        self,
+        capacity,
+        observation_shapes,
+        observation_dtypes,
+        action_size
+    ):
         self.size = capacity
         self.num_in_buffer = 0
         self.stored_in_buffer = 0
         self.num_parts = len(observation_shapes)
         self.obs_shapes = observation_shapes
+        self.obs_dtypes = observation_dtypes
         self.act_shape = (action_size,)
 
         # initialize all np.arrays which store necessary data
         self.observations = []
         for part_id in range(self.num_parts):
-            obs = np.empty((self.size, ) + self.obs_shapes[part_id], dtype=np.float32)
+            print(part_id, (self.size, ), self.obs_shapes[part_id], self.obs_dtypes[part_id])
+            obs = np.empty(
+                (self.size, ) + tuple(self.obs_shapes[part_id]),
+                dtype=self.obs_dtypes[part_id]
+            )
+            print('created obs array', obs.nbytes / 1024 / 1024, obs.shape, obs.dtype)
             self.observations.append(obs)
         self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
         self.rewards = np.empty((self.size, ), dtype=np.float32)

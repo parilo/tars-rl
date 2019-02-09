@@ -9,6 +9,7 @@ class RLTrainer:
     def __init__(
             self,
             observation_shapes,
+            observation_dtypes,
             action_size,
             experience_replay_buffer_size=1000000,
             use_prioritized_buffer=False,
@@ -25,6 +26,7 @@ class RLTrainer:
             logdir="ckpt/"):
 
         self._observation_shapes = observation_shapes
+        self._observation_dtypes = observation_dtypes
         self._action_size = action_size
         self._buffer_size = experience_replay_buffer_size
         self._start_learning_after = start_learning_after
@@ -43,7 +45,11 @@ class RLTrainer:
 
         # sync buffer
         self.server_buffer = ServerBuffer(
-            self._buffer_size, observation_shapes, action_size)
+            self._buffer_size,
+            observation_shapes,
+            observation_dtypes,
+            action_size
+        )
         self._train_loop_step_lock = Lock()
 
         self._step_index = 0

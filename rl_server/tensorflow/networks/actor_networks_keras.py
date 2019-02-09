@@ -2,11 +2,14 @@ import importlib
 
 import tensorflow as tf
 from tensorflow.python import keras
-from tensorflow.python.keras.layers import Dense, Reshape, Lambda, Activation
-from tensorflow.python.keras.initializers import RandomUniform
 
-from .layer_norm import LayerNorm
-from .noisy_dense import NoisyDense
+from rl_server.tensorflow.networks.critic_networks_keras import process_layer_args
+
+# from tensorflow.python.keras.layers import Dense, Reshape, Lambda, Activation
+# from tensorflow.python.keras.initializers import RandomUniform
+
+# from .layer_norm import LayerNorm
+# from .noisy_dense import NoisyDense
 
 
 # def dense_block(input_layer, hiddens, activation="relu",
@@ -34,31 +37,23 @@ class ActorNetwork:
 
     def build_model(self):
 
-        input_state = keras.layers.Input(shape=self.state_shapes[0], name="state_input")
+        with tf.variable_scope(self.scope):
+            input_state = keras.layers.Input(shape=self.state_shapes[0], name="state_input")
 
-        keras_module = importlib.import_module('tensorflow.python.keras.layers')
-        out_layer = input_state
-        for layer_data in self.nn_arch:
-            LayerClass = getattr(keras_module, layer_data['type'])
-            if 'args' in layer_data:
-                out_layer = LayerClass(**layer_data['args'])(out_layer)
-            else:
-                out_layer = LayerClass()(out_layer)
-            print('layer', out_layer)
+            keras_module_layers = importlib.import_module('tensorflow.python.keras.layers')
 
-        return keras.models.Model(inputs=[input_state], outputs=out_layer)
+            out_layer = input_state
+            for layer_data in self.nn_arch:
+                LayerClass = getattr(keras_module_layers, layer_data['type'])
+                if 'args' in layer_data:
+                    process_layer_args(layer_data['args'])
+                    out_layer = LayerClass(**layer_data['args'])(out_layer)
+                else:
+                    out_layer = LayerClass()(out_layer)
 
-        # input_state = keras.layers.Input(shape=self.state_shape, name="state_input")
-        # input_size = self.get_input_size(self.state_shape)
-        # out = Reshape((input_size, ))(input_state)
-        # with tf.variable_scope(self.scope):
-        #     for i in range(len(self.hiddens)):
-        #         out = dense_block(out, self.hiddens[i], self.activations[i],
-        #                           self.layer_norm, self.noisy_layer)
-        #     out = Dense(self.action_size, self.out_activation,
-        #                 kernel_initializer=RandomUniform(-3e-3, 3e-3),
-        #                 bias_initializer=RandomUniform(-3e-3, 3e-3))(out)
-        #     model = keras.models.Model(inputs=[input_state], outputs=out)
+            model = keras.models.Model(inputs=[input_state], outputs=out_layer)
+
+        return model
 
     def get_input_size(self, shape):
         if len(shape) == 1:

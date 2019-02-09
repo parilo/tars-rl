@@ -65,7 +65,7 @@ def create_algorithm(
     critic_scope = "critic_" + scope_postfix
     algo_scope = "algorithm_" + scope_postfix
 
-    _, state_shapes, action_size = algo_config.get_env_shapes()
+    _, _, state_shapes, action_size = algo_config.get_env_shapes()
     if placeholders is None:
         placeholders = create_placeholders(state_shapes, action_size)
     

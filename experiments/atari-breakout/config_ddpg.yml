@@ -4,7 +4,8 @@ env:
   name: Breakout-v0
   is_gym: True
 #  obs_size: 24
-  obs_shapes: [[210, 160, 3]]
+  obs_shapes: [[210, 160, 3]]  # list of lists
+  obs_dtypes: ['uint8']
   action_size: 4
   frame_skip: 1
   step_limit: 0
@@ -16,7 +17,7 @@ env:
 server:
   seed: 42
   num_clients: 16
-  experience_replay_buffer_size: 300000
+  experience_replay_buffer_size: 120000
   use_prioritized_buffer: false
   train_every_nth: 1.
   start_learning_after: 5000
@@ -44,30 +45,43 @@ actor:
     - type: "Dense"
       args:
         units: 32
+        activation: "relu"
+    - type: "Dense"
+      args:
+        units: 4
         activation: "tanh"
-#  lstm_network: False
-#  hiddens: [128, 128, 128]
-#  activations: ["relu", "relu", "relu"]
-#  layer_norm: False
-#  noisy_layer: False
-#  output_activation: "tanh"
+        kernel_initializer:
+          class: "RandomUniform"
+          module: "tensorflow.python.keras.initializers"
+          args:
+            minval: -0.003
+            maxval: 0.003
+        bias_initializer:
+          class: "RandomUniform"
+          module: "tensorflow.python.keras.initializers"
+          args:
+            minval: -0.003
+            maxval: 0.003
 
 critic:
-#  lstm_network: False
-#  hiddens: [128, 128, 128]
-#  activations: ["relu", "relu", "relu"]
-#  layer_norm: False
-#  noisy_layer: False
-#  output_activation: "linear"
   nn_engine: "keras"
   nn_arch:
     - type: "Flatten"
     - type: "Dense"
       args:
         units: 32
-        activation: "tanh"
-  action_insert_block: 0
-  num_atoms: 1
+        activation: "relu"
+    - type: "Dense"
+      args:
+        units: 1  # number of atoms
+        activation: "relu"
+        kernel_initializer:
+          class: "RandomUniform"
+          module: "tensorflow.python.keras.initializers"
+          args:
+            minval: -0.003
+            maxval: 0.003
+  action_insert_block: 1
 
 actor_optim:
   schedule:

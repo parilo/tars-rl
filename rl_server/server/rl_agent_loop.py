@@ -79,6 +79,7 @@ class RLAgent:
 
         (
             self._observation_shapes,
+            self._observation_dtypes,
             self._state_shapes,
             self._action_size
         ) = self._exp_config.get_env_shapes()
@@ -121,6 +122,7 @@ class RLAgent:
         self._agent_buffer = AgentBuffer(
             buf_capacity,
             self._observation_shapes,
+            self._observation_dtypes,
             self._action_size
         )
         self._agent_buffer.push_init_observation([first_obs])

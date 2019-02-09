@@ -5,7 +5,13 @@ from rl_server.server.rl_trainer_tf import TFRLTrainer as RLTrainer
 class RLServer:
 
     def __init__(self, exp_config, agent_algorithm):
-        observation_shapes, state_shapes, action_size = exp_config.get_env_shapes()
+        (
+            observation_shapes,
+            observation_dtypes,
+            state_shapes,
+            action_size
+        ) = exp_config.get_env_shapes()
+
         self._server_api = RLServerAPI(
             exp_config.server.num_clients,
             observation_shapes,
@@ -14,6 +20,7 @@ class RLServer:
 
         self._train_loop = RLTrainer(
             observation_shapes=observation_shapes,
+            observation_dtypes=observation_dtypes,
             action_size=action_size,
             experience_replay_buffer_size=exp_config.server.experience_replay_buffer_size,
             use_prioritized_buffer=exp_config.server.use_prioritized_buffer,
