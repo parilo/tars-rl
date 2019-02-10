@@ -35,11 +35,13 @@ def episode_to_req(episode, method="store_episode"):
     str_act = actions.tolist()
     str_rew = rewards.tolist()
     str_don = dones.tolist()
-    req = {"method": method,
-                     "observations": str_obs,
-                     "actions": str_act,
-                     "rewards": str_rew,
-                     "dones": str_don}
+    req = {
+        "method": method,
+        "observations": str_obs,
+        "actions": str_act,
+        "rewards": str_rew,
+        "dones": str_don
+    }
     return req
     
 

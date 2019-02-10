@@ -3,16 +3,29 @@ framework: tensorflow
 env:
   name: Breakout-v0
   is_gym: True
-#  obs_size: 24
-  obs_shapes: [[210, 160, 3]]  # list of lists
+#  obs_shapes: [[210, 160, 3]]  # list of lists
+  obs_shapes: [[3, 210, 160]]  # list of lists
   obs_dtypes: ['uint8']
   action_size: 4
-  frame_skip: 1
+  action_postprocess:
+    type: "argmax of softmax"
+  frame_skip: 8
   step_limit: 0
-  agent_buffer_size: 1010
-  history_length: 3
+  agent_buffer_size: 1001
+  history_length: 2
   reward_scale: 1.
   reinit_random_action_every: 5
+  log_every_n_steps: 1000
+  max_episode_length: 1000
+  obs_is_image: True
+  clip_action: "tanh"
+  remap_action:
+      low:
+        before: -1.
+        after: 0.
+      high:
+        before: 1.
+        after: 5.
 
 server:
   seed: 42
@@ -23,9 +36,10 @@ server:
   start_learning_after: 5000
   target_critic_update_period: 1
   target_actor_update_period: 1
-  show_stats_period: 100
+  show_stats_period: 10
   save_model_period: 5000
-  client_start_port: 10977
+  ip_address: "0.0.0.0"
+  client_start_port: 12977
   logdir: "logs/breakout_ddpg"
   #load_checkpoint: ""
 
@@ -41,10 +55,76 @@ algorithm:
 actor:
   nn_engine: "keras"
   nn_arch:
+
+    # input 3 x 210 x 160
+    - type: "Permute"
+      args:
+        dims: [2, 1, 3, 4]
+
+    - type: "Conv3D"
+      args:
+        filters: 16
+        kernel_size: [1, 7, 7]
+        data_format: "channels_first"
+    - type: "MaxPooling3D"
+      args:
+        pool_size: [1, 4, 4]
+        data_format: "channels_first"
+    - type: "Activation"
+      args:
+        activation: "relu"
+
+    # 16 x 104 x 79
+    - type: "Conv3D"
+      args:
+        filters: 32
+        kernel_size: [1, 7, 3]
+        data_format: "channels_first"
+    - type: "MaxPooling3D"
+      args:
+        pool_size: [1, 3, 3]
+        data_format: "channels_first"
+    - type: "Activation"
+      args:
+        activation: "relu"
+
+    # 32 x 25 x 19
+    - type: "Conv3D"
+      args:
+        filters: 32
+        kernel_size: [1, 2, 3]
+        data_format: "channels_first"
+    - type: "MaxPooling3D"
+      args:
+        pool_size: [1, 2, 2]
+        data_format: "channels_first"
+    - type: "Activation"
+      args:
+        activation: "relu"
+
+#    # 32 x 11 x 8 = 2816 x 3 hist = 8448
+#    - type: "Conv3D"
+#      args:
+#        filters: 32
+#        kernel_size: [1, 3, 2]
+##        data_format: "channels_first"
+#    - type: "MaxPooling3D"
+#      args:
+#        pool_size: [1, 2, 2]
+##        data_format: "channels_first"
+#    - type: "Activation"
+#      args:
+#        activation: "relu"
+
+    # 32 x 4 x 3 = 384 x 3 hist = 1152
     - type: "Flatten"
     - type: "Dense"
       args:
-        units: 32
+        units: 256
+        activation: "relu"
+    - type: "Dense"
+      args:
+        units: 256
         activation: "relu"
     - type: "Dense"
       args:
@@ -62,59 +142,135 @@ actor:
           args:
             minval: -0.003
             maxval: 0.003
+#    - type: "Activation"
+#      args:
+#        activation: "softmax"
+
+#        activity_regularizer:
+#          class: "L1L2"
+#          module: "tensorflow.python.keras.regularizers"
+#          args:
+#            l2: 0.1
 
 critic:
   nn_engine: "keras"
   nn_arch:
+
+    # input 3 x 210 x 160
+    - type: "Permute"
+      args:
+        dims: [2, 1, 3, 4]
+
+    - type: "Conv3D"
+      args:
+        filters: 16
+        kernel_size: [1, 7, 7]
+        data_format: "channels_first"
+    - type: "MaxPooling3D"
+      args:
+        pool_size: [1, 4, 4]
+        data_format: "channels_first"
+    - type: "Activation"
+      args:
+        activation: "relu"
+
+    # 16 x 104 x 79
+    - type: "Conv3D"
+      args:
+        filters: 32
+        kernel_size: [1, 7, 3]
+        data_format: "channels_first"
+    - type: "MaxPooling3D"
+      args:
+        pool_size: [1, 3, 3]
+        data_format: "channels_first"
+    - type: "Activation"
+      args:
+        activation: "relu"
+
+    # 32 x 25 x 19
+    - type: "Conv3D"
+      args:
+        filters: 32
+        kernel_size: [1, 2, 3]
+        data_format: "channels_first"
+    - type: "MaxPooling3D"
+      args:
+        pool_size: [1, 2, 2]
+        data_format: "channels_first"
+    - type: "Activation"
+      args:
+        activation: "relu"
+
+#    # 32 x 11 x 8 = 2816 x 3 hist = 8448
+#    - type: "Conv3D"
+#      args:
+#        filters: 32
+#        kernel_size: [1, 3, 2]
+##        data_format: "channels_first"
+#    - type: "MaxPooling3D"
+#      args:
+#        pool_size: [1, 2, 2]
+##        data_format: "channels_first"
+#    - type: "Activation"
+#      args:
+#        activation: "relu"
+
+    # 32 x 5 x 3 = 480 x 3 hist = 1440
     - type: "Flatten"
     - type: "Dense"
       args:
-        units: 32
+        units: 256
+        activation: "relu"
+    - type: "Dense"
+      args:
+        units: 256
         activation: "relu"
     - type: "Dense"
       args:
         units: 1  # number of atoms
-        activation: "relu"
+        activation: "linear"
         kernel_initializer:
           class: "RandomUniform"
           module: "tensorflow.python.keras.initializers"
           args:
             minval: -0.003
             maxval: 0.003
-  action_insert_block: 1
+        bias_initializer:
+          class: "RandomUniform"
+          module: "tensorflow.python.keras.initializers"
+          args:
+            minval: -0.003
+            maxval: 0.003
+
+  action_insert_block: 11
 
 actor_optim:
   schedule:
     - limit: 0  # of train ops
       lr: 0.001
-    - limit: 500000
-      lr: 0.0005
-    - limit: 1000000
-      lr: 0.0005
-    - limit: 1500000
-      lr: 0.00025
+#    - limit: 500000
+#      lr: 0.0005
+#    - limit: 1000000
+#      lr: 0.0005
+#    - limit: 1500000
+#      lr: 0.00025
 
 critic_optim:
   schedule:
     - limit: 0  # of train ops
       lr: 0.001
-    - limit: 500000
-      lr: 0.0005
-    - limit: 1000000
-      lr: 0.0005
-    - limit: 1500000
-      lr: 0.00025
+#    - limit: 500000
+#      lr: 0.0005
+#    - limit: 1000000
+#      lr: 0.0005
+#    - limit: 1500000
+#      lr: 0.00025
 
 training:
   schedule:
     - limit: 0  # of train ops
-      batch_size: 2560
-    - limit: 500000
-      batch_size: 2560
-    - limit: 1000000
-      batch_size: 5120
-    - limit: 1500000
-      batch_size: 5120
+      batch_size: 80
 
 agents:
   - algorithm_id: 0
@@ -128,11 +284,9 @@ agents:
       - agents_count: 1
         visualize: True
         exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.2
+          type: "boltzmann"
 
       - agents_count: 4
         visualize: False
         exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.2
+          type: "boltzmann"

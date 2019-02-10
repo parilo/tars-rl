@@ -5,25 +5,6 @@ from tensorflow.python import keras
 
 from rl_server.tensorflow.networks.critic_networks_keras import process_layer_args
 
-# from tensorflow.python.keras.layers import Dense, Reshape, Lambda, Activation
-# from tensorflow.python.keras.initializers import RandomUniform
-
-# from .layer_norm import LayerNorm
-# from .noisy_dense import NoisyDense
-
-
-# def dense_block(input_layer, hiddens, activation="relu",
-#                 layer_norm=False, noisy_layer=False):
-#     out = input_layer
-#     if noisy_layer:
-#         out = NoisyDense(hiddens, None)(out)
-#     else:
-#         out = Dense(hiddens, None)(out)
-#     if layer_norm:
-#         out = LayerNorm()(out)
-#     out = Activation(activation)(out)
-#     return out
-
 
 class ActorNetwork:
 
@@ -43,6 +24,7 @@ class ActorNetwork:
             keras_module_layers = importlib.import_module('tensorflow.python.keras.layers')
 
             out_layer = input_state
+            # print(out_layer)
             for layer_data in self.nn_arch:
                 LayerClass = getattr(keras_module_layers, layer_data['type'])
                 if 'args' in layer_data:
@@ -50,6 +32,8 @@ class ActorNetwork:
                     out_layer = LayerClass(**layer_data['args'])(out_layer)
                 else:
                     out_layer = LayerClass()(out_layer)
+
+                # print(out_layer)
 
             model = keras.models.Model(inputs=[input_state], outputs=out_layer)
 

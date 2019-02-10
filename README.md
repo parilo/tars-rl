@@ -61,6 +61,8 @@ $ pip install gym['box2d']
 or see how to install all Gym envs
 https://github.com/openai/gym
 
+5. SciPy >= 1.2.0
+$ pip install scipy
 ```
 
 ## How to run

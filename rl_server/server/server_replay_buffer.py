@@ -76,7 +76,7 @@ class ServerBuffer:
             start_idx = idx - history_len + 1
 
             if (start_idx < 0 or np.any(self.dones[start_idx:idx+1])):
-                s = np.zeros((history_len, ) + self.obs_shapes[part_id], dtype=np.float32)
+                s = np.zeros((history_len, ) + tuple(self.obs_shapes[part_id]), dtype=np.float32)
                 indices = [idx]
                 for i in range(history_len-1):
                     next_idx = (idx-i-1) % self.size

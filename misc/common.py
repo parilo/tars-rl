@@ -101,7 +101,9 @@ def parse_play_args():
     return parser.parse_args()
 
 
-class PropertyTree: pass
+class PropertyTree:
+    def isset(self, name):
+        return hasattr(self, name)
 
 
 def dict_to_prop_tree(input_value):

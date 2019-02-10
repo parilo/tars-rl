@@ -1,5 +1,6 @@
 import os
 import multiprocessing
+import time
 
 import tensorflow as tf
 
@@ -67,14 +68,17 @@ class TFRLTrainer(RLTrainer):
             self._algo.target_actor_update(self._sess)
         
         if self._step_index % self._show_stats_period == 0:
+            cur_time = time.time()
             print(
-                "step: {} {} train: {} stored: {}".format(
+                "step: {} {} train: {} stored: {} time: {}".format(
                     self._step_index,
                     batch_size,
                     train_info,
-                    queue_size
+                    queue_size,
+                    cur_time - self._start_train_time
                 )
             )
+            self._start_train_time = cur_time
 
         self.save()
 

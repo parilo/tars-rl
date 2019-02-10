@@ -39,13 +39,13 @@ class RLAgent:
 
         # exploration
         if self._exploration is not None:
-            if hasattr(self._exploration, 'normal_noise'):
+            if self._exploration.isset('normal_noise'):
                 # exploration with normal noise
                 self._exploration.normal_noise = np.float(self._exploration.normal_noise)
             else:
                 self._exploration.normal_noise = None
 
-            if hasattr(self._exploration, 'random_action_prob'):
+            if self._exploration.isset('random_action_prob'):
                 # exploration with random action
                 self._exploration.random_action_prob = np.float(self._exploration.random_action_prob)
             else:
@@ -66,11 +66,50 @@ class RLAgent:
             self._action_remap_function = remap_func
 
         # action clipping function
-        self._clipping_function = None
-        if exp_config.actor.output_activation == 'tanh':
+        def trivial_clipping(action):
+            return action
+        self._clipping_function = trivial_clipping
+        if (
+            (
+                exp_config.actor.isset('output_activation') and
+                exp_config.actor.output_activation == 'tanh'
+            ) or (
+                exp_config.env.isset('clip_action') and
+                exp_config.env.clip_action == 'tanh'
+            )
+        ):
             def tanh_clipping(action):
                 return np.clip(action, -1., 1.)
             self._clipping_function = tanh_clipping
+
+        # action postprocess
+        def trivial_action_proctprocess(action):
+            return action
+        self._action_postprocess = trivial_action_proctprocess
+        if exp_config.env.isset('action_postprocess'):
+
+            if exp_config.env.action_postprocess.type == 'argmax of softmax':
+                from scipy.special import softmax
+
+                boltzmann_expl = (
+                    self._exploration is not None and
+                    self._exploration.isset('type') and
+                    self._exploration.type == 'boltzmann'
+                )
+                if boltzmann_expl:
+                    possible_actions = list(range(0, self._exp_config.env.action_size))
+
+                def softmax_action_postprocess(action):
+                    if boltzmann_expl:
+                        return np.random.choice(possible_actions, p=softmax(action))
+                    else:
+                        return np.argmax(softmax(action))
+                    # if boltzmann_expl:
+                    #     return np.random.choice(possible_actions, p=np.array(action)/np.sum(action))
+                    # else:
+                    #     return np.argmax(action)
+
+                self._action_postprocess = softmax_action_postprocess
 
         # store episodes
         self._store_episodes = False
@@ -216,7 +255,15 @@ class RLAgent:
                 else:
                     env_action = action
 
+            env_action_scores = env_action
+            env_action = self._action_postprocess(env_action)
+            if self._id == 2:
+                print(self._id, action, env_action, env_action_scores)
             next_obs, reward, done, info = self._env.step(env_action)
+
+            if reward != 0.:
+                print('r', reward)
+
             action_repeated += 1
             transition = [[next_obs], action, reward, done]
             self._agent_buffer.push_transition(transition)

@@ -68,6 +68,7 @@ class RLTrainer:
 
     # for asynchronous acts and trains
     def start_training(self):
+        self._start_train_time = time.time()
         while True:
             buffer_size = self.server_buffer.get_stored_in_buffer()
             if buffer_size > self._start_learning_after:

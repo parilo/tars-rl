@@ -4,7 +4,7 @@ from .tcp_client_server import TCPServer
 from .serialization import serialize, deserialize
 
 
-def string_to_obs(strings, obs_shapes):
+def string_to_obs(strings, obs_shapes, obs_dtypes):
     """ Convert strings back to observations (or states).
 
     Parameters
@@ -22,15 +22,15 @@ def string_to_obs(strings, obs_shapes):
     """
     obs_str = []
     for i, str_ in enumerate(strings):
-        obs = np.frombuffer(str_, dtype=np.float32)
-        obs_str.append(obs.reshape((-1,)+obs_shapes[i]))
+        obs = np.frombuffer(str_, dtype=obs_dtypes[i])
+        obs_str.append(obs.reshape((-1,) + tuple(obs_shapes[i])))
     return obs_str
 
 
-def req_to_episode(req, obs_shapes):
+def req_to_episode(req, obs_shapes, obs_dtypes):
     """ Preprocess deserealized request to obtain episode.
     """
-    observations = string_to_obs(req["observations"], obs_shapes)
+    observations = string_to_obs(req["observations"], obs_shapes, obs_dtypes)
     actions = np.array(req["actions"], dtype=np.float32)
     rewards = np.array(req["rewards"], dtype=np.float32)
     dones = np.array(req["dones"], dtype=np.bool)
@@ -50,8 +50,16 @@ def weights_to_string(weights):
 
 class RLServerAPI:
 
-    def __init__(self, num_clients, observation_shapes, state_shapes,
-                 ip_address="0.0.0.0", init_port=8777, network_timeout=120):
+    def __init__(
+        self,
+        num_clients,
+        observation_shapes,
+        observation_dtypes,
+        state_shapes,
+        ip_address="0.0.0.0",
+        init_port=8777,
+        network_timeout=120
+    ):
         """ Class for RL Server which interacts with multiple RL Clients.
 
         Parameters
@@ -74,6 +82,7 @@ class RLServerAPI:
 
         self._num_clients = num_clients
         self._observation_shapes = observation_shapes
+        self._observation_dtypes = observation_dtypes
         self._state_shapes = state_shapes
         self._ip_address = ip_address
         self._init_port = init_port
@@ -98,7 +107,7 @@ class RLServerAPI:
         method = req["method"]
 
         if method == "store_episode":
-            episode = req_to_episode(req, self._observation_shapes)
+            episode = req_to_episode(req, self._observation_shapes, self._observation_dtypes)
             self._store_episode_callback(episode)
             response = ""
 

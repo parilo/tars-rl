@@ -19,7 +19,9 @@ def run_agent(exp_config, agent_config, checkpoint_path=None):
             reward_scale=exp_config.env.reward_scale,
             frame_skip=exp_config.env.frame_skip,
             visualize=agent_config['visualize'],
-            reinit_random_action_every=exp_config.env.reinit_random_action_every
+            reinit_random_action_every=exp_config.env.reinit_random_action_every,
+            max_episode_length=exp_config.env.max_episode_length,
+            obs_is_image=exp_config.env.obs_is_image
         )
 
     elif hasattr(exp_config.env, 'env_class'):
@@ -35,6 +37,8 @@ def run_agent(exp_config, agent_config, checkpoint_path=None):
                 frame_skip=exp_config.env.frame_skip,
                 visualize=agent_config['visualize'],
                 reinit_random_action_every=exp_config.env.reinit_random_action_every,
+                max_episode_length=exp_config.env.max_episode_length,
+                obs_is_image=exp_config.env.obs_is_image,
                 **exp_config.as_obj()['env']['additional_env_parameters']
             )
         else:
@@ -42,7 +46,9 @@ def run_agent(exp_config, agent_config, checkpoint_path=None):
                 reward_scale=exp_config.env.reward_scale,
                 frame_skip=exp_config.env.frame_skip,
                 visualize=agent_config['visualize'],
-                reinit_random_action_every=exp_config.env.reinit_random_action_every
+                reinit_random_action_every=exp_config.env.reinit_random_action_every,
+                max_episode_length=exp_config.env.max_episode_length,
+                obs_is_image=exp_config.env.obs_is_image
             )
 
     else:

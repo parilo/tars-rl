@@ -15,6 +15,7 @@ class RLServer:
         self._server_api = RLServerAPI(
             exp_config.server.num_clients,
             observation_shapes,
+            observation_dtypes,
             state_shapes,
             init_port=exp_config.server.client_start_port)
 

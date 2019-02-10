@@ -4,9 +4,6 @@ import copy
 import tensorflow as tf
 from tensorflow.python import keras
 from tensorflow.python.keras.layers import Dense, Concatenate, Reshape, Activation, Lambda
-from tensorflow.python.keras.initializers import RandomUniform
-
-from .actor_networks import dense_block
 
 
 def process_layer_args(layer_args):
@@ -59,14 +56,14 @@ class CriticNetwork:
             for layer_i, layer_data in enumerate(self.nn_arch):
                 LayerClass = getattr(keras_module, layer_data['type'])
                 if layer_i == self.action_insert_block:
-                    # print(out_layer)
-                    # print(input_action)
                     out_layer = Concatenate(axis=1)([out_layer, input_action])
                 if 'args' in layer_data:
                     process_layer_args(layer_data['args'])
                     out_layer = LayerClass(**layer_data['args'])(out_layer)
                 else:
                     out_layer = LayerClass()(out_layer)
+
+                # print(out_layer)
 
             model = keras.models.Model(inputs=model_inputs, outputs=out_layer)
 
