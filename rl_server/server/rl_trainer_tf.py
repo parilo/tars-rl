@@ -64,8 +64,9 @@ class TFRLTrainer(RLTrainer):
         if self._step_index % self._target_critic_update_period == 0:
             self._algo.target_critic_update(self._sess)
 
-        if self._step_index % self._target_actor_update_period == 0:
-            self._algo.target_actor_update(self._sess)
+        if self._target_actor_update_period is not None:
+            if self._step_index % self._target_actor_update_period == 0:
+                self._algo.target_actor_update(self._sess)
         
         if self._step_index % self._show_stats_period == 0:
             cur_time = time.time()

@@ -69,18 +69,19 @@ class RLAgent:
         def trivial_clipping(action):
             return action
         self._clipping_function = trivial_clipping
-        if (
-            (
-                exp_config.actor.isset('output_activation') and
-                exp_config.actor.output_activation == 'tanh'
-            ) or (
-                exp_config.env.isset('clip_action') and
-                exp_config.env.clip_action == 'tanh'
-            )
-        ):
-            def tanh_clipping(action):
-                return np.clip(action, -1., 1.)
-            self._clipping_function = tanh_clipping
+        if exp_config.isset('actor'):
+            if (
+                (
+                    exp_config.actor.isset('output_activation') and
+                    exp_config.actor.output_activation == 'tanh'
+                ) or (
+                    exp_config.env.isset('clip_action') and
+                    exp_config.env.clip_action == 'tanh'
+                )
+            ):
+                def tanh_clipping(action):
+                    return np.clip(action, -1., 1.)
+                self._clipping_function = tanh_clipping
 
         # action postprocess
         def trivial_action_proctprocess(action):

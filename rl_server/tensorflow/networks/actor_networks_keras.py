@@ -3,7 +3,7 @@ import importlib
 import tensorflow as tf
 from tensorflow.python import keras
 
-from rl_server.tensorflow.networks.critic_networks_keras import process_layer_args
+from rl_server.tensorflow.networks.critic_networks_keras import process_layer_args, process_special_layers
 
 
 class ActorNetwork:
@@ -26,12 +26,18 @@ class ActorNetwork:
             out_layer = input_state
             # print(out_layer)
             for layer_data in self.nn_arch:
-                LayerClass = getattr(keras_module_layers, layer_data['type'])
-                if 'args' in layer_data:
-                    process_layer_args(layer_data['args'])
-                    out_layer = LayerClass(**layer_data['args'])(out_layer)
+
+                special_layer_output = process_special_layers(layer_data, out_layer)
+
+                if special_layer_output is None:
+                    LayerClass = getattr(keras_module_layers, layer_data['type'])
+                    if 'args' in layer_data:
+                        process_layer_args(layer_data['args'])
+                        out_layer = LayerClass(**layer_data['args'])(out_layer)
+                    else:
+                        out_layer = LayerClass()(out_layer)
                 else:
-                    out_layer = LayerClass()(out_layer)
+                    out_layer = special_layer_output
 
                 # print(out_layer)
 

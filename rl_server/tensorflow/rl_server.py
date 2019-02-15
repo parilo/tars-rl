@@ -19,6 +19,10 @@ class RLServer:
             state_shapes,
             init_port=exp_config.server.client_start_port)
 
+        target_actor_update_period = None
+        if exp_config.server.isset('target_actor_update_period'):
+            target_actor_update_period = exp_config.server.target_actor_update_period
+
         self._train_loop = RLTrainer(
             observation_shapes=observation_shapes,
             observation_dtypes=observation_dtypes,
@@ -31,7 +35,7 @@ class RLServer:
             history_length=exp_config.env.history_length,
             start_learning_after=exp_config.server.start_learning_after,
             target_critic_update_period=exp_config.server.target_critic_update_period,
-            target_actor_update_period=exp_config.server.target_actor_update_period,
+            target_actor_update_period=target_actor_update_period,
             show_stats_period=exp_config.server.show_stats_period,
             save_model_period=exp_config.server.save_model_period,
             logdir=exp_config.server.logdir)

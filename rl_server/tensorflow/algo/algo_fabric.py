@@ -8,7 +8,6 @@ from rl_server.tensorflow.algo.quantile_ddpg import QuantileDDPG
 from rl_server.tensorflow.algo.td3 import TD3
 from rl_server.tensorflow.algo.quantile_td3 import QuantileTD3
 from rl_server.tensorflow.algo.sac import SAC
-from rl_server.tensorflow.algo.base_algo import create_placeholders
 from rl_server.tensorflow.algo.prioritized_ddpg import PrioritizedDDPG
 from rl_server.tensorflow.networks.actor_networks_lstm import ActorNetwork as ActorNetworkLSTM
 from rl_server.tensorflow.networks.critic_networks_lstm import CriticNetwork as CriticNetworkLSTM
@@ -25,12 +24,14 @@ def create_algorithm(
     scope_postfix=0
 ):
     # networks
-    if hasattr(algo_config.actor, 'nn_engine'):
-        if algo_config.actor.nn_engine == 'keras':
-            from rl_server.tensorflow.networks.actor_networks_keras import ActorNetwork as ActorNetworkKeras
-            ActorNetwork = ActorNetworkKeras
-            actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
-            del actor_params['nn_engine']
+    if algo_config.critic.isset('nn_engine'):
+        if algo_config.critic.nn_engine == 'keras':
+
+            if algo_config.isset('actor'):
+                from rl_server.tensorflow.networks.actor_networks_keras import ActorNetwork as ActorNetworkKeras
+                ActorNetwork = ActorNetworkKeras
+                actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
+                del actor_params['nn_engine']
 
             from rl_server.tensorflow.networks.critic_networks_keras import CriticNetwork as CriticNetworkKeras
             CriticNetwork = CriticNetworkKeras
@@ -39,20 +40,22 @@ def create_algorithm(
         else:
             raise NotImplementedError()
     else:
-        if algo_config.actor.lstm_network:
-            ActorNetwork = ActorNetworkLSTM
-            GaussActorNetwork = None
-        else:
-            ActorNetwork = ActorNetworkFF
-            GaussActorNetwork = GaussActorNetworkFF
+        if algo_config.isset('actor'):
+            if algo_config.actor.lstm_network:
+                ActorNetwork = ActorNetworkLSTM
+                GaussActorNetwork = None
+            else:
+                ActorNetwork = ActorNetworkFF
+                GaussActorNetwork = GaussActorNetworkFF
+
+            actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
+            del actor_params['lstm_network']
 
         if algo_config.critic.lstm_network:
             CriticNetwork = CriticNetworkLSTM
         else:
             CriticNetwork = CriticNetworkFF
 
-        actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
-        del actor_params['lstm_network']
         critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
         del critic_params['lstm_network']
 
@@ -67,12 +70,40 @@ def create_algorithm(
 
     _, _, state_shapes, action_size = algo_config.get_env_shapes()
     if placeholders is None:
-        placeholders = create_placeholders(state_shapes, action_size)
-    
-    actor_lr = placeholders[0]
-    critic_lr = placeholders[1]
+        if name == 'dqn':
+            from rl_server.tensorflow.algo.base_algo_discrete import create_placeholders
+            placeholders = create_placeholders(state_shapes)
+            critic_lr = placeholders[0]
+        else:
+            from rl_server.tensorflow.algo.base_algo import create_placeholders
+            placeholders = create_placeholders(state_shapes, action_size)
+            actor_lr = placeholders[0]
+            critic_lr = placeholders[1]
 
-    if name != "sac" and name != "td3" and name != "quantile_td3":
+    if name == 'dqn':
+
+        critic = CriticNetwork(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            **critic_params,
+            scope=critic_scope,
+            action_insert_block=-1
+        )
+
+        from rl_server.tensorflow.algo.dqn import DQN
+        agent_algorithm = DQN(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            critic=critic,
+            critic_optimizer=tf.train.AdamOptimizer(
+                learning_rate=critic_lr),
+            **algo_config.as_obj()["algorithm"],
+            scope=algo_scope,
+            placeholders=placeholders,
+            critic_optim_schedule=algo_config.as_obj()["critic_optim"],
+            training_schedule=algo_config.as_obj()["training"])
+
+    elif name not in ["ddpg", "categorical_ddpg", "quantile_ddpg"]:
 
         actor = ActorNetwork(
             state_shapes=state_shapes,
