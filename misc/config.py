@@ -59,9 +59,9 @@ class ExperimentConfig(BaseConfig):
 
     def _sort_dict(self):
         if "actor_optim" in self._config_as_obj:
-            self._config_as_obj["actor_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=False)
-        self._config_as_obj["critic_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=False)
-        self._config_as_obj["training"]["schedule"].sort(key=itemgetter('limit'), reverse=False)
+            self._config_as_obj["actor_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
+        self._config_as_obj["critic_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
+        self._config_as_obj["training"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
         self._config_as_obj['agents'].sort(key=itemgetter('algorithm_id'), reverse=False)
 
     def get_env_shapes(self):
@@ -97,9 +97,9 @@ class ExperimentConfig(BaseConfig):
 class EnsembleExperimentConfig(ExperimentConfig):
     def _sort_dict(self):
         for algo in self._config_as_obj['ensemble']['algorithms']:
-            algo["actor_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=False)
-            algo["critic_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=False)
-            algo["training"]["schedule"].sort(key=itemgetter('limit'), reverse=False)
+            algo["actor_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
+            algo["critic_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
+            algo["training"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
         self._config_as_obj['agents'].sort(key=itemgetter('algorithm_id'), reverse=False)
 
     def is_ensemble(self):

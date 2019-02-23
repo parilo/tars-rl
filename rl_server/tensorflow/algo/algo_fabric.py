@@ -70,7 +70,7 @@ def create_algorithm(
 
     _, _, state_shapes, action_size = algo_config.get_env_shapes()
     if placeholders is None:
-        if name == 'dqn':
+        if name in ['dqn', 'dqn_td3']:
             from rl_server.tensorflow.algo.base_algo_discrete import create_placeholders
             placeholders = create_placeholders(state_shapes)
             critic_lr = placeholders[0]
@@ -103,7 +103,39 @@ def create_algorithm(
             critic_optim_schedule=algo_config.as_obj()["critic_optim"],
             training_schedule=algo_config.as_obj()["training"])
 
-    elif name not in ["ddpg", "categorical_ddpg", "quantile_ddpg"]:
+    elif name == 'dqn_td3':
+
+        critic_1 = CriticNetwork(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            **critic_params,
+            scope=critic_scope + '_1',
+            action_insert_block=-1
+        )
+
+        critic_2 = CriticNetwork(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            **critic_params,
+            scope=critic_scope + '_2',
+            action_insert_block=-1
+        )
+
+        from rl_server.tensorflow.algo.dqn_td3 import DQN_TD3
+        agent_algorithm = DQN_TD3(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            critic_1=critic_1,
+            critic_2=critic_2,
+            critic_optimizer=tf.train.AdamOptimizer(
+                learning_rate=critic_lr),
+            **algo_config.as_obj()["algorithm"],
+            scope=algo_scope,
+            placeholders=placeholders,
+            critic_optim_schedule=algo_config.as_obj()["critic_optim"],
+            training_schedule=algo_config.as_obj()["training"])
+
+    elif name in ["ddpg", "categorical_ddpg", "quantile_ddpg"]:
 
         actor = ActorNetwork(
             state_shapes=state_shapes,

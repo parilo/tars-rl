@@ -40,10 +40,10 @@ class RLLogger:
         
     def log(self, episode_index, n_steps):
         elapsed_time = time.time() - self._start_time
-        # if self._validation:
-        print("--- val episode ended {} {} {} {} {}".format(
-            self._agent_id, episode_index, self._env.time_step,
-            self._env.get_total_reward(), self._env.get_total_reward_shaped()))
+        if self._validation:
+            print("--- val episode ended {} {} {} {} {}".format(
+                self._agent_id, episode_index, self._env.time_step,
+                self._env.get_total_reward(), self._env.get_total_reward_shaped()))
 
         self._logger.add_scalar("steps", n_steps, episode_index)
 

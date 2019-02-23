@@ -15,7 +15,8 @@ class ServerBuffer:
         capacity,
         observation_shapes,
         observation_dtypes,
-        action_size
+        action_size,
+        discrete_actions=False
     ):
         self.size = capacity
         self.num_in_buffer = 0
@@ -23,7 +24,11 @@ class ServerBuffer:
         self.num_parts = len(observation_shapes)
         self.obs_shapes = observation_shapes
         self.obs_dtypes = observation_dtypes
-        self.act_shape = (action_size,)
+
+        if discrete_actions:
+            self.act_shape = (1,)
+        else:
+            self.act_shape = (action_size,)
 
         # initialize all np.arrays which store necessary data
         self.observations = []
@@ -35,7 +40,12 @@ class ServerBuffer:
             )
             print('created obs array', obs.nbytes / 1024 / 1024, obs.shape, obs.dtype)
             self.observations.append(obs)
-        self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
+
+        if discrete_actions:
+            self.actions = np.empty((self.size, ), dtype=np.int32)
+        else:
+            self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
+
         self.rewards = np.empty((self.size, ), dtype=np.float32)
         self.dones = np.empty((self.size, ), dtype=np.bool)
         self.td_errors = np.empty((self.size, ), dtype=np.float32)

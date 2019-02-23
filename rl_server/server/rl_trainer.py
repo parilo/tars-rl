@@ -23,6 +23,7 @@ class RLTrainer:
             start_learning_after=5000,
             show_stats_period=2000,
             save_model_period=10000,
+            discrete_actions=False,
             logdir="ckpt/"):
 
         self._observation_shapes = observation_shapes
@@ -48,7 +49,8 @@ class RLTrainer:
             self._buffer_size,
             observation_shapes,
             observation_dtypes,
-            action_size
+            action_size,
+            discrete_actions=discrete_actions
         )
         self._train_loop_step_lock = Lock()
 

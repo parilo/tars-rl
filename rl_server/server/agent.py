@@ -9,6 +9,14 @@ from rl_server.server.rl_agent_loop import RLAgent
 
 def run_agent(exp_config, agent_config, checkpoint_path=None):
 
+    obs_image_resize_to = None
+    if exp_config.env.isset('obs_image_resize_to'):
+        obs_image_resize_to = exp_config.env.obs_image_resize_to
+
+    obs_image_to_grayscale = False
+    if exp_config.env.isset('obs_image_to_grayscale'):
+        obs_image_to_grayscale = exp_config.env.obs_image_to_grayscale
+
     if exp_config.env.is_gym:
 
         import gym
@@ -21,7 +29,9 @@ def run_agent(exp_config, agent_config, checkpoint_path=None):
             visualize=agent_config['visualize'],
             reinit_random_action_every=exp_config.env.reinit_random_action_every,
             max_episode_length=exp_config.env.max_episode_length,
-            obs_is_image=exp_config.env.obs_is_image
+            obs_is_image=exp_config.env.obs_is_image,
+            obs_image_resize_to=obs_image_resize_to,
+            obs_image_to_grayscale=obs_image_to_grayscale
         )
 
     elif hasattr(exp_config.env, 'env_class'):
@@ -39,6 +49,8 @@ def run_agent(exp_config, agent_config, checkpoint_path=None):
                 reinit_random_action_every=exp_config.env.reinit_random_action_every,
                 max_episode_length=exp_config.env.max_episode_length,
                 obs_is_image=exp_config.env.obs_is_image,
+                obs_image_resize_to=obs_image_resize_to,
+                obs_image_to_grayscale=obs_image_to_grayscale,
                 **exp_config.as_obj()['env']['additional_env_parameters']
             )
         else:
@@ -48,7 +60,9 @@ def run_agent(exp_config, agent_config, checkpoint_path=None):
                 visualize=agent_config['visualize'],
                 reinit_random_action_every=exp_config.env.reinit_random_action_every,
                 max_episode_length=exp_config.env.max_episode_length,
-                obs_is_image=exp_config.env.obs_is_image
+                obs_is_image=exp_config.env.obs_is_image,
+                obs_image_resize_to=obs_image_resize_to,
+                obs_image_to_grayscale=obs_image_to_grayscale
             )
 
     else:

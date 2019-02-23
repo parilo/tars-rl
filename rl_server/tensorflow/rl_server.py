@@ -23,6 +23,10 @@ class RLServer:
         if exp_config.server.isset('target_actor_update_period'):
             target_actor_update_period = exp_config.server.target_actor_update_period
 
+        discrete_actions = False
+        if exp_config.env.isset('discrete_actions'):
+            discrete_actions = exp_config.env.discrete_actions
+
         self._train_loop = RLTrainer(
             observation_shapes=observation_shapes,
             observation_dtypes=observation_dtypes,
@@ -38,7 +42,9 @@ class RLServer:
             target_actor_update_period=target_actor_update_period,
             show_stats_period=exp_config.server.show_stats_period,
             save_model_period=exp_config.server.save_model_period,
-            logdir=exp_config.server.logdir)
+            discrete_actions=discrete_actions,
+            logdir=exp_config.server.logdir
+        )
 
         self._train_loop.set_algorithm(agent_algorithm)
         self._train_loop.init()

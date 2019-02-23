@@ -3,12 +3,23 @@ import numpy as np
 
 class AgentBuffer:
 
-    def __init__(self, capacity, observation_shapes, observation_dtypes, action_size):
+    def __init__(
+        self,
+        capacity,
+        observation_shapes,
+        observation_dtypes,
+        action_size,
+        discrete_actions=False
+    ):
         self.size = capacity
         self.num_parts = len(observation_shapes)
         self.obs_shapes = observation_shapes
         self.obs_dtypes = observation_dtypes
-        self.act_shape = (action_size,)
+
+        if discrete_actions:
+            self.act_shape = (1,)
+        else:
+            self.act_shape = (action_size,)
 
         self.observations = []
         for part_id in range(self.num_parts):
@@ -16,7 +27,12 @@ class AgentBuffer:
                 (self.size, ) + tuple(self.obs_shapes[part_id]),
                 dtype=self.obs_dtypes[part_id]
             ))
-        self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
+
+        if discrete_actions:
+            self.actions = np.empty((self.size, ), dtype=np.int32)
+        else:
+            self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
+
         self.rewards = np.empty((self.size, ), dtype=np.float32)
         self.dones = np.empty((self.size, ), dtype=np.bool)
         self.inited = False

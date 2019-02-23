@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 
 class GymEnvWrapper:
 
@@ -11,7 +12,9 @@ class GymEnvWrapper:
         visualize=False,
         reinit_random_action_every=1,
         max_episode_length=1000,
-        obs_is_image=False
+        obs_is_image=False,
+        obs_image_resize_to=None,
+        obs_image_to_grayscale=False
     ):
         self.env = env
         self.reward_scale = reward_scale
@@ -20,6 +23,8 @@ class GymEnvWrapper:
         self.seed = seed
         self.max_episode_length = max_episode_length
         self.obs_is_image = obs_is_image
+        self.obs_image_resize_to = obs_image_resize_to
+        self.obs_image_to_grayscale = obs_image_to_grayscale
 
         self.reinit_random_action_every = reinit_random_action_every
         self.random_action = self.env.action_space.sample()
@@ -39,8 +44,16 @@ class GymEnvWrapper:
         # from hwc to cwh
         # since cwh is faster to process with cnn
         if self.obs_is_image:
-            im = np.transpose(obs, (2, 0, 1))
-            return im
+
+            if self.obs_image_resize_to is not None:
+                obs = cv2.resize(obs, tuple(self.obs_image_resize_to))
+
+            if self.obs_image_to_grayscale:
+                obs = cv2.cvtColor(obs, cv2.COLOR_BGR2GRAY)
+            else:
+                obs = np.transpose(obs, (2, 0, 1))
+
+            return obs
 
         return obs
 

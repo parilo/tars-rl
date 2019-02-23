@@ -92,30 +92,48 @@ class RLAgent:
             if exp_config.env.action_postprocess.type == 'argmax of softmax':
                 from scipy.special import softmax
 
-                boltzmann_expl = (
+                expl_type_set = (
                     self._exploration is not None and
-                    self._exploration.isset('type') and
-                    self._exploration.type == 'boltzmann'
+                    self._exploration.isset('type')
                 )
+
+                boltzmann_expl = expl_type_set and self._exploration.type == 'boltzmann'
+                e_greedy_expl = expl_type_set and self._exploration.type == 'e-greedy'
+
                 if boltzmann_expl:
                     possible_actions = list(range(0, self._exp_config.env.action_size))
+                    boltzmann_expl_temp = self._exploration.temp
+
+                if e_greedy_expl:
+                    random_prob = self._exploration.random_prob
 
                 def softmax_action_postprocess(action):
                     if boltzmann_expl:
-                        return np.random.choice(possible_actions, p=softmax(action))
+                        return np.random.choice(possible_actions, p=softmax(action / boltzmann_expl_temp))
+                    if e_greedy_expl:
+                        if random.random() < random_prob:
+                            return random.randint(0, self._exp_config.env.action_size - 1)
+                        else:
+                            return np.argmax(softmax(action))
                     else:
                         return np.argmax(softmax(action))
-                    # if boltzmann_expl:
-                    #     return np.random.choice(possible_actions, p=np.array(action)/np.sum(action))
-                    # else:
-                    #     return np.argmax(action)
 
                 self._action_postprocess = softmax_action_postprocess
+
+        self._discrete_actions = False
+        if exp_config.env.isset('discrete_actions'):
+            self._discrete_actions = exp_config.env.discrete_actions
 
         # store episodes
         self._store_episodes = False
         if hasattr(agent_config, 'store_episodes') and agent_config.store_episodes:
             self._store_episodes = True
+
+        # reward clipping
+        self._reward_clip_max = None
+        if exp_config.env.isset('reward_clip'):
+            if exp_config.env.reward_clip.isset('max'):
+                self._reward_clip_max = exp_config.env.reward_clip.max
 
         (
             self._observation_shapes,
@@ -163,7 +181,8 @@ class RLAgent:
             buf_capacity,
             self._observation_shapes,
             self._observation_dtypes,
-            self._action_size
+            self._action_size,
+            self._discrete_actions
         )
         self._agent_buffer.push_init_observation([first_obs])
 
@@ -178,6 +197,12 @@ class RLAgent:
             return random.randint(1, self._repeat_action)
         else:
             return self._repeat_action
+
+    def is_states_the_same(self, state1, state2):
+        for s1, s2 in zip(state1, state2):
+            if np.any(s1 != s2):
+                return False
+        return True
 
     def run(self):
 
@@ -194,6 +219,9 @@ class RLAgent:
         env_action = None
         action_repeated = 0
         action_repeat_times = self.get_action_repeat_times()
+
+        prev_state = None
+        same_state_repeat = 0
 
         # exploration parameters for gradient exploration
         # explore_start_temp = self._exp_config.config["env"]["ge_temperature"]
@@ -258,20 +286,49 @@ class RLAgent:
 
             env_action_scores = env_action
             env_action = self._action_postprocess(env_action)
-            if self._id == 2:
-                print(self._id, action, env_action, env_action_scores)
+
+            # if self._id == 2:
+            #     print(self._id, action, env_action, env_action_scores)
+
             next_obs, reward, done, info = self._env.step(env_action)
 
-            if reward != 0.:
-                print('r', reward)
+            if self._reward_clip_max:
+                reward = min(reward, self._reward_clip_max)
+
+            # if reward > 0.:
+            #     print('r', reward)
+
+            # np.save('obs-{}-{}.npy'.format(episode_index, n_steps), next_obs)
+
+            # if reward != 0.:
+            #     print('r', reward)
 
             action_repeated += 1
-            transition = [[next_obs], action, reward, done]
+
+            if self._discrete_actions:
+                action_to_save = env_action
+            else:
+                action_to_save = action
+
+            transition = [[next_obs], action_to_save, reward, done]
             self._agent_buffer.push_transition(transition)
 
             n_steps += 1
 
+            # print(prev_action, same_action_repeats)
+            if self._exp_config.env.isset('stop_if_same_state_repeat'):
+                if prev_state is not None and self.is_states_the_same(prev_state, state):
+                    same_state_repeat += 1
+                    if same_state_repeat > self._exp_config.env.stop_if_same_state_repeat:
+                        done = True
+                        prev_state = None
+                        same_state_repeat = 0
+                else:
+                    prev_state = state
+                    same_state_repeat = 0
+
             if done or (self._step_limit > 0 and n_steps > self._step_limit):
+                # return
 
                 self._logger.log(episode_index, n_steps)
                 episode = self._agent_buffer.get_complete_episode()

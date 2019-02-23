@@ -5,12 +5,13 @@ from .base_algo import network_update, target_network_update
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
 
 
-class DQN(BaseAlgoDiscrete):
+class DQN_TD3(BaseAlgoDiscrete):
     def __init__(
         self,
         state_shapes,
         action_size,
-        critic,
+        critic_1,
+        critic_2,
         critic_optimizer,
         n_step=1,
         critic_grad_val_clip=None,
@@ -30,9 +31,12 @@ class DQN(BaseAlgoDiscrete):
             training_schedule
         )
 
-        self._critic = critic
-        self._target_critic = critic.copy(scope=scope + "/target_critic")
-        self._critic_weights_tool = ModelWeightsTool(critic)
+        self._critic_1 = critic_1
+        self._critic_2 = critic_2
+        self._target_critic_1 = critic_1.copy(scope=scope + "/target_critic_1")
+        self._target_critic_2 = critic_2.copy(scope=scope + "/target_critic_2")
+        self._critic_weights_tool_1 = ModelWeightsTool(critic_1)
+        self._critic_weights_tool_2 = ModelWeightsTool(critic_2)
         self._critic_optimizer = critic_optimizer
         self._n_step = n_step
         self._critic_grad_val_clip = critic_grad_val_clip
@@ -43,48 +47,75 @@ class DQN(BaseAlgoDiscrete):
         with tf.name_scope(scope):
             self.build_graph()
 
-    def _get_critic_update(self, loss):
+    def _get_critic_update(self, critic, loss):
         update_op = network_update(
             loss,
-            self._critic,
+            critic,
             self._critic_optimizer,
             self._critic_grad_val_clip,
             self._critic_grad_norm_clip
         )
         return update_op
 
-    def _get_target_critic_update(self):
+    def _get_target_critic_update(self, target_critic, critic):
         update_op = target_network_update(
-            self._target_critic, self._critic,
+            target_critic, critic,
             self._target_critic_update_rate)
         return update_op
 
     def _get_targets_init(self):
-        critic_init = target_network_update(
-            self._target_critic, self._critic, 1.0)
-        return critic_init
+        critic_1_init = target_network_update(
+            self._target_critic_1,
+            self._critic_1,
+            1.0
+        )
+        critic_2_init = target_network_update(
+            self._target_critic_2,
+            self._critic_2,
+            1.0
+        )
+        return tf.group([critic_1_init, critic_2_init])
 
     def build_graph(self):
         self.create_placeholders()
 
         with tf.name_scope("taking_action"):
-            self._q_values = self._critic(self.states_ph)
+            self._q_values_1 = self._critic_1(self.states_ph)
+            self._q_values_2 = self._critic_2(self.states_ph)
+            self._q_values = tf.minimum(self._q_values_1, self._q_values_2)
 
         with tf.name_scope("critic_update"):
-            next_q_values = self._target_critic(self.next_states_ph)
+            next_q_values_1 = self._target_critic_1(self.next_states_ph)
+            next_q_values_2 = self._target_critic_2(self.next_states_ph)
             gamma = self._gamma ** self._n_step
-            td_targets = self.rewards_ph + gamma * (1 - self.dones_ph) * tf.reduce_max(next_q_values, axis=1)
+            td_targets = self.rewards_ph + gamma * (1 - self.dones_ph) * tf.reduce_max(
+                tf.minimum(next_q_values_1, next_q_values_2), axis=1
+            )
 
             indices_range = tf.range(tf.shape(self.actions_ph)[0])
             action_indices = tf.stack([indices_range, self.actions_ph], axis=1)
-            q_values_selected = tf.gather_nd(self._q_values, action_indices)
+            q_values_selected_1 = tf.gather_nd(self._q_values_1, action_indices)
+            q_values_selected_2 = tf.gather_nd(self._q_values_2, action_indices)
 
-            self._value_loss = tf.losses.huber_loss(q_values_selected, tf.stop_gradient(td_targets))
-            self._critic_update = self._get_critic_update(self._value_loss)
+            self._value_loss_1 = tf.losses.huber_loss(q_values_selected_1, tf.stop_gradient(td_targets))
+            self._value_loss_2 = tf.losses.huber_loss(q_values_selected_2, tf.stop_gradient(td_targets))
+            self._critic_update_1 = self._get_critic_update(self._critic_1, self._value_loss_1)
+            self._critic_update_2 = self._get_critic_update(self._critic_2, self._value_loss_2)
 
         with tf.name_scope("targets_update"):
             self._targets_init_op = self._get_targets_init()
-            self._target_critic_update_op = self._get_target_critic_update()
+            self._target_critic_update_op_1 = self._get_target_critic_update(
+                self._target_critic_1,
+                self._critic_1
+            )
+            self._target_critic_update_op_2 = self._get_target_critic_update(
+                self._target_critic_2,
+                self._critic_2
+            )
+            self._target_critic_update_op = tf.group([
+                self._target_critic_update_op_1,
+                self._target_critic_update_op_2
+            ])
 
     # algorithm interface
 
@@ -105,13 +136,16 @@ class DQN(BaseAlgoDiscrete):
             **{self.rewards_ph: batch.r},
             **dict(zip(self.next_states_ph, batch.s_)),
             **{self.dones_ph: batch.done}}
-        ops = [self._value_loss]
+        ops = [self._value_loss_1, self._value_loss_2]
         if critic_update:
-            ops.append(self._critic_update)
+            ops.append(self._critic_update_1)
+            ops.append(self._critic_update_2)
         ops_ = sess.run(ops, feed_dict=feed_dict)
         return {
             'critic lr':  critic_lr,
-            'q loss': ops_[0]
+            'q1 loss': ops_[0],
+            'q2 loss': ops_[1],
+            'q loss': 0.5 * (ops_[0] + ops_[1])
         }
 
     def target_critic_update(self, sess):
@@ -119,8 +153,10 @@ class DQN(BaseAlgoDiscrete):
 
     def get_weights(self, sess, index=0):
         return {
-            'critic': self._critic_weights_tool.get_weights(sess)
+            'critic_1': self._critic_weights_tool_1.get_weights(sess),
+            'critic_2': self._critic_weights_tool_2.get_weights(sess)
         }
 
     def set_weights(self, sess, weights):
-        self._critic_weights_tool.set_weights(sess, weights['critic'])
+        self._critic_weights_tool_1.set_weights(sess, weights['critic_1'])
+        self._critic_weights_tool_2.set_weights(sess, weights['critic_2'])

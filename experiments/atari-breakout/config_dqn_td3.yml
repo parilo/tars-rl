@@ -15,15 +15,12 @@ env:
   frame_skip: 1
   step_limit: 0
   agent_buffer_size: 5001
-  history_length: 4
+  history_length: 3
   reward_scale: 1.
   reinit_random_action_every: 5
   log_every_n_steps: 1000
   max_episode_length: 5000
   discrete_actions: True
-  reward_clip:
-    max: 1.
-  stop_if_same_state_repeat: 30
 
 #  clip_action: "tanh"
 #  remap_action:
@@ -42,124 +39,105 @@ server:
   train_every_nth: 1.
   start_learning_after: 5000
   target_critic_update_period: 1
-#  target_critic_update_period: 2500
+#  target_critic_update_period: 100
   show_stats_period: 10
   save_model_period: 5000
   ip_address: "0.0.0.0"
-  client_start_port: 11977
-  logdir: "logs/breakout_dqn_cnn_28"
-#  load_checkpoint: "logs/breakout_dqn_cnn_25/model-445000.ckpt"
+  client_start_port: 12977
+  logdir: "logs/breakout_dqn_td3_cnn"
+  #load_checkpoint: ""
 
-algo_name: "dqn"
+algo_name: "dqn_td3"
 
 algorithm:
   n_step: 1
   gamma: 0.99
-  critic_grad_val_clip: 0.1
-  target_critic_update_rate: 0.0004
+  critic_grad_val_clip: 1.0
+  target_critic_update_rate: 0.005
 #  target_critic_update_rate: 1.
 
 critic:
   nn_engine: "keras"
   nn_arch:
 
+#    - type: "Scale"
+#      mult: 0.0039  # 1. / 255
+#      bias: 0.
+
     - type: "Conv2D"
       args:
         filters: 32
         kernel_size: [4, 4]
         strides: [2, 2]
-        padding: "same"
         data_format: "channels_first"
+
     - type: "Activation"
       args:
         activation: "relu"
 
     - type: "Conv2D"
       args:
-        filters: 64
+        filters: 48
         kernel_size: [4, 4]
         strides: [2, 2]
-        padding: "same"
         data_format: "channels_first"
+
+#    - type: "MaxPooling3D"
+#      args:
+#        pool_size: [1, 2, 2]
+#        data_format: "channels_first"
+
     - type: "Activation"
       args:
         activation: "relu"
+
+#    - type: "LeakyReLU"
+#    - type: "BatchNormalization"
+#      args:
+#        axis: 1
 
     - type: "Conv2D"
       args:
         filters: 64
         kernel_size: [4, 4]
         strides: [2, 2]
-        padding: "same"
         data_format: "channels_first"
+#    - type: "MaxPooling3D"
+#      args:
+#        pool_size: [1, 2, 2]
+#        data_format: "channels_first"
     - type: "Activation"
       args:
         activation: "relu"
+#    - type: "LeakyReLU"
 
     - type: "Conv2D"
       args:
         filters: 128
-        kernel_size: [4, 4]
-        strides: [2, 2]
-        padding: "same"
+        kernel_size: [3, 3]
         data_format: "channels_first"
+#    - type: "MaxPooling3D"
+#      args:
+#        pool_size: [1, 2, 2]
+#        data_format: "channels_first"
     - type: "Activation"
       args:
         activation: "relu"
-
-    - type: "Conv2D"
-      args:
-        filters: 256
-        kernel_size: [4, 4]
-        strides: [2, 2]
-        padding: "same"
-        data_format: "channels_first"
-    - type: "Activation"
-      args:
-        activation: "relu"
-
-#    - type: "Conv2D"
-#      args:
-#        filters: 32
-#        kernel_size: [8, 8]
-#        strides: [4, 4]
-#        padding: "same"
-#        data_format: "channels_first"
-#    - type: "Activation"
-#      args:
-#        activation: "relu"
-#
-#    - type: "Conv2D"
-#      args:
-#        filters: 64
-#        kernel_size: [4, 4]
-#        strides: [2, 2]
-#        padding: "same"
-#        data_format: "channels_first"
-#    - type: "Activation"
-#      args:
-#        activation: "relu"
-#
-#    - type: "Conv2D"
-#      args:
-#        filters: 64
-#        kernel_size: [3, 3]
-#        strides: [1, 1]
-#        padding: "same"
-#        data_format: "channels_first"
-#    - type: "Activation"
-#      args:
-#        activation: "relu"
+#    - type: "LeakyReLU"
 
     - type: "Flatten"
     - type: "Dense"
       args:
-        units: 1024
+        units: 512
         activation: "relu"
     - type: "Dense"
       args:
         units: 512
         activation: "relu"
+#    - type: "Dense"
+#      args:
+#        units: 256
+#        activation: "relu"
     - type: "Dense"
       args:
         units: 4  # number of actions
@@ -180,13 +158,11 @@ critic:
 critic_optim:
   schedule:
     - limit: 0  # of train ops
+      lr: 0.00025
+    - limit: 30000  # of train ops
       lr: 0.0001
-#    - limit: 0  # of train ops
-#      lr: 0.00025
-#    - limit: 30000  # of train ops
-#      lr: 0.0001
-#    - limit: 60000  # of train ops
-#      lr: 0.00005
+    - limit: 60000  # of train ops
+      lr: 0.00005
 
 training:
   schedule:
@@ -201,8 +177,8 @@ agents:
       - agents_count: 1
         visualize: True
 
-#      - agents_count: 1
-#        visualize: False
+      - agents_count: 1
+        visualize: False
 
       - agents_count: 1
         visualize: True
@@ -210,40 +186,26 @@ agents:
           type: "boltzmann"
           temp: 0.01
 
-      - agents_count: 2
+      - agents_count: 1
         visualize: False
         exploration:
           type: "boltzmann"
           temp: 0.01
 
-#      - agents_count: 1
-#        visualize: True
-#        exploration:
-#          type: "e-greedy"
-#          random_prob: 0.01
-#
-#      - agents_count: 2
-#        visualize: False
-#        exploration:
-#          type: "e-greedy"
-#          random_prob: 0.01
+      - agents_count: 1
+        visualize: False
+        exploration:
+          type: "boltzmann"
+          temp: 0.02
 
+      - agents_count: 1
+        visualize: False
+        exploration:
+          type: "boltzmann"
+          temp: 0.1
 
-
-#      - agents_count: 1
-#        visualize: False
-#        exploration:
-#          type: "boltzmann"
-#          temp: 0.01
-
-#      - agents_count: 1
-#        visualize: False
-#        exploration:
-#          type: "boltzmann"
-#          temp: 0.1
-#
-#      - agents_count: 1
-#        visualize: False
-#        exploration:
-#          type: "boltzmann"
-#          temp: 0.2
+      - agents_count: 1
+        visualize: False
+        exploration:
+          type: "boltzmann"
+          temp: 0.2

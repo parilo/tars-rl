@@ -63,6 +63,9 @@ https://github.com/openai/gym
 
 5. SciPy >= 1.2.0
 $ pip install scipy
+
+6. OpenCV
+$ pip install opencv-python
 ```
 
 ## How to run
