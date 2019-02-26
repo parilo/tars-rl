@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import cv2
 
@@ -14,7 +16,10 @@ class GymEnvWrapper:
         max_episode_length=1000,
         obs_is_image=False,
         obs_image_resize_to=None,
-        obs_image_to_grayscale=False
+        obs_image_to_grayscale=False,
+        render_with_cv2=False,
+        render_with_cv2_resize=None,
+        agent_id=0  # needed to display in cv2 imshow window
     ):
         self.env = env
         self.reward_scale = reward_scale
@@ -25,6 +30,9 @@ class GymEnvWrapper:
         self.obs_is_image = obs_is_image
         self.obs_image_resize_to = obs_image_resize_to
         self.obs_image_to_grayscale = obs_image_to_grayscale
+        self.render_with_cv2 = render_with_cv2
+        self.render_with_cv2_resize = render_with_cv2_resize
+        self.agent_id = agent_id
 
         self.reinit_random_action_every = reinit_random_action_every
         self.random_action = self.env.action_space.sample()
@@ -33,6 +41,7 @@ class GymEnvWrapper:
         self.reset()
 
     def reset(self):
+        self.env.seed(random.randint(0, 99))
         self.time_step = 0
         self.total_reward = 0
         self.total_reward_shaped = 0
@@ -64,9 +73,20 @@ class GymEnvWrapper:
             reward += r
 
             if self.visualize:
-                self.env.render()
+                if self.render_with_cv2:
+                    env_img = self.env.render()
+                    if self.render_with_cv2_resize is not None:
+                        env_img = cv2.resize(env_img, tuple(self.render_with_cv2_resize))
+                    cv2.imshow(
+                        str(self.agent_id),
+                        env_img
+                    )
+                    cv2.waitKey(3)
+                else:
+                    self.env.render()
 
-            if done: break
+            if done:
+                break
 
         reward_shaped = reward * self.reward_scale
         self.total_reward += reward

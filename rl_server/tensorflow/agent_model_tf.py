@@ -30,5 +30,37 @@ class AgentModel:
         self.set_weights(self._rl_client.get_weights(index=index))
 
     def load_checkpoint(self, path):
-        self._saver = tf.train.Saver(max_to_keep=None)
+
+        reader = tf.train.NewCheckpointReader(path)
+        var_to_shape_map = reader.get_variable_to_shape_map()
+
+        # this may cause problems
+        # when there are variables with :1, etc.
+        # suffixes in checkpoint
+        var_dict = dict(zip(
+            [v_name + ':0' for v_name in var_to_shape_map.keys()],
+            [True] * len(var_to_shape_map)
+        ))
+
+        var_list = []
+        for v in tf.global_variables():
+            if v.name in var_dict:
+                var_list.append(v)
+
+        self._saver = tf.train.Saver(max_to_keep=None, var_list=var_list)
         self._saver.restore(self._sess, path)
+
+        unint_var_names = list(self._sess.run(tf.report_uninitialized_variables()))
+        unint_var_names = [v_name.decode('utf-8') for v_name in unint_var_names]
+        unint_vars = [v for v in tf.global_variables() if v.name.split(':')[0] in set(unint_var_names)]
+
+        if len(unint_vars) > 0:
+            print(
+                '--- warning: there are uninitialized vars which will be initialized with default values',
+                unint_vars
+            )
+
+        self._sess.run(tf.variables_initializer(unint_vars))
+
+    def reset_states(self):
+        self._agent_algorithm.reset_states()

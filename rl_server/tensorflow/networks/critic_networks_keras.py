@@ -55,7 +55,15 @@ class CriticNetwork:
     def build_model(self):
 
         with tf.variable_scope(self.scope):
-            input_state = keras.layers.Input(shape=self.state_shapes[0], name="state_input")
+
+            if 'fixed_batch_size' in self.nn_arch:
+                input_state = keras.layers.Input(
+                    batch_shape=[self.nn_arch['fixed_batch_size']] + list(self.state_shapes[0]),
+                    name="state_input"
+                )
+            else:
+                input_state = keras.layers.Input(shape=self.state_shapes[0], name="state_input")
+
             if self.action_insert_block == -1:
                 model_inputs = [input_state]
             else:
@@ -64,7 +72,7 @@ class CriticNetwork:
 
             keras_module = importlib.import_module('tensorflow.python.keras.layers')
             out_layer = input_state
-            for layer_i, layer_data in enumerate(self.nn_arch):
+            for layer_i, layer_data in enumerate(self.nn_arch['layers']):
 
                 special_layer_output = process_special_layers(layer_data, out_layer)
 
@@ -80,11 +88,15 @@ class CriticNetwork:
                 else:
                     out_layer = special_layer_output
 
-                # print(out_layer)
+                print(out_layer)
 
             model = keras.models.Model(inputs=model_inputs, outputs=out_layer)
 
         return model
+
+    def reset_states(self):
+        print('--- reset states')
+        self.model.reset_states()
 
     def get_input_size(self, shape):
         if len(shape) == 1:

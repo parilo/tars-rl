@@ -109,7 +109,8 @@ class RLAgent:
 
                 def softmax_action_postprocess(action):
                     if boltzmann_expl:
-                        return np.random.choice(possible_actions, p=softmax(action / boltzmann_expl_temp))
+                        self._action_scores = softmax(action / boltzmann_expl_temp)
+                        return np.random.choice(possible_actions, p=self._action_scores)
                     if e_greedy_expl:
                         if random.random() < random_prob:
                             return random.randint(0, self._exp_config.env.action_size - 1)
@@ -119,6 +120,14 @@ class RLAgent:
                         return np.argmax(softmax(action))
 
                 self._action_postprocess = softmax_action_postprocess
+
+        # action remap
+        self._action_remap_discrete_func = None
+        if exp_config.env.isset('action_remap_discrete'):
+            action_discrete_mapping = exp_config.as_obj()['env']['action_remap_discrete']
+            def action_remap_discrete_func(action):
+                return action_discrete_mapping[action]
+            self._action_remap_discrete_func = action_remap_discrete_func
 
         self._discrete_actions = False
         if exp_config.env.isset('discrete_actions'):
@@ -287,10 +296,16 @@ class RLAgent:
             env_action_scores = env_action
             env_action = self._action_postprocess(env_action)
 
-            # if self._id == 2:
-            #     print(self._id, action, env_action, env_action_scores)
+            if self._id == 1 and n_steps == 20:
+                # print(self._id, env_action, env_action_scores, self._action_scores)
+                print(self._id, env_action, env_action_scores)
 
-            next_obs, reward, done, info = self._env.step(env_action)
+            if self._action_remap_discrete_func is not None:
+                env_action_remapped = self._action_remap_discrete_func(env_action)
+            else:
+                env_action_remapped = env_action
+
+            next_obs, reward, done, info = self._env.step(env_action_remapped)
 
             if self._reward_clip_max:
                 reward = min(reward, self._reward_clip_max)
@@ -328,7 +343,8 @@ class RLAgent:
                     same_state_repeat = 0
 
             if done or (self._step_limit > 0 and n_steps > self._step_limit):
-                # return
+
+                self._agent_model.reset_states()
 
                 self._logger.log(episode_index, n_steps)
                 episode = self._agent_buffer.get_complete_episode()

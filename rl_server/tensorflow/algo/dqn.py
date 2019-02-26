@@ -124,3 +124,6 @@ class DQN(BaseAlgoDiscrete):
 
     def set_weights(self, sess, weights):
         self._critic_weights_tool.set_weights(sess, weights['critic'])
+
+    def reset_states(self):
+        self._critic.reset_states()
