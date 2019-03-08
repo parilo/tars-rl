@@ -140,10 +140,10 @@ class ServerBuffer:
             dones = [transitions[i][4] for i in range(batch_size)]
 
             batch = Transition(
-                np.array(states, dtype=np.float32),
+                [np.array(state_part, dtype=np.float32) for state_part in states],
                 np.array(actions, dtype=np.float32),
                 np.array(rewards, dtype=np.float32),
-                np.array(next_states, dtype=np.float32),
+                [np.array(next_state_part, dtype=np.float32) for next_state_part in next_states],
                 np.array(dones, dtype=np.bool)
             )
             return batch

@@ -101,6 +101,18 @@ def parse_play_args():
     return parser.parse_args()
 
 
+def parse_load_episodes_args():
+    parser = argparse.ArgumentParser(
+        description="Load stored episodes into replay buffer")
+    parser.add_argument(
+        "--config",
+        type=str, required=True)
+    parser.add_argument(
+        "--eps_dir",
+        type=str, required=True)
+    return parser.parse_args()
+
+
 class PropertyTree:
     def isset(self, name):
         return hasattr(self, name)

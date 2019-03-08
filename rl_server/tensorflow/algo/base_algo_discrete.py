@@ -2,6 +2,7 @@ import tensorflow as tf
 
 
 def create_placeholders(state_shapes, scope="placeholders"):
+    print('--- state_shapes', state_shapes)
     with tf.name_scope(scope):
         states_ph, next_states_ph = [], []
         for i, shape in enumerate(state_shapes):

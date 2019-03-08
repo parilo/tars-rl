@@ -58,7 +58,7 @@ class GymEnvWrapper:
                 obs = cv2.resize(obs, tuple(self.obs_image_resize_to))
 
             if self.obs_image_to_grayscale:
-                obs = cv2.cvtColor(obs, cv2.COLOR_BGR2GRAY)
+                obs = cv2.cvtColor(obs, cv2.COLOR_BGR2HSV)[:, :, 2]
             else:
                 obs = np.transpose(obs, (2, 0, 1))
 
@@ -72,21 +72,21 @@ class GymEnvWrapper:
             observation, r, done, info = self.env.step(action)
             reward += r
 
-            if self.visualize:
-                if self.render_with_cv2:
-                    env_img = self.env.render()
-                    if self.render_with_cv2_resize is not None:
-                        env_img = cv2.resize(env_img, tuple(self.render_with_cv2_resize))
-                    cv2.imshow(
-                        str(self.agent_id),
-                        env_img
-                    )
-                    cv2.waitKey(3)
-                else:
-                    self.env.render()
-
             if done:
                 break
+
+        if self.visualize:
+            if self.render_with_cv2:
+                env_img = self.preprocess_obs(observation)
+                if self.render_with_cv2_resize is not None:
+                    env_img = cv2.resize(env_img, tuple(self.render_with_cv2_resize))
+                cv2.imshow(
+                    str(self.agent_id),
+                    env_img
+                )
+                cv2.waitKey(3)
+            else:
+                self.env.render()
 
         reward_shaped = reward * self.reward_scale
         self.total_reward += reward
@@ -109,3 +109,6 @@ class GymEnvWrapper:
         if self.time_step % self.reinit_random_action_every == 0 or resample:
             self.random_action = self.env.action_space.sample()
         return self.random_action
+
+    def get_logs(self):
+        return {}

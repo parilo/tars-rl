@@ -61,7 +61,7 @@ class AgentBuffer:
         """
         next_obs, action, reward, done = transition
         for part_id in range(self.num_parts):
-            self.observations[part_id][self.pointer+1] = next_obs[part_id]
+            self.observations[part_id][self.pointer + 1] = next_obs[part_id]
         self.actions[self.pointer] = action
         self.rewards[self.pointer] = reward
         self.dones[self.pointer] = done

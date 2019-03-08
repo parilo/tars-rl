@@ -77,6 +77,10 @@ class RLLogger:
 
         self._start_time = time.time()
 
+    def log_dict(self, log_dict, episode_index):
+        for key, val in log_dict.items():
+            self._logger.add_scalar(key, val, episode_index)
+
 
 class RLServerLogger:
     def __init__(

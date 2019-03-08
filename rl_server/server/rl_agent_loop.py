@@ -140,9 +140,12 @@ class RLAgent:
 
         # reward clipping
         self._reward_clip_max = None
+        self._reward_clip_min = None
         if exp_config.env.isset('reward_clip'):
             if exp_config.env.reward_clip.isset('max'):
                 self._reward_clip_max = exp_config.env.reward_clip.max
+            if exp_config.env.reward_clip.isset('min'):
+                self._reward_clip_min = exp_config.env.reward_clip.min
 
         (
             self._observation_shapes,
@@ -193,10 +196,13 @@ class RLAgent:
             self._action_size,
             self._discrete_actions
         )
-        self._agent_buffer.push_init_observation([first_obs])
+        if isinstance(first_obs, list):
+            self._agent_buffer.push_init_observation(first_obs)
+        else:
+            self._agent_buffer.push_init_observation([first_obs])
 
     def init_episode_storage(self):
-        storage_path = os.path.join(self._logdir, 'episodes')
+        storage_path = os.path.join(self._logdir, 'episodes_' + str(self._id))
         create_if_need(storage_path)
         stored_episode_files = len(next(os.walk(storage_path))[2])
         return storage_path, stored_episode_files
@@ -240,7 +246,10 @@ class RLAgent:
         # explore_temp = explore_start_temp
         
         def prepare_state(state):
-            return [np.expand_dims(state, axis=0)]
+            if isinstance(state, list):
+                return [np.expand_dims(s_part, axis=0) for s_part in state]
+            else:
+                return [np.expand_dims(state, axis=0)]
 
         while True:
 
@@ -252,7 +261,7 @@ class RLAgent:
                 # obtain current state from the buffer
                 state = self._agent_buffer.get_current_state(
                     history_len=self._history_len
-                )[0]
+                )
 
                 # Bernoulli exploration
                 # action = np.array(self._agent_model.act_batch(prepare_state(state))[0])
@@ -310,6 +319,9 @@ class RLAgent:
             if self._reward_clip_max:
                 reward = min(reward, self._reward_clip_max)
 
+            if self._reward_clip_min and reward > 0.:
+                reward = max(reward, self._reward_clip_min)
+
             # if reward > 0.:
             #     print('r', reward)
 
@@ -325,7 +337,10 @@ class RLAgent:
             else:
                 action_to_save = action
 
-            transition = [[next_obs], action_to_save, reward, done]
+            if not isinstance(next_obs, list):
+                next_obs = [next_obs]
+
+            transition = [next_obs, action_to_save, reward, done]
             self._agent_buffer.push_transition(transition)
 
             n_steps += 1
@@ -346,6 +361,7 @@ class RLAgent:
 
                 self._agent_model.reset_states()
 
+                self._logger.log_dict(self._env.get_logs(), episode_index)
                 self._logger.log(episode_index, n_steps)
                 episode = self._agent_buffer.get_complete_episode()
                 if self._checkpoint_path is None:
@@ -357,13 +373,14 @@ class RLAgent:
                 if self._store_episodes:
                     ep_path = os.path.join(path_to_episode_storage, 'episode_' + str(stored_episode_index)+'.pkl')
                     with open(ep_path, 'wb') as f:
-                        pickle.dump(
-                        [
-                            [obs_part.tolist() for obs_part in episode[0]],
-                            episode[1].tolist(),
-                            episode[2].tolist(),
-                            episode[3].tolist()
-                        ], f, pickle.HIGHEST_PROTOCOL)
+                        pickle.dump(episode, f, pickle.HIGHEST_PROTOCOL)
+                        # pickle.dump(
+                        # [
+                        #     [obs_part.tolist() for obs_part in episode[0]],
+                        #     episode[1].tolist(),
+                        #     episode[2].tolist(),
+                        #     episode[3].tolist()
+                        # ], f, pickle.HIGHEST_PROTOCOL)
                     stored_episode_index += 1
 
                 episode_index += 1

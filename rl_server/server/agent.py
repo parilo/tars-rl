@@ -75,6 +75,10 @@ def run_agent(exp_config, agent_config, checkpoint_path=None):
         env_module = importlib.import_module(exp_config.env.env_module)
         EnvClass = getattr(env_module, exp_config.env.env_class)
 
+        agent_env_params = {}
+        if 'env_params' in agent_config:
+            agent_env_params = agent_config['env_params']
+
         if hasattr(exp_config.env, 'additional_env_parameters'):
             print(exp_config.as_obj()['env']['additional_env_parameters'])
             env = EnvClass(
@@ -87,7 +91,11 @@ def run_agent(exp_config, agent_config, checkpoint_path=None):
                 obs_is_image=exp_config.env.obs_is_image,
                 obs_image_resize_to=obs_image_resize_to,
                 obs_image_to_grayscale=obs_image_to_grayscale,
-                **exp_config.as_obj()['env']['additional_env_parameters']
+                render_with_cv2=render_with_cv2,
+                render_with_cv2_resize=render_with_cv2_resize,
+                agent_id=agent_config['agent_id'],
+                **exp_config.as_obj()['env']['additional_env_parameters'],
+                **agent_env_params
             )
         else:
             env = EnvClass(
@@ -98,7 +106,11 @@ def run_agent(exp_config, agent_config, checkpoint_path=None):
                 max_episode_length=exp_config.env.max_episode_length,
                 obs_is_image=exp_config.env.obs_is_image,
                 obs_image_resize_to=obs_image_resize_to,
-                obs_image_to_grayscale=obs_image_to_grayscale
+                obs_image_to_grayscale=obs_image_to_grayscale,
+                render_with_cv2=render_with_cv2,
+                render_with_cv2_resize=render_with_cv2_resize,
+                agent_id=agent_config['agent_id'],
+                **agent_env_params
             )
 
     else:

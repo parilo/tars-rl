@@ -70,7 +70,7 @@ def create_algorithm(
 
     _, _, state_shapes, action_size = algo_config.get_env_shapes()
     if placeholders is None:
-        if name in ['dqn', 'dqn_td3']:
+        if name in ['dqn', 'dqn_td3', 'dqn_sac']:
             from rl_server.tensorflow.algo.base_algo_discrete import create_placeholders
             placeholders = create_placeholders(state_shapes)
             critic_lr = placeholders[0]
@@ -92,6 +92,29 @@ def create_algorithm(
 
         from rl_server.tensorflow.algo.dqn import DQN
         agent_algorithm = DQN(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            critic=critic,
+            critic_optimizer=tf.train.AdamOptimizer(
+                learning_rate=critic_lr),
+            **algo_config.as_obj()["algorithm"],
+            scope=algo_scope,
+            placeholders=placeholders,
+            critic_optim_schedule=algo_config.as_obj()["critic_optim"],
+            training_schedule=algo_config.as_obj()["training"])
+
+    elif name == 'dqn_sac':
+
+        critic = CriticNetwork(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            **critic_params,
+            scope=critic_scope,
+            action_insert_block=-1
+        )
+
+        from rl_server.tensorflow.algo.dqn_sac import DQN_SAC
+        agent_algorithm = DQN_SAC(
             state_shapes=state_shapes,
             action_size=action_size,
             critic=critic,

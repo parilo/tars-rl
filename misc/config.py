@@ -76,9 +76,8 @@ class ExperimentConfig(BaseConfig):
             observation_shapes = self._config.env.obs_shapes
             state_shapes = []
             for obs_shape in observation_shapes:
-                state_shapes = [
-                    tuple([self._config.env.history_length] + obs_shape)
-                ]
+                state_shapes.append(tuple([self._config.env.history_length] + obs_shape))
+
         else:
             raise NotImplementedError()
 
