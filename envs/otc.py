@@ -45,32 +45,55 @@ class ObstacleTowerEnvWrapper(GymEnvWrapper):
     #     obs = super().preprocess_obs(obs)
     #     return self.split_observation(obs)
 
-    def process_obs(self, observation):
+    def process_obs(self, observation, info=None, reward=None):
+        if info:
+            vec_obs = np.copy(info['brain_info'].vector_observations[0])
+            vec_obs[6] /= 3000.
+            vec_obs = np.array(vec_obs.tolist() + [reward], dtype=np.float32)
+        else:
+            vec_obs = np.zeros((8,), dtype=np.float32)
+            vec_obs[0] = 1
+            vec_obs[6] = 1
         return [
-            observation,
-            cv2.resize(observation, (28, 28))
+            # observation,
+            np.transpose(cv2.resize(observation, (84, 84)), (2, 0, 1)),
+            np.transpose(cv2.resize(observation, (32, 32)), (2, 0, 1)),
+            vec_obs
         ]
 
     def render(self, obs):
         cv2.imshow(
             str(self.agent_id) + ' ' + str(obs[0].shape),
-            cv2.resize(obs[0], (400, 400))
+            cv2.resize(np.transpose(obs[0], (1, 2, 0)), (400, 400))
         )
         cv2.imshow(
             str(self.agent_id) + ' ' + str(obs[1].shape),
-            cv2.resize(obs[1], (400, 400))
+            cv2.resize(np.transpose(obs[1], (1, 2, 0)), (400, 400))
         )
         cv2.waitKey(3)
+
+    def process_reward(self, reward):
+        if reward == 1.:
+            self._current_level += 1
+
+        if reward > 0.05:
+            return 5.
+        else:
+            return -0.02
 
     def step(self, action):
         observation, reward, done, info = super().step(action)
 
-        if reward == 1.:
-            self._current_level += 1
-
-        obs = self.process_obs(observation)
+        obs = self.process_obs(observation, info, reward)
         if self.visualize:
             self.render(obs)
+
+        # print(info['brain_info'].vector_observations)
+        # if done:
+        #     print('ep', self.time_step, self.total_reward, info['brain_info'].vector_observations)
+
+        if obs[2][6] < 0.003:  # time left
+            done = True
 
         return obs, reward, done, info
 

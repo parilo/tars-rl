@@ -82,13 +82,13 @@ class ServerBuffer:
         """ compose the state from a number (history_len) of observations
         """
         state = []
-        for part_id in range(self.num_parts):
-            start_idx = idx - history_len + 1
+        for part_id, part_hist_len in zip(range(self.num_parts), history_len):
+            start_idx = idx - part_hist_len + 1
 
-            if (start_idx < 0 or np.any(self.dones[start_idx:idx+1])):
-                s = np.zeros((history_len, ) + tuple(self.obs_shapes[part_id]), dtype=np.float32)
+            if (start_idx < 0 or np.any(self.dones[start_idx:idx + 1])):
+                s = np.zeros((part_hist_len, ) + tuple(self.obs_shapes[part_id]), dtype=np.float32)
                 indices = [idx]
-                for i in range(history_len-1):
+                for i in range(part_hist_len - 1):
                     next_idx = (idx-i-1) % self.size
                     if next_idx >= self.num_in_buffer or self.dones[next_idx]:
                         break

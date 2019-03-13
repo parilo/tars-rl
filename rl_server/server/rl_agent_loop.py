@@ -244,6 +244,13 @@ class RLAgent:
         # explore_episodes = 500
         # explore_dt = (explore_start_temp - explore_end_temp) / explore_episodes
         # explore_temp = explore_start_temp
+
+        # avg_v = 0.
+        # avg_v_2 = 0.
+        # avg_v_discout = 0.02
+
+        # prev_v = 0.
+        # prev_v2 = 0.
         
         def prepare_state(state):
             if isinstance(state, list):
@@ -281,7 +288,9 @@ class RLAgent:
 
                 else:
                     action = self._agent_model.act_batch(prepare_state(state))[0]
+                    # action_target = self._agent_model.act_batch_target(prepare_state(state))[0]
                     action = np.array(action)
+                    # action_target = np.array(action_target)
 
                     if not self._validation:
                         if self._exploration.normal_noise is not None:
@@ -304,6 +313,26 @@ class RLAgent:
 
             env_action_scores = env_action
             env_action = self._action_postprocess(env_action)
+
+            # --- scores
+            # print(env_action_scores, action_target, np.max(env_action_scores), np.max(action_target))
+            # avg_v = avg_v * (1. - avg_v_discout) + avg_v_discout * np.max(env_action_scores)
+            # avg_v_2 = avg_v_2 * (1. - avg_v_discout) + avg_v_discout * np.max(action_target)
+            # print(
+            #     avg_v,
+            #     avg_v_2,
+            #     int(np.max(env_action_scores) > avg_v),
+            #     int(np.max(action_target) > avg_v_2)
+            # )
+
+            # v = np.max(env_action_scores)
+            # v2 = np.max(action_target)
+
+            # print(v - prev_v, v2 - prev_v2)
+            # dv = v - prev_v
+            # dv2 = v2 - prev_v2
+            # prev_v = v
+            # prev_v2 = v2
 
             if self._id == 1 and n_steps == 20:
                 # print(self._id, env_action, env_action_scores, self._action_scores)
@@ -340,6 +369,8 @@ class RLAgent:
             if not isinstance(next_obs, list):
                 next_obs = [next_obs]
 
+            # reward += dv2
+            # print('r', reward)
             transition = [next_obs, action_to_save, reward, done]
             self._agent_buffer.push_transition(transition)
 

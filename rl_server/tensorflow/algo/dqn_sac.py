@@ -33,6 +33,7 @@ class DQN_SAC(BaseAlgoDiscrete):
         self._critic = critic
         self._target_critic = critic.copy(scope=scope + "/target_critic")
         self._critic_weights_tool = ModelWeightsTool(critic)
+        self._target_critic_weights_tool = ModelWeightsTool(self._target_critic)
         self._critic_optimizer = critic_optimizer
         self._n_step = n_step
         self._critic_grad_val_clip = critic_grad_val_clip
@@ -54,6 +55,7 @@ class DQN_SAC(BaseAlgoDiscrete):
         return update_op
 
     def _get_target_critic_update(self):
+        print('--- self._target_critic_update_rate', self._target_critic_update_rate)
         update_op = target_network_update(
             self._target_critic, self._critic,
             self._target_critic_update_rate)
@@ -66,14 +68,15 @@ class DQN_SAC(BaseAlgoDiscrete):
 
     def build_graph(self):
         self.create_placeholders()
+        self._is_weights = tf.placeholder(tf.float32, (None,), name="importance_sampling_weights")
 
         with tf.name_scope("taking_action"):
             self._q_values = self._critic(self.states_ph)
 
         with tf.name_scope("critic_update"):
-            next_q_values = self._target_critic(self.next_states_ph)
+            self._next_q_values = self._target_critic(self.next_states_ph)
             gamma = self._gamma ** self._n_step
-            td_targets = self.rewards_ph + gamma * (1 - self.dones_ph) * tf.reduce_max(next_q_values, axis=1)
+            td_targets = self.rewards_ph + gamma * (1 - self.dones_ph) * tf.reduce_max(self._next_q_values, axis=1)
 
             indices_range = tf.range(tf.shape(self.actions_ph)[0])
             action_indices = tf.stack([indices_range, self.actions_ph], axis=1)
@@ -89,6 +92,12 @@ class DQN_SAC(BaseAlgoDiscrete):
             )# - tf.reduce_mean(ent)
             self._critic_update = self._get_critic_update(self._value_loss)
 
+            self._td_errors = tf.stop_gradient(q_values_selected - td_targets)
+            self._value_loss_prio = tf.reduce_mean(
+                self._is_weights * self._td_errors * q_values_selected
+            )
+            self._critic_update_prio = self._get_critic_update(self._value_loss_prio)
+
         with tf.name_scope("targets_update"):
             self._targets_init_op = self._get_targets_init()
             self._target_critic_update_op = self._get_target_critic_update()
@@ -103,7 +112,12 @@ class DQN_SAC(BaseAlgoDiscrete):
         q_values = sess.run(self._q_values, feed_dict=feed_dict)
         return q_values.tolist()
 
-    def train(self, sess, step_index, batch, critic_update=True):
+    def act_batch_target(self, sess, states):
+        feed_dict = dict(zip(self.next_states_ph, states))
+        q_values = sess.run(self._next_q_values, feed_dict=feed_dict)
+        return q_values.tolist()
+
+    def train(self, sess, step_index, batch, critic_update=True, is_weights=None):
 
         critic_lr = self.get_critic_lr(step_index)
         feed_dict = {
@@ -112,26 +126,51 @@ class DQN_SAC(BaseAlgoDiscrete):
             **{self.actions_ph: batch.a},
             **{self.rewards_ph: batch.r},
             **dict(zip(self.next_states_ph, batch.s_)),
-            **{self.dones_ph: batch.done}}
-        ops = [self._value_loss]
+            **{self.dones_ph: batch.done}
+        }
+
+        if is_weights is None:
+            ops = [self._value_loss]
+        else:
+            ops = [self._value_loss_prio]
+
         if critic_update:
-            ops.append(self._critic_update)
+            if is_weights is None:
+                ops.append(self._critic_update)
+            else:
+                feed_dict[self._is_weights] = is_weights
+                ops.append(self._critic_update_prio)
+
         ops_ = sess.run(ops, feed_dict=feed_dict)
         return {
             'critic lr':  critic_lr,
             'q loss': ops_[0]
         }
 
+    def get_td_errors(self, sess, batch):
+
+        feed_dict = {
+            **dict(zip(self.states_ph, batch.s)),
+            **{self.actions_ph: batch.a},
+            **{self.rewards_ph: batch.r},
+            **dict(zip(self.next_states_ph, batch.s_)),
+            **{self.dones_ph: batch.done}
+        }
+
+        return sess.run(self._td_errors, feed_dict=feed_dict)
+
     def target_critic_update(self, sess):
         sess.run(self._target_critic_update_op)
 
     def get_weights(self, sess, index=0):
         return {
-            'critic': self._critic_weights_tool.get_weights(sess)
+            'critic': self._critic_weights_tool.get_weights(sess),
+            'target_critic': self._target_critic_weights_tool.get_weights(sess)
         }
 
     def set_weights(self, sess, weights):
         self._critic_weights_tool.set_weights(sess, weights['critic'])
+        self._target_critic_weights_tool.set_weights(sess, weights['target_critic'])
 
     def reset_states(self):
         self._critic.reset_states()

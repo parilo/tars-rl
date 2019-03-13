@@ -10,7 +10,7 @@ class AgentModel:
         self._rl_client = rl_client
         self._agent_algorithm = create_algorithm(exp_config)
         self._sess = make_session(num_cpu=1)
-        
+
     def set_weights(self, weights):
         self._agent_algorithm.set_weights(self._sess, weights)
         
@@ -25,7 +25,10 @@ class AgentModel:
         else:
             raise NotImplementedError
         return actions
-        
+
+    def act_batch_target(self, states):
+        return self._agent_algorithm.act_batch_target(self._sess, states)
+
     def fetch(self, index=0):
         self.set_weights(self._rl_client.get_weights(index=index))
 

@@ -67,12 +67,16 @@ class RLLogger:
         self._ep_rewards_after_last_logging = []
 
         self._logger.add_scalar(
-            "episode per minute",
+            "episode_per_minute",
             episode_index / elapsed_time * 60,
             episode_index)
         self._logger.add_scalar(
-            "steps per second",
+            "steps_per_second",
             n_steps / elapsed_time,
+            episode_index)
+        self._logger.add_scalar(
+            "step_count",
+            self._env.get_step_count(),
             episode_index)
 
         self._start_time = time.time()

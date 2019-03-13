@@ -8,13 +8,13 @@ env:
     retro: True
 #    id_parameter: "worker_id"
   is_gym: False
-  obs_shapes: [[1, 64, 64], [1, 28, 28]]  # list of lists
-  obs_dtypes: ["uint8", "uint8"]
-  history_length: [4, 64]
-  obs_is_image: True
+  obs_shapes: [[3, 84, 84], [3, 32, 32], [8]]  # list of lists
+  obs_dtypes: ["uint8", "uint8", "float32"]
+  history_length: [1, 16, 16]
+  obs_is_image: False
 #  obs_image_resize_to: [84, 84]
-  obs_image_to_grayscale: True  # used V from HSV
-  action_size: 10
+#  obs_image_to_grayscale: True  # used V from HSV
+  action_size: 11
   action_postprocess:
     type: "argmax of softmax"
   action_remap_discrete: [
@@ -27,7 +27,8 @@ env:
     24,  # forw + cam left
     27,  # f + j + cam left
     30,  # f + cam right
-    33   # f + j + cam right
+    33,  # f + j + cam right
+    36  # backward
   ]
   frame_skip: 1
   step_limit: 0
@@ -37,8 +38,8 @@ env:
   log_every_n_steps: 1000
   max_episode_length: 10000
   discrete_actions: True
-  reward_clip:
-    min: 0.95  # if reward > 0., for example turn 0.1 -> 0.5
+#  reward_clip:
+#    min: 0.95  # if reward > 0., for example turn 0.1 -> 0.5
 #  stop_if_same_state_repeat: 30
 #  render_with_cv2: True
 #  render_with_cv2_resize: [400, 400]
@@ -46,18 +47,18 @@ env:
 server:
   seed: 42
   num_clients: 16
-  experience_replay_buffer_size: 3000000
+  experience_replay_buffer_size: 1200000
   use_prioritized_buffer: false
   train_every_nth: 1.
-  start_learning_after: 500
+  start_learning_after: 10000
   target_critic_update_period: 1
 #  target_critic_update_period: 2500
   show_stats_period: 10
   save_model_period: 5000
   ip_address: "0.0.0.0"
   client_start_port: 12977
-  logdir: "logs/otc_20"
-  #load_checkpoint: "logs/otc_15/model-245000.ckpt"
+  logdir: "logs/otc_27_eps"
+#  load_checkpoint: "logs/otc_24/model-460000.ckpt"
 
 algo_name: "dqn_sac"
 
@@ -122,12 +123,12 @@ critic:
 
         - type: "Reshape"
           args:
-#            target_shape: [8, 4608]
-            target_shape: [4, 2048]
+            target_shape: [4608]
 
-        - type: "CuDNNLSTM"
+        - type: "Dense"
           args:
-            units: 128
+            units: 512
+            activation: "relu"
 
     - input: 1
       name: "long-memory"
@@ -143,7 +144,7 @@ critic:
 
         - type: "Conv3D"
           args:
-            filters: 32
+            filters: 64
             kernel_size: [1, 4, 4]
             strides: [1, 2, 2]
             padding: "same"
@@ -169,13 +170,35 @@ critic:
 
         - type: "Reshape"
           args:
-            target_shape: [64, 3136]
+            target_shape: [16, 4096]
 
-        - type: "CuDNNLSTM"
+        - type: "Dense"
           args:
-            units: 128
+            units: 64
+            activation: "relu"
 
-    - input: ["short-memory", "long-memory"]
+        - type: "Reshape"
+          args:
+            target_shape: [1024]
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+    - input: 2
+      name: "vec-obs"
+      layers:
+        - type: "Dense"
+          args:
+            units: 16
+            activation: "relu"
+
+        - type: "Reshape"
+          args:
+            target_shape: [256]
+
+    - input: ["short-memory", "long-memory", "vec-obs"]
       name: "output"
       layers:
 
@@ -195,7 +218,7 @@ critic:
 
         - type: "Dense"
           args:
-            units: 10  # number of actions
+            units: 11  # number of actions
             activation: "linear"
             kernel_initializer:
               class: "RandomUniform"
@@ -223,41 +246,58 @@ training:
 agents:
   - algorithm_id: 0
     agents:
-      - agents_count: 1
-#        store_episodes: True
-        visualize: True
-#        env_params:
-#          start_level_inc: -1  # from finished
-
-      - agents_count: 1
-#        store_episodes: True
+#      - agents_count: 1
 #        visualize: True
-        exploration:
-          type: "boltzmann"
-          temp: 0.1
+#
+#      - agents_count: 1
+#        exploration:
+#          type: "boltzmann"
+#          temp: 0.1
+#
+#      - agents_count: 1
+#        exploration:
+#          type: "boltzmann"
+#          temp: 0.1
+#        env_params:
+#          start_level_inc: -1
+#
+#      - agents_count: 1
+#        exploration:
+#          type: "boltzmann"
+#          temp: 0.1
 #        env_params:
 #          start_level_inc: -1
 
+
+#      - agents_count: 1
+
+
       - agents_count: 1
-#        store_episodes: True
+        store_episodes: True
+
+      - agents_count: 1
+        store_episodes: True
+
+      - agents_count: 1
+        store_episodes: True
         exploration:
           type: "boltzmann"
           temp: 0.1
-        env_params:
-          start_level_inc: -1
 
       - agents_count: 1
-#        store_episodes: True
+        store_episodes: True
         exploration:
           type: "boltzmann"
-          temp: 0.2
-        env_params:
-          start_level_inc: -1
-
-
+          temp: 0.1
 
       - agents_count: 1
-#        store_episodes: True
-        visualize: True
-#        env_params:
-#          start_level_inc: -1  # from finished
+        store_episodes: True
+        exploration:
+          type: "boltzmann"
+          temp: 0.1
+
+      - agents_count: 1
+        store_episodes: True
+        exploration:
+          type: "boltzmann"
+          temp: 0.1

@@ -46,7 +46,12 @@ class TFRLTrainer(RLTrainer):
                 beta=self._beta,
                 gamma=self._gamma)
             batch, indices, is_weights = prio_batch
-            train_info = self._algo.train(self._sess, self._step_index, batch, is_weights)
+            train_info = self._algo.train(
+                sess=self._sess,
+                step_index=self._step_index,
+                batch=batch,
+                is_weights=is_weights
+            )
             td_errors = self._algo.get_td_errors(self._sess, batch).ravel()
             self.server_buffer.update_td_errors(indices, td_errors)
             self._beta = min(1.0, self._beta + 1e-6)

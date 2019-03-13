@@ -66,10 +66,14 @@ class GymEnvWrapper:
 
         return obs
 
+    def process_reward(self, reward):
+        return reward
+
     def step(self, action):
         reward = 0.
         for i in range(self.frame_skip):
             observation, r, done, info = self.env.step(action)
+            r = self.process_reward(r)
             reward += r
 
             if done:
@@ -98,6 +102,9 @@ class GymEnvWrapper:
 
         observation = self.preprocess_obs(observation)
         return observation, reward * self.reward_scale, done, info
+
+    def get_step_count(self):
+        return self.time_step
 
     def get_total_reward(self):
         return self.total_reward

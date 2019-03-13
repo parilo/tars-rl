@@ -48,9 +48,9 @@ class AgentBuffer:
 
     def get_current_state(self, history_len=1):
         state = []
-        for part_id in range(self.num_parts):
-            s = np.zeros((history_len, ) + tuple(self.obs_shapes[part_id]), dtype=np.float32)
-            indices = np.arange(max(0, self.pointer-history_len+1), self.pointer+1)
+        for part_id, part_hist_len in zip(range(self.num_parts), history_len):
+            s = np.zeros((part_hist_len, ) + tuple(self.obs_shapes[part_id]), dtype=np.float32)
+            indices = np.arange(max(0, self.pointer - part_hist_len + 1), self.pointer + 1)
             s[-len(indices):] = self.observations[part_id][indices]
             state.append(s)
         return state
