@@ -16,10 +16,6 @@ config = load_config(args.config)
 
 from rl_server.server.rl_client import RLClient
 
-# rl_client = RLClient(
-#     port=config.server.client_start_port
-# )
-
 # def split_observation(obs):
 #     obs_parts = []
 #     for i in range(3):
@@ -85,6 +81,15 @@ def convert_reward(rewards):
         rewards[i] = 3. if rewards[i] > 0.05 else 0.01
     # print(np.sum(rewards))
 
+
+# def convert_reward_breakout(rewards):
+#     for i in range(len(rewards)):
+#         rewards[i] *= 10.
+
+rl_client = RLClient(
+    port=config.server.client_start_port
+)
+
 ep_i = 0
 while True:
     fpath = os.path.join(args.eps_dir, 'episode_' + str(ep_i)+'.pkl')
@@ -94,7 +99,8 @@ while True:
             episode = pickle.load(f)
             # episode[0] = convert_obs(episode[0])
             # convert_reward(episode[2])
-            # rl_client.store_episode(episode)
+            # convert_reward_breakout(episode[2])
+            rl_client.store_episode(episode)
 
 
             # debug
@@ -113,9 +119,7 @@ while True:
             #         cv2.resize(np.transpose(images[i], axes=(1, 2, 0)), (800, 800))
             #     )
 
-    if ep_i == 100:
+    else:
         break
-    # else:
-    #     break
 
     ep_i += 1

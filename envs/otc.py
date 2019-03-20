@@ -13,6 +13,7 @@ class ObstacleTowerEnvWrapper(GymEnvWrapper):
         retro,
         agent_id,
         start_level_inc=None,
+        grayscale=False,
         **kwargs
     ):
         self._env = ObstacleTowerEnv(
@@ -23,6 +24,7 @@ class ObstacleTowerEnvWrapper(GymEnvWrapper):
 
         self._current_level = 0
         self._start_level_inc = start_level_inc
+        self._grayscale = grayscale
 
         super().__init__(env=self._env, agent_id=agent_id, **kwargs)
 
@@ -54,12 +56,19 @@ class ObstacleTowerEnvWrapper(GymEnvWrapper):
             vec_obs = np.zeros((8,), dtype=np.float32)
             vec_obs[0] = 1
             vec_obs[6] = 1
-        return [
-            # observation,
-            np.transpose(cv2.resize(observation, (84, 84)), (2, 0, 1)),
-            np.transpose(cv2.resize(observation, (32, 32)), (2, 0, 1)),
-            vec_obs
-        ]
+        if self._grayscale:
+            gs_img = cv2.cvtColor(observation, cv2.COLOR_RGB2GRAY)
+            return [
+                np.expand_dims(gs_img, axis=0),
+                np.expand_dims(cv2.resize(gs_img, (32, 32)), axis=0),
+                vec_obs
+            ]
+        else:
+            return [
+                np.transpose(cv2.resize(observation, (84, 84)), (2, 0, 1)),
+                np.transpose(cv2.resize(observation, (32, 32)), (2, 0, 1)),
+                vec_obs
+            ]
 
     def render(self, obs):
         cv2.imshow(
@@ -77,9 +86,9 @@ class ObstacleTowerEnvWrapper(GymEnvWrapper):
             self._current_level += 1
 
         if reward > 0.05:
-            return 5.
+            return 1.
         else:
-            return -0.02
+            return reward
 
     def step(self, action):
         observation, reward, done, info = super().step(action)

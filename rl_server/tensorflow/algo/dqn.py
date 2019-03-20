@@ -64,6 +64,11 @@ class DQN(BaseAlgoDiscrete):
             self._target_critic, self._critic, 1.0)
         return critic_init
 
+    def get_values_of_indices(self, values, indices):
+        indices_range = tf.range(tf.shape(indices)[0])
+        values_indices = tf.stack([indices_range, indices], axis=1)
+        return tf.gather_nd(values, values_indices)
+
     def build_graph(self):
         self.create_placeholders()
 
@@ -71,13 +76,20 @@ class DQN(BaseAlgoDiscrete):
             self._q_values = self._critic(self.states_ph)
 
         with tf.name_scope("critic_update"):
-            next_q_values = self._target_critic(self.next_states_ph)
-            gamma = self._gamma ** self._n_step
-            td_targets = self.rewards_ph + gamma * (1 - self.dones_ph) * tf.reduce_max(next_q_values, axis=1)
+            # double dqn
+            next_q_values_critic_argmax = tf.argmax(self._critic(self.next_states_ph), axis=1, output_type=tf.int32)
+            next_q_values_target = self._target_critic(self.next_states_ph)
+            next_q_values = self.get_values_of_indices(next_q_values_target, next_q_values_critic_argmax)
 
-            indices_range = tf.range(tf.shape(self.actions_ph)[0])
-            action_indices = tf.stack([indices_range, self.actions_ph], axis=1)
-            q_values_selected = tf.gather_nd(self._q_values, action_indices)
+            # next_q_values = next_q_values_target()
+            gamma = self._gamma ** self._n_step
+            # td_targets = self.rewards_ph + gamma * (1 - self.dones_ph) * tf.reduce_max(next_q_values, axis=1)
+            td_targets = self.rewards_ph + gamma * (1 - self.dones_ph) * next_q_values
+
+            # indices_range = tf.range(tf.shape(self.actions_ph)[0])
+            # action_indices = tf.stack([indices_range, self.actions_ph], axis=1)
+            # q_values_selected = tf.gather_nd(self._q_values, action_indices)
+            q_values_selected = self.get_values_of_indices(self._q_values, self.actions_ph)
 
             self._value_loss = tf.losses.huber_loss(q_values_selected, tf.stop_gradient(td_targets))
             self._critic_update = self._get_critic_update(self._value_loss)

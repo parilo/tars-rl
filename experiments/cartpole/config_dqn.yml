@@ -1,25 +1,23 @@
 framework: tensorflow
 
 env:
-  name: Breakout-ram-v0
+  name: CartPole-v1
   is_gym: True
-  obs_shapes: [[128]]  # list of lists
-  obs_dtypes: ['uint8']
+  obs_shapes: [[4]]  # list of lists
+  obs_dtypes: ['float32']
   history_length: [3]
   obs_is_image: False
-  action_size: 4
+  action_size: 2
   action_postprocess:
     type: "argmax of softmax"
-  frame_skip: 2
+  frame_skip: 1
   step_limit: 0
   agent_buffer_size: 5001
-  reward_scale: 1.
+  reward_scale: 0.01
   reinit_random_action_every: 5
   log_every_n_steps: 1000
   max_episode_length: 5000
   discrete_actions: True
-  reward_clip:
-    max: 1.
 
 server:
   seed: 42
@@ -33,7 +31,7 @@ server:
   save_model_period: 50000
   ip_address: "0.0.0.0"
   client_start_port: 12977
-  logdir: "logs/breakout_dqn_ram_3_tf_1_8_0"
+  logdir: "logs/cartpole_dqn"
 #  load_checkpoint: "logs/otc_31/model-1000000.ckpt"
 
 algo_name: "dqn"
@@ -54,26 +52,26 @@ critic:
       name: "output"
       layers:
 
-      - type: "Scale"
-        mult: 0.0039  # 1. / 255
-        bias: 0.
+#      - type: "Scale"
+#        mult: 0.0039  # 1. / 255
+#        bias: 0.
 
       - type: "Flatten"
       - type: "Dense"
         args:
-          units: 512
+          units: 128
           activation: "relu"
       - type: "Dense"
         args:
-          units: 512
+          units: 128
           activation: "relu"
       - type: "Dense"
         args:
-          units: 512
+          units: 128
           activation: "relu"
       - type: "Dense"
         args:
-          units: 4  # number of actions
+          units: 2  # number of actions
           activation: "linear"
           kernel_initializer:
             class: "RandomUniform"
@@ -109,14 +107,48 @@ agents:
         visualize: True
         exploration:
           type: "boltzmann"
-          temp: 0.001
+          temp: 0.01
 
       - agents_count: 2
         exploration:
           type: "boltzmann"
-          temp: 0.001
+          temp: 0.01
 
       - agents_count: 2
         exploration:
           type: "e-greedy"
           random_prob: 0.2
+
+
+#      - agents_count: 1
+#        store_episodes: True
+#
+#      - agents_count: 1
+#        store_episodes: True
+#        exploration:
+#          type: "boltzmann"
+#          temp: 0.01
+#
+#      - agents_count: 1
+#        store_episodes: True
+#        exploration:
+#          type: "boltzmann"
+#          temp: 0.01
+#
+#      - agents_count: 1
+#        store_episodes: True
+#        exploration:
+#          type: "boltzmann"
+#          temp: 0.01
+#
+#      - agents_count: 1
+#        store_episodes: True
+#        exploration:
+#          type: "e-greedy"
+#          random_prob: 0.2
+#
+#      - agents_count: 1
+#        store_episodes: True
+#        exploration:
+#          type: "e-greedy"
+#          random_prob: 0.2

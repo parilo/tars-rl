@@ -1,0 +1,123 @@
+framework: tensorflow
+
+env:
+  name: Breakout-ram-v0
+  is_gym: True
+  obs_shapes: [[128]]  # list of lists
+  obs_dtypes: ['uint8']
+  action_size: 4
+  action_postprocess:
+    type: "argmax of softmax"
+  frame_skip: 1
+  step_limit: 0
+  agent_buffer_size: 5001
+  history_length: 3
+  reward_scale: 1.
+  reinit_random_action_every: 5
+  log_every_n_steps: 1000
+  max_episode_length: 5000
+  obs_is_image: False
+  discrete_actions: True
+
+#  clip_action: "tanh"
+#  remap_action:
+#      low:
+#        before: -1.
+#        after: 0.
+#      high:
+#        before: 1.
+#        after: 5.
+
+server:
+  seed: 42
+  num_clients: 16
+  experience_replay_buffer_size: 1000000
+  use_prioritized_buffer: false
+  train_every_nth: 1.
+  start_learning_after: 5000
+  target_critic_update_period: 1
+#  target_actor_update_period: 1
+  show_stats_period: 100
+  save_model_period: 25000
+  ip_address: "0.0.0.0"
+  client_start_port: 12977
+  logdir: "logs/breakout_ram_dqn"
+  #load_checkpoint: ""
+
+algo_name: "dqn"
+
+algorithm:
+  n_step: 1
+  gamma: 0.99
+#  actor_grad_val_clip: 1.0
+#  target_actor_update_rate: 0.0025
+  target_critic_update_rate: 0.005
+
+critic:
+  nn_engine: "keras"
+  nn_arch:
+
+    - type: "Scale"
+      mult: 0.0078  # 1. / 255
+      bias: -1.
+
+    - type: "Flatten"
+    - type: "Dense"
+      args:
+        units: 128
+        activation: "relu"
+    - type: "Dense"
+      args:
+        units: 128
+        activation: "relu"
+    - type: "Dense"
+      args:
+        units: 128
+        activation: "relu"
+    - type: "Dense"
+      args:
+        units: 4  # number of actions
+        activation: "linear"
+        kernel_initializer:
+          class: "RandomUniform"
+          module: "tensorflow.python.keras.initializers"
+          args:
+            minval: -0.003
+            maxval: 0.003
+        bias_initializer:
+          class: "RandomUniform"
+          module: "tensorflow.python.keras.initializers"
+          args:
+            minval: -0.003
+            maxval: 0.003
+
+critic_optim:
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.001
+
+training:
+  schedule:
+    - limit: 0  # of train ops
+      batch_size: 2560
+
+agents:
+  - algorithm_id: 0
+    agents:
+      - agents_count: 1
+        visualize: True
+
+      - agents_count: 1
+        visualize: False
+
+      - agents_count: 1
+        visualize: True
+        exploration:
+          type: "boltzmann"
+          temp: 0.001
+
+      - agents_count: 4
+        visualize: False
+        exploration:
+          type: "boltzmann"
+          temp: 0.001

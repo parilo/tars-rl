@@ -1,0 +1,196 @@
+framework: tensorflow
+
+env:
+  name: CartPole-v1
+  is_gym: True
+  obs_shapes: [[4]]  # list of lists
+  obs_dtypes: ['float32']
+  history_length: [3]
+  obs_is_image: False
+  action_size: 2
+  action_postprocess:
+    type: "argmax of softmax"
+  frame_skip: 1
+  step_limit: 0
+  agent_buffer_size: 5001
+  reward_scale: 0.01
+  reinit_random_action_every: 5
+  log_every_n_steps: 1000
+  max_episode_length: 5000
+  discrete_actions: True
+#  reward_clip:
+#    max: 1.
+
+server:
+  seed: 42
+  num_clients: 16
+  experience_replay_buffer_size: 4000000
+  use_prioritized_buffer: false
+  train_every_nth: 1.
+  start_learning_after: 5000
+  target_critic_update_period: 1
+  show_stats_period: 100
+  save_model_period: 50000
+  ip_address: "0.0.0.0"
+  client_start_port: 12977
+  logdir: "logs/cartpole_sac_0.1_eps"
+#  load_checkpoint: "logs/otc_31/model-1000000.ckpt"
+
+algo_name: "dqn_sac"
+
+algorithm:
+  n_step: 1
+  gamma: 0.99
+#  critic_grad_val_clip: 1.
+  target_critic_update_rate: 0.001
+#  target_critic_update_rate: 1.
+
+nn_engine: "keras"
+
+base_network:
+  nn_arch:
+
+    - input: 0
+      name: "base_output"
+      layers:
+
+#      - type: "Scale"
+#        mult: 0.0039  # 1. / 255
+#        bias: 0.
+
+      - type: "Flatten"
+      - type: "Dense"
+        args:
+          units: 128
+          activation: "relu"
+      - type: "Dense"
+        args:
+          units: 128
+          activation: "relu"
+      - type: "Dense"
+        args:
+          units: 128
+          activation: "relu"
+
+critic_v:
+  base_network: "base_network"
+  nn_arch:
+
+    - input: "base_output"
+      name: "output"
+      layers:
+
+      - type: "Dense"
+        args:
+          units: 1  # number of actions
+          activation: "linear"
+          kernel_initializer:
+            class: "RandomUniform"
+            module: "tensorflow.python.keras.initializers"
+            args:
+              minval: -0.003
+              maxval: 0.003
+          bias_initializer:
+            class: "RandomUniform"
+            module: "tensorflow.python.keras.initializers"
+            args:
+              minval: -0.003
+              maxval: 0.003
+
+critic_q:
+  base_network: "base_network"
+  nn_arch:
+
+    - input: "base_output"
+      name: "output"
+      layers:
+
+      - type: "Dense"
+        args:
+          units: 2  # number of actions
+          activation: "linear"
+          kernel_initializer:
+            class: "RandomUniform"
+            module: "tensorflow.python.keras.initializers"
+            args:
+              minval: -0.003
+              maxval: 0.003
+          bias_initializer:
+            class: "RandomUniform"
+            module: "tensorflow.python.keras.initializers"
+            args:
+              minval: -0.003
+              maxval: 0.003
+
+policy:
+  base_network: "base_network"
+  nn_arch:
+
+    - input: "base_output"
+      name: "output"
+      layers:
+
+      - type: "Dense"
+        args:
+          units: 2  # number of actions
+          activation: "linear"
+          kernel_initializer:
+            class: "RandomUniform"
+            module: "tensorflow.python.keras.initializers"
+            args:
+              minval: -0.003
+              maxval: 0.003
+          bias_initializer:
+            class: "RandomUniform"
+            module: "tensorflow.python.keras.initializers"
+            args:
+              minval: -0.003
+              maxval: 0.003
+
+critic_optim:
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.0001
+
+training:
+  schedule:
+    - limit: 0  # of train ops
+      batch_size: 2560
+
+agents:
+  - algorithm_id: 0
+    agents:
+
+      - agents_count: 1
+        visualize: True
+
+      - agents_count: 1
+        visualize: True
+        exploration:
+          type: "boltzmann"
+          temp: 0.00001
+
+      - agents_count: 1
+        exploration:
+          type: "boltzmann"
+          temp: 0.0001
+
+      - agents_count: 1
+        exploration:
+          type: "boltzmann"
+          temp: 0.001
+
+      - agents_count: 1
+        exploration:
+          type: "boltzmann"
+          temp: 0.01
+
+      - agents_count: 1
+        exploration:
+          type: "boltzmann"
+          temp: 0.1
+
+      - agents_count: 1
+        exploration:
+          type: "boltzmann"
+          temp: 1.

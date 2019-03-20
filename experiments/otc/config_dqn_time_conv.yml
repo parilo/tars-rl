@@ -30,7 +30,7 @@ env:
     33,  # f + j + cam right
     36  # backward
   ]
-  frame_skip: 1
+  frame_skip: 2
   step_limit: 0
   agent_buffer_size: 10001
   reward_scale: 1.
@@ -50,17 +50,17 @@ server:
   experience_replay_buffer_size: 1200000
   use_prioritized_buffer: false
   train_every_nth: 1.
-  start_learning_after: 100000
+  start_learning_after: 10000
   target_critic_update_period: 1
 #  target_critic_update_period: 2500
   show_stats_period: 10
   save_model_period: 50000
   ip_address: "0.0.0.0"
   client_start_port: 12977
-  logdir: "logs/otc_32"
-  load_checkpoint: "logs/otc_31/model-1000000.ckpt"
+  logdir: "logs/otc_33"
+#  load_checkpoint: "logs/otc_31/model-1000000.ckpt"
 
-algo_name: "dqn_sac"
+algo_name: "dqn"
 
 algorithm:
   n_step: 1
@@ -69,9 +69,8 @@ algorithm:
   target_critic_update_rate: 0.001
 #  target_critic_update_rate: 1.
 
-nn_engine: "keras"
-
-base_network:
+critic:
+  nn_engine: "keras"
   nn_arch:
     - input: 0
       name: "short-memory-1"
@@ -230,12 +229,12 @@ base_network:
 
         - type: "Dense"
           args:
-            units: 64
+            units: 256
             activation: "relu"
 
         - type: "Reshape"
           args:
-            target_shape: [1024]
+            target_shape: [4096]
 
         - type: "Dense"
           args:
@@ -255,7 +254,7 @@ base_network:
             target_shape: [256]
 
     - input: ["short-memory", "long-memory", "vec-obs"]
-      name: "base_output"
+      name: "output"
       layers:
 
         - type: "Concatenate"
@@ -271,64 +270,6 @@ base_network:
           args:
             units: 512
             activation: "relu"
-
-critic_v:
-  base_network: "base_network"
-  nn_arch:
-
-    - input: "base_output"
-      name: "output"
-      layers:
-
-        - type: "Dense"
-          args:
-            units: 1  # number of actions
-            activation: "linear"
-            kernel_initializer:
-              class: "RandomUniform"
-              module: "tensorflow.python.keras.initializers"
-              args:
-                minval: -0.003
-                maxval: 0.003
-            bias_initializer:
-              class: "RandomUniform"
-              module: "tensorflow.python.keras.initializers"
-              args:
-                minval: -0.003
-                maxval: 0.003
-
-critic_q:
-  base_network: "base_network"
-  nn_arch:
-
-    - input: "base_output"
-      name: "output"
-      layers:
-
-        - type: "Dense"
-          args:
-            units: 11  # number of actions
-            activation: "linear"
-            kernel_initializer:
-              class: "RandomUniform"
-              module: "tensorflow.python.keras.initializers"
-              args:
-                minval: -0.003
-                maxval: 0.003
-            bias_initializer:
-              class: "RandomUniform"
-              module: "tensorflow.python.keras.initializers"
-              args:
-                minval: -0.003
-                maxval: 0.003
-
-policy:
-  base_network: "base_network"
-  nn_arch:
-
-    - input: "base_output"
-      name: "output"
-      layers:
 
         - type: "Dense"
           args:
@@ -355,7 +296,7 @@ critic_optim:
 training:
   schedule:
     - limit: 0  # of train ops
-      batch_size: 32
+      batch_size: 256
 
 agents:
   - algorithm_id: 0
@@ -366,12 +307,12 @@ agents:
       - agents_count: 1
         exploration:
           type: "boltzmann"
-          temp: 0.2
+          temp: 0.1
 
       - agents_count: 1
         exploration:
           type: "boltzmann"
-          temp: 0.2
+          temp: 0.1
         env_params:
           start_level_inc: -1
 

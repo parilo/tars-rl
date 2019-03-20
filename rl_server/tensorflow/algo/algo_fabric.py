@@ -18,14 +18,20 @@ from rl_server.tensorflow.networks.actor_networks import (
 from rl_server.tensorflow.networks.critic_networks import CriticNetwork as CriticNetworkFF
 
 
+def combine_with_base_network(base_network_params, network_params):
+    result_network_params = copy.deepcopy(network_params)
+    result_network_params['nn_arch'] = base_network_params['nn_arch'] + network_params['nn_arch']
+    return result_network_params
+
+
 def create_algorithm(
     algo_config,
     placeholders=None,
     scope_postfix=0
 ):
     # networks
-    if algo_config.critic.isset('nn_engine'):
-        if algo_config.critic.nn_engine == 'keras':
+    if algo_config.isset('nn_engine'):
+        if algo_config.nn_engine == 'keras':
 
             if algo_config.isset('actor'):
                 from rl_server.tensorflow.networks.actor_networks_keras import ActorNetwork as ActorNetworkKeras
@@ -35,8 +41,10 @@ def create_algorithm(
 
             from rl_server.tensorflow.networks.critic_networks_keras import CriticNetwork as CriticNetworkKeras
             CriticNetwork = CriticNetworkKeras
-            critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
-            del critic_params['nn_engine']
+
+            if algo_config.isset('critic'):
+                critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
+
         else:
             raise NotImplementedError()
     else:
@@ -105,10 +113,49 @@ def create_algorithm(
 
     elif name == 'dqn_sac':
 
-        critic = CriticNetwork(
+        # base_network = copy.deepcopy(algo_config.as_obj()["base_network"])
+        critic_q_params = copy.deepcopy(algo_config.as_obj()["critic_q"])
+        critic_v_params = copy.deepcopy(algo_config.as_obj()["critic_v"])
+        policy_params = copy.deepcopy(algo_config.as_obj()["policy"])
+
+        critic_q_params = combine_with_base_network(
+            copy.deepcopy(algo_config.as_obj()[critic_q_params['base_network']]),
+            critic_q_params
+        )
+        del critic_q_params['base_network']
+
+        critic_v_params = combine_with_base_network(
+            copy.deepcopy(algo_config.as_obj()[critic_v_params['base_network']]),
+            critic_v_params
+        )
+        del critic_v_params['base_network']
+
+        policy_params = combine_with_base_network(
+            copy.deepcopy(algo_config.as_obj()[policy_params['base_network']]),
+            policy_params
+        )
+        del policy_params['base_network']
+
+        critic_q = CriticNetwork(
             state_shapes=state_shapes,
             action_size=action_size,
-            **critic_params,
+            **critic_q_params,
+            scope=critic_scope,
+            action_insert_block=-1
+        )
+
+        critic_v = CriticNetwork(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            **critic_v_params,
+            scope=critic_scope,
+            action_insert_block=-1
+        )
+
+        policy = CriticNetwork(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            **policy_params,
             scope=critic_scope,
             action_insert_block=-1
         )
@@ -117,7 +164,9 @@ def create_algorithm(
         agent_algorithm = DQN_SAC(
             state_shapes=state_shapes,
             action_size=action_size,
-            critic=critic,
+            critic_q=critic_q,
+            critic_v=critic_v,
+            policy=policy,
             critic_optimizer=tf.train.AdamOptimizer(
                 learning_rate=critic_lr),
             **algo_config.as_obj()["algorithm"],

@@ -15,7 +15,7 @@ env:
   frame_skip: 1
   step_limit: 0
   agent_buffer_size: 5001
-  history_length: 4
+  history_length: [4]
   reward_scale: 1.
   reinit_random_action_every: 5
   log_every_n_steps: 1000
@@ -23,16 +23,6 @@ env:
   discrete_actions: True
   reward_clip:
     max: 1.
-  stop_if_same_state_repeat: 30
-
-#  clip_action: "tanh"
-#  remap_action:
-#      low:
-#        before: -1.
-#        after: 0.
-#      high:
-#        before: 1.
-#        after: 5.
 
 server:
   seed: 42
@@ -47,8 +37,8 @@ server:
   save_model_period: 5000
   ip_address: "0.0.0.0"
   client_start_port: 11977
-  logdir: "logs/breakout_dqn_cnn_29"
-#  load_checkpoint: "logs/breakout_dqn_cnn_25/model-445000.ckpt"
+  logdir: "logs/breakout_dqn_cnn_25_eps"
+  #load_checkpoint: ""
 
 algo_name: "dqn"
 
@@ -59,191 +49,147 @@ algorithm:
   target_critic_update_rate: 0.0004
 #  target_critic_update_rate: 1.
 
+nn_engine: "keras"
+
 critic:
-  nn_engine: "keras"
   nn_arch:
 
-    - type: "Conv2D"
-      args:
-        filters: 32
-        kernel_size: [4, 4]
-        strides: [2, 2]
-        padding: "same"
-        data_format: "channels_first"
-    - type: "Activation"
-      args:
-        activation: "relu"
+    - input: 0
+      name: "output"
+      layers:
 
-    - type: "Conv2D"
-      args:
-        filters: 64
-        kernel_size: [4, 4]
-        strides: [2, 2]
-        padding: "same"
-        data_format: "channels_first"
-    - type: "Activation"
-      args:
-        activation: "relu"
+      - type: "Conv2D"
+        args:
+          filters: 32
+          kernel_size: [4, 4]
+          strides: [2, 2]
+          padding: "same"
+          data_format: "channels_first"
+      - type: "Activation"
+        args:
+          activation: "relu"
 
-    - type: "Conv2D"
-      args:
-        filters: 64
-        kernel_size: [4, 4]
-        strides: [2, 2]
-        padding: "same"
-        data_format: "channels_first"
-    - type: "Activation"
-      args:
-        activation: "relu"
+      - type: "Conv2D"
+        args:
+          filters: 64
+          kernel_size: [4, 4]
+          strides: [2, 2]
+          padding: "same"
+          data_format: "channels_first"
+      - type: "Activation"
+        args:
+          activation: "relu"
 
-    - type: "Conv2D"
-      args:
-        filters: 128
-        kernel_size: [4, 4]
-        strides: [2, 2]
-        padding: "same"
-        data_format: "channels_first"
-    - type: "Activation"
-      args:
-        activation: "relu"
+      - type: "Conv2D"
+        args:
+          filters: 64
+          kernel_size: [4, 4]
+          strides: [2, 2]
+          padding: "same"
+          data_format: "channels_first"
+      - type: "Activation"
+        args:
+          activation: "relu"
 
-    - type: "Conv2D"
-      args:
-        filters: 256
-        kernel_size: [4, 4]
-        strides: [2, 2]
-        padding: "same"
-        data_format: "channels_first"
-    - type: "Activation"
-      args:
-        activation: "relu"
+      - type: "Conv2D"
+        args:
+          filters: 128
+          kernel_size: [4, 4]
+          strides: [2, 2]
+          padding: "same"
+          data_format: "channels_first"
+      - type: "Activation"
+        args:
+          activation: "relu"
 
-#    - type: "Conv2D"
-#      args:
-#        filters: 32
-#        kernel_size: [8, 8]
-#        strides: [4, 4]
-#        padding: "same"
-#        data_format: "channels_first"
-#    - type: "Activation"
-#      args:
-#        activation: "relu"
-#
-#    - type: "Conv2D"
-#      args:
-#        filters: 64
-#        kernel_size: [4, 4]
-#        strides: [2, 2]
-#        padding: "same"
-#        data_format: "channels_first"
-#    - type: "Activation"
-#      args:
-#        activation: "relu"
-#
-#    - type: "Conv2D"
-#      args:
-#        filters: 64
-#        kernel_size: [3, 3]
-#        strides: [1, 1]
-#        padding: "same"
-#        data_format: "channels_first"
-#    - type: "Activation"
-#      args:
-#        activation: "relu"
+      - type: "Conv2D"
+        args:
+          filters: 256
+          kernel_size: [4, 4]
+          strides: [2, 2]
+          padding: "same"
+          data_format: "channels_first"
+      - type: "Activation"
+        args:
+          activation: "relu"
 
-    - type: "Flatten"
-    - type: "Dense"
-      args:
-        units: 1024
-        activation: "relu"
-    - type: "Dense"
-      args:
-        units: 512
-        activation: "relu"
-    - type: "Dense"
-      args:
-        units: 4  # number of actions
-        activation: "linear"
-        kernel_initializer:
-          class: "RandomUniform"
-          module: "tensorflow.python.keras.initializers"
-          args:
-            minval: -0.003
-            maxval: 0.003
-        bias_initializer:
-          class: "RandomUniform"
-          module: "tensorflow.python.keras.initializers"
-          args:
-            minval: -0.003
-            maxval: 0.003
+      - type: "Flatten"
+      - type: "Dense"
+        args:
+          units: 1024
+          activation: "relu"
+      - type: "Dense"
+        args:
+          units: 512
+          activation: "relu"
+      - type: "Dense"
+        args:
+          units: 4  # number of actions
+          activation: "linear"
+          kernel_initializer:
+            class: "RandomUniform"
+            module: "tensorflow.python.keras.initializers"
+            args:
+              minval: -0.003
+              maxval: 0.003
+          bias_initializer:
+            class: "RandomUniform"
+            module: "tensorflow.python.keras.initializers"
+            args:
+              minval: -0.003
+              maxval: 0.003
 
 critic_optim:
   schedule:
     - limit: 0  # of train ops
       lr: 0.0001
-#    - limit: 0  # of train ops
-#      lr: 0.00025
-#    - limit: 30000  # of train ops
-#      lr: 0.0001
-#    - limit: 60000  # of train ops
-#      lr: 0.00005
 
 training:
   schedule:
     - limit: 0  # of train ops
       batch_size: 256
-#    - limit: 90000  # of train ops
-#      batch_size: 512
 
 agents:
   - algorithm_id: 0
     agents:
-      - agents_count: 1
-        visualize: True
-
 #      - agents_count: 1
-#        visualize: False
-
-      - agents_count: 1
-        visualize: True
-        exploration:
-          type: "boltzmann"
-          temp: 0.01
-
-      - agents_count: 2
-        visualize: False
-        exploration:
-          type: "boltzmann"
-          temp: 0.01
-
+#        visualize: True
+#
 #      - agents_count: 1
 #        visualize: True
 #        exploration:
-#          type: "e-greedy"
-#          random_prob: 0.01
+#          type: "boltzmann"
+#          temp: 0.01
 #
 #      - agents_count: 2
-#        visualize: False
-#        exploration:
-#          type: "e-greedy"
-#          random_prob: 0.01
-
-
-
-#      - agents_count: 1
 #        visualize: False
 #        exploration:
 #          type: "boltzmann"
 #          temp: 0.01
 
-#      - agents_count: 1
-#        visualize: False
-#        exploration:
-#          type: "boltzmann"
-#          temp: 0.1
-#
-#      - agents_count: 1
-#        visualize: False
-#        exploration:
-#          type: "boltzmann"
-#          temp: 0.2
+      - agents_count: 1
+        store_episodes: True
+
+      - agents_count: 1
+        store_episodes: True
+        exploration:
+          type: "boltzmann"
+          temp: 0.01
+
+      - agents_count: 1
+        store_episodes: True
+        exploration:
+          type: "boltzmann"
+          temp: 0.01
+
+      - agents_count: 1
+        store_episodes: True
+        exploration:
+          type: "boltzmann"
+          temp: 0.01
+
+      - agents_count: 1
+        store_episodes: True
+
+      - agents_count: 1
+        store_episodes: True
