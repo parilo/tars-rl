@@ -86,7 +86,7 @@ class ObstacleTowerEnvWrapper(GymEnvWrapper):
             self._current_level += 1
 
         if reward > 0.05:
-            return 1.
+            return 2.
         else:
             return reward
 

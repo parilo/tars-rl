@@ -67,3 +67,6 @@ class AgentModel:
 
     def reset_states(self):
         self._agent_algorithm.reset_states()
+
+    def save_actor(self, path):
+        self._agent_algorithm.save_actor(self._sess, path)

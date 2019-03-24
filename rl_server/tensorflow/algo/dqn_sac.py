@@ -89,7 +89,8 @@ class DQN_SAC(BaseAlgoDiscrete):
 
             self._policy_logits = self._policy(self.states_ph)
             print('policy_logits', self._policy_logits)
-            stohastic_action = tf.multinomial(tf.nn.softmax(self._policy_logits), 1, output_dtype=tf.int32)[:, 0]
+            # stohastic_action = tf.multinomial(tf.nn.softmax(self._policy_logits), 1, output_dtype=tf.int32)[:, 0]
+            stohastic_action = self.actions_ph
             print('stohastic_action', stohastic_action)
             stohastic_action_logit = self.get_values_of_indices(
                 # tf.log(tf.nn.softmax(self._policy_logits)),
@@ -98,7 +99,7 @@ class DQN_SAC(BaseAlgoDiscrete):
             )
             print('stohastic_action_logit', stohastic_action_logit)
 
-            h_reward = - 0.01 * stohastic_action_logit  # entropy reward
+            h_reward = - 0.0001 * stohastic_action_logit  # entropy reward
             self._mean_h_reward = tf.reduce_mean(h_reward)
             target_v = self.get_values_of_indices(
                 self._critic_q(self.states_ph),
@@ -203,3 +204,22 @@ class DQN_SAC(BaseAlgoDiscrete):
         self._critic_v.reset_states()
         self._critic_q.reset_states()
         self._policy.reset_states()
+
+    def save_actor(self, sess, path):
+        print('-- save actor')
+        # vars = self._policy.variables()
+        # for v in vars:
+        #     print(v)
+        # saver = tf.train.Saver(max_to_keep=None, var_list=vars)
+        # saver.save(sess, path)
+        tf.saved_model.simple_save(
+            sess,
+            path,
+            inputs=dict(zip(
+                ['input_' + str(i) for i in range(len(self.states_ph))],
+                self.states_ph
+            )),
+            outputs={
+                'actor_output': self._policy_logits
+            }
+        )

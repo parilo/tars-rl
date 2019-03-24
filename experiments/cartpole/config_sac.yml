@@ -33,7 +33,7 @@ server:
   save_model_period: 50000
   ip_address: "0.0.0.0"
   client_start_port: 12977
-  logdir: "logs/cartpole_sac_0.1_eps"
+  logdir: "logs/cartpole_sac_0.0001"
 #  load_checkpoint: "logs/otc_31/model-1000000.ckpt"
 
 algo_name: "dqn_sac"

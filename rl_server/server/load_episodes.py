@@ -78,8 +78,10 @@ from rl_server.server.rl_client import RLClient
 def convert_reward(rewards):
     # print(np.sum(rewards))
     for i in range(len(rewards)):
-        rewards[i] = 3. if rewards[i] > 0.05 else 0.01
-    # print(np.sum(rewards))
+    #    rewards[i] = 3. if rewards[i] > 0.05 else 0.01
+        rewards[i] = 0. if rewards[i] < 0.5 else 1.
+    #print(np.sum(rewards))
+
 
 
 # def convert_reward_breakout(rewards):
@@ -98,7 +100,7 @@ while True:
         with open(fpath, 'rb') as f:
             episode = pickle.load(f)
             # episode[0] = convert_obs(episode[0])
-            # convert_reward(episode[2])
+            convert_reward(episode[2])
             # convert_reward_breakout(episode[2])
             rl_client.store_episode(episode)
 

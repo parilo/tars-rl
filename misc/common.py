@@ -113,6 +113,27 @@ def parse_load_episodes_args():
     return parser.parse_args()
 
 
+def parse_save_actor_args():
+    parser = argparse.ArgumentParser(
+        description="Play")
+    parser.add_argument(
+        "--config",
+        type=str, required=True)
+    parser.add_argument(
+        "--checkpoint",
+        type=str, required=True)
+    parser.add_argument(
+        "--save_path",
+        type=str, required=True)
+    parser.add_argument(
+        "--algorithm_id",
+        type=int, required=False, default=0)
+    parser.add_argument(
+        "--agent_id",
+        type=int, required=False, default=0)
+    return parser.parse_args()
+
+
 class PropertyTree:
     def isset(self, name):
         return hasattr(self, name)
