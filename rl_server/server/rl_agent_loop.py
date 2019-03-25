@@ -61,6 +61,12 @@ class RLAgent:
             low_to = exp_config.env.remap_action.low.after
             high_from = exp_config.env.remap_action.high.before
             high_to = exp_config.env.remap_action.high.after
+
+            low_from = np.array(low_from) if isinstance(low_from, list) else low_from
+            low_to = np.array(low_to) if isinstance(low_to, list) else low_to
+            high_from = np.array(high_from) if isinstance(high_from, list) else high_from
+            high_to = np.array(high_to) if isinstance(high_to, list) else high_to
+
             def remap_func (action):
                 return (action - low_from) / (high_from - low_from) * (high_to - low_to) + low_to
             self._action_remap_function = remap_func
@@ -311,32 +317,10 @@ class RLAgent:
                 else:
                     env_action = action
 
-            env_action_scores = env_action
             env_action = self._action_postprocess(env_action)
 
-            # --- scores
-            # print(env_action_scores, action_target, np.max(env_action_scores), np.max(action_target))
-            # avg_v = avg_v * (1. - avg_v_discout) + avg_v_discout * np.max(env_action_scores)
-            # avg_v_2 = avg_v_2 * (1. - avg_v_discout) + avg_v_discout * np.max(action_target)
-            # print(
-            #     avg_v,
-            #     avg_v_2,
-            #     int(np.max(env_action_scores) > avg_v),
-            #     int(np.max(action_target) > avg_v_2)
-            # )
-
-            # v = np.max(env_action_scores)
-            # v2 = np.max(action_target)
-
-            # print(v - prev_v, v2 - prev_v2)
-            # dv = v - prev_v
-            # dv2 = v2 - prev_v2
-            # prev_v = v
-            # prev_v2 = v2
-
             if self._id == 1 and n_steps == 20:
-                # print(self._id, env_action, env_action_scores, self._action_scores)
-                print(self._id, env_action, env_action_scores)
+                print(self._id, env_action)
 
             if self._action_remap_discrete_func is not None:
                 env_action_remapped = self._action_remap_discrete_func(env_action)

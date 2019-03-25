@@ -20,7 +20,7 @@ class SAC(BaseAlgo):
         critic_v_optimizer,
         action_squash_func=None,
         n_step=1,
-        actor_grad_val_clip=1.0,
+        actor_grad_val_clip=None,
         actor_grad_norm_clip=None,
         critic_grad_val_clip=None,
         critic_grad_norm_clip=None,
@@ -111,14 +111,20 @@ class SAC(BaseAlgo):
             self._target_critic_v, self._critic_v, 1.0)
         return critic_init
 
+    def _get_mu_and_log_sig(self, actor):
+        actor_output = actor(self.states_ph)
+        mu = actor_output[:, :self.action_size]
+        log_sig = actor_output[:, self.action_size:]
+        return mu, log_sig
+
     def _get_actions(self):
-        mu, log_sig = self._actor(self.states_ph)
+        mu, log_sig = self._get_mu_and_log_sig(self._actor)
         log_sig = tf.clip_by_value(log_sig, -5., 2.)
         _, actions = self._gauss_log_pi(mu, log_sig)
         return actions
 
     def _get_deterministic_actions(self):
-        mu, log_sig = self._actor(self.states_ph)
+        mu, log_sig = self._get_mu_and_log_sig(self._actor)
         actions = self._squash_actions(mu)
         return actions
 
@@ -158,7 +164,7 @@ class SAC(BaseAlgo):
             self._gradients = self._get_gradients_wrt_actions()
 
         with tf.name_scope("actor_and_v_update"):
-            mu, log_sig = self._actor(self.states_ph)
+            mu, log_sig = self._get_mu_and_log_sig(self._actor)
             log_sig = tf.clip_by_value(log_sig, -5., 2.)
             log_pi, actions = self._gauss_log_pi(mu, log_sig)
             v_values = self._critic_v(self.states_ph)
@@ -266,3 +272,9 @@ class SAC(BaseAlgo):
         self._critic_v_weights_tool.set_weights(sess, weights['critic_v'])
         self._critic_q1_weights_tool.set_weights(sess, weights['critic_q1'])
         self._critic_q2_weights_tool.set_weights(sess, weights['critic_q2'])
+
+    def reset_states(self):
+        self._critic_v.reset_states()
+        self._critic_q1.reset_states()
+        self._critic_q2.reset_states()
+        self._actor.reset_states()

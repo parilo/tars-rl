@@ -9,13 +9,14 @@ from rl_server.tensorflow.algo.td3 import TD3
 from rl_server.tensorflow.algo.quantile_td3 import QuantileTD3
 from rl_server.tensorflow.algo.sac import SAC
 from rl_server.tensorflow.algo.prioritized_ddpg import PrioritizedDDPG
-from rl_server.tensorflow.networks.actor_networks_lstm import ActorNetwork as ActorNetworkLSTM
-from rl_server.tensorflow.networks.critic_networks_lstm import CriticNetwork as CriticNetworkLSTM
-from rl_server.tensorflow.networks.actor_networks import (
-    ActorNetwork as ActorNetworkFF,
-    GaussActorNetwork as GaussActorNetworkFF
-)
-from rl_server.tensorflow.networks.critic_networks import CriticNetwork as CriticNetworkFF
+# from rl_server.tensorflow.networks.actor_networks_lstm import ActorNetwork as ActorNetworkLSTM
+# from rl_server.tensorflow.networks.critic_networks_lstm import CriticNetwork as CriticNetworkLSTM
+# from rl_server.tensorflow.networks.actor_networks import (
+#     ActorNetwork as ActorNetworkFF,
+#     GaussActorNetwork as GaussActorNetworkFF
+# )
+# from rl_server.tensorflow.networks.critic_networks import CriticNetwork as CriticNetworkFF
+from rl_server.tensorflow.networks.network_keras import NetworkKeras
 
 
 def combine_with_base_network(base_network_params, network_params):
@@ -24,48 +25,58 @@ def combine_with_base_network(base_network_params, network_params):
     return result_network_params
 
 
+def get_network_params(algo_config, network_name):
+    network_params = copy.deepcopy(algo_config.as_obj()[network_name])
+    network_params = combine_with_base_network(
+        copy.deepcopy(algo_config.as_obj()[network_params['base_network']]),
+        network_params
+    )
+    del network_params['base_network']
+    return network_params
+
+
 def create_algorithm(
     algo_config,
     placeholders=None,
     scope_postfix=0
 ):
     # networks
-    if algo_config.isset('nn_engine'):
-        if algo_config.nn_engine == 'keras':
+    # if algo_config.isset('nn_engine'):
+    # if algo_config.nn_engine == 'keras':
 
-            if algo_config.isset('actor'):
-                from rl_server.tensorflow.networks.actor_networks_keras import ActorNetwork as ActorNetworkKeras
-                ActorNetwork = ActorNetworkKeras
-                actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
-                del actor_params['nn_engine']
+        # if algo_config.isset('actor'):
+        #     from rl_server.tensorflow.networks.actor_networks_keras import ActorNetwork as ActorNetworkKeras
+        #     ActorNetwork = ActorNetworkKeras
+        #     actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
+        #     del actor_params['nn_engine']
 
-            from rl_server.tensorflow.networks.critic_networks_keras import CriticNetwork as CriticNetworkKeras
-            CriticNetwork = CriticNetworkKeras
+        # from rl_server.tensorflow.networks.critic_networks_keras import CriticNetwork as CriticNetworkKeras
+        # CriticNetwork = CriticNetworkKeras
 
-            if algo_config.isset('critic'):
-                critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
+        # if algo_config.isset('critic'):
+        #     critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
 
-        else:
-            raise NotImplementedError()
-    else:
-        if algo_config.isset('actor'):
-            if algo_config.actor.lstm_network:
-                ActorNetwork = ActorNetworkLSTM
-                GaussActorNetwork = None
-            else:
-                ActorNetwork = ActorNetworkFF
-                GaussActorNetwork = GaussActorNetworkFF
-
-            actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
-            del actor_params['lstm_network']
-
-        if algo_config.critic.lstm_network:
-            CriticNetwork = CriticNetworkLSTM
-        else:
-            CriticNetwork = CriticNetworkFF
-
-        critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
-        del critic_params['lstm_network']
+    # else:
+    #     raise NotImplementedError()
+    # else:
+    #     if algo_config.isset('actor'):
+    #         if algo_config.actor.lstm_network:
+    #             ActorNetwork = ActorNetworkLSTM
+    #             GaussActorNetwork = None
+    #         else:
+    #             ActorNetwork = ActorNetworkFF
+    #             GaussActorNetwork = GaussActorNetworkFF
+    #
+    #         actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
+    #         del actor_params['lstm_network']
+    #
+    #     if algo_config.critic.lstm_network:
+    #         CriticNetwork = CriticNetworkLSTM
+    #     else:
+    #         CriticNetwork = CriticNetworkFF
+    #
+    #     critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
+    #     del critic_params['lstm_network']
 
     # algorithm
     name = algo_config.algo_name
@@ -266,36 +277,41 @@ def create_algorithm(
     elif name == "sac":
 
         assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(name)
-        assert not algo_config.actor.lstm_network, '{} actor network don\'t support LSTM'.format(name)
 
-        actor = GaussActorNetwork(
-            state_shape=state_shapes[0],
+        policy_params = get_network_params(algo_config, 'policy')
+        policy = NetworkKeras(
+            state_shapes=state_shapes,
             action_size=action_size,
-            **actor_params,
-            scope=actor_scope)
+            **policy_params,
+            scope="policy_" + scope_postfix
+        )
 
-        critic_v_params = copy.deepcopy(critic_params)
-        critic_v_params['action_insert_block'] = -1
-        critic_v = CriticNetwork(
-            state_shape=state_shapes[0],
+        critic_v_params = get_network_params(algo_config, 'critic_v')
+        critic_v = NetworkKeras(
+            state_shapes=state_shapes,
             action_size=action_size,
             **critic_v_params,
-            scope="critic_v_" + scope_postfix)
-        critic_q1 = CriticNetwork(
-            state_shape=state_shapes[0],
+            scope="critic_v_" + scope_postfix
+        )
+
+        critic_q_params = get_network_params(algo_config, 'critic_q')
+        critic_q1 = NetworkKeras(
+            state_shapes=state_shapes,
             action_size=action_size,
-            **critic_params,
-            scope="critic_q1_" + scope_postfix)
-        critic_q2 = CriticNetwork(
-            state_shape=state_shapes[0],
+            **critic_q_params,
+            scope="critic_q1_" + scope_postfix
+        )
+        critic_q2 = NetworkKeras(
+            state_shapes=state_shapes,
             action_size=action_size,
-            **critic_params,
-            scope="critic_q2_" + scope_postfix)
+            **critic_q_params,
+            scope="critic_q2_" + scope_postfix
+        )
 
         agent_algorithm = SAC(
             state_shapes=state_shapes,
             action_size=action_size,
-            actor=actor,
+            actor=policy,
             critic_v=critic_v,
             critic_q1=critic_q1,
             critic_q2=critic_q2,

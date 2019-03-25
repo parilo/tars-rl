@@ -1,69 +1,55 @@
 framework: tensorflow
 
 env:
-  env_module: envs.otc
-  env_class: ObstacleTowerEnvWrapper
-  additional_env_parameters:
-    environment_filename: "/home/anton/devel/otc/ObstacleTower/obstacletower.x86_64"
-    retro: True
-#    id_parameter: "worker_id"
+  env_module: envs.carracing
+  env_class: CarRacingWrapper
   is_gym: False
-  obs_shapes: [[3, 84, 84], [3, 32, 32], [8]]  # list of lists
-  obs_dtypes: ["uint8", "uint8", "float32"]
-  history_length: [1, 16, 16]
-  obs_is_image: False
-#  obs_image_resize_to: [84, 84]
-#  obs_image_to_grayscale: True  # used V from HSV
-  action_size: 11
-  action_postprocess:
-    type: "argmax of softmax"
-  action_remap_discrete: [
-    0,  # no
-    3,  # j
-    6,  # cam left
-    12,  # cam right
-    18,  # forward
-    21,  # jump + forward
-    24,  # forw + cam left
-    27,  # f + j + cam left
-    30,  # f + cam right
-    33,  # f + j + cam right
-    36  # backward
-  ]
+  obs_shapes: [[1, 96, 96]]  # list of lists
+  obs_dtypes: ["uint8"]
+  history_length: [3]
+  obs_is_image: True
+  obs_image_to_grayscale: True
+  action_size: 3
   frame_skip: 1
   step_limit: 0
-  agent_buffer_size: 25001
+  agent_buffer_size: 1001
   reward_scale: 1.
   reinit_random_action_every: 5
   log_every_n_steps: 1000
-  max_episode_length: 25000
-  discrete_actions: True
-#  reward_clip:
-#    min: 0.95  # if reward > 0., for example turn 0.1 -> 0.5
+  max_episode_length: 1000
+  discrete_actions: False
+  remap_action:
+    low:
+      before: [-1., -1., -1.]
+      after: [-1., 0., 0.]
+    high:
+      before: [1., 1., 1.]
+      after: [1., 1., 1.]
 
 server:
   seed: 42
   num_clients: 16
-  experience_replay_buffer_size: 1100000
+  experience_replay_buffer_size: 4000000
   use_prioritized_buffer: false
   train_every_nth: 1.
   start_learning_after: 10000
   target_critic_update_period: 1
-#  target_critic_update_period: 2500
   show_stats_period: 10
-  save_model_period: 25000
+  save_model_period: 20000
   ip_address: "0.0.0.0"
-  client_start_port: 12977
-  logdir: "logs/otc_42_eps"
-  load_checkpoint: "logs/otc_42/model-275000.ckpt"
+  client_start_port: 13977
+  logdir: "logs/carracing"
+#  load_checkpoint: "logs/otc_42/model-275000.ckpt"
 
-algo_name: "dqn_sac"
+algo_name: "sac"
 
 algorithm:
   n_step: 1
   gamma: 0.99
   target_critic_update_rate: 0.001
-#  target_critic_update_rate: 1.
+  reward_scale: 10.
+  mu_and_sig_reg: 0.00003
+  action_squash_func: "tanh"
 
 nn_engine: "keras"
 
@@ -128,7 +114,7 @@ base_network:
 
         - type: "Reshape"
           args:
-            target_shape: [4608]
+            target_shape: [3, 4608]
 
         - type: "Dense"
           args:
@@ -145,7 +131,7 @@ base_network:
 
         - type: "Reshape"
           args:
-            target_shape: [14112]
+            target_shape: [3, 18432]
 
         - type: "Dense"
           args:
@@ -162,7 +148,7 @@ base_network:
 
         - type: "Reshape"
           args:
-            target_shape: [7744]
+            target_shape: [3, 9216]
 
         - type: "Dense"
           args:
@@ -170,98 +156,16 @@ base_network:
             activation: "relu"
 
     - input: ["short-memory-1-fc", "short-memory-2-fc", "short-memory-3"]
-      name: "short-memory"
-      layers:
-
-        - type: "Concatenate"
-          args:
-            axis: 1
-
-        - type: "Dense"
-          args:
-            units: 512
-            activation: "relu"
-
-    - input: 1
-      name: "long-memory"
-      layers:
-
-        - type: "Scale"
-          mult: 0.0078  # 2. / 255
-          bias: -0.5
-
-        - type: "Permute"
-          args:
-            dims: [2, 1, 3, 4]
-
-        - type: "Conv3D"
-          args:
-            filters: 64
-            kernel_size: [1, 4, 4]
-            strides: [1, 2, 2]
-            padding: "same"
-            data_format: "channels_first"
-        - type: "Activation"
-          args:
-            activation: "relu"
-
-        - type: "Conv3D"
-          args:
-            filters: 64
-            kernel_size: [1, 4, 4]
-            strides: [1, 2, 2]
-            padding: "same"
-            data_format: "channels_first"
-        - type: "Activation"
-          args:
-            activation: "relu"
-
-        - type: "Permute"
-          args:
-            dims: [2, 1, 3, 4]
-
-        - type: "Reshape"
-          args:
-            target_shape: [16, 4096]
-
-        - type: "Dense"
-          args:
-            units: 256
-            activation: "relu"
-
-        - type: "Reshape"
-          args:
-            target_shape: [4096]
-
-        - type: "Dense"
-          args:
-            units: 512
-            activation: "relu"
-
-    - input: 2
-      name: "vec-obs"
-      layers:
-        - type: "Dense"
-          args:
-            units: 16
-            activation: "relu"
-
-        - type: "Reshape"
-          args:
-            target_shape: [256]
-
-    - input: ["short-memory", "long-memory", "vec-obs"]
       name: "base_output"
       layers:
 
         - type: "Concatenate"
           args:
-            axis: 1
+            axis: 2
 
-        - type: "Dense"
+        - type: "CuDNNLSTM"
           args:
-            units: 512
-            activation: "relu"
+            units: 256
 
         - type: "Dense"
           args:
@@ -275,6 +179,16 @@ critic_v:
     - input: "base_output"
       name: "output"
       layers:
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
 
         - type: "Dense"
           args:
@@ -295,15 +209,30 @@ critic_v:
 
 critic_q:
   base_network: "base_network"
+  have_action_input: true
   nn_arch:
 
-    - input: "base_output"
+    - input: ["base_output", "action"]
       name: "output"
       layers:
 
+        - type: "Concatenate"
+          args:
+            axis: 1
+
         - type: "Dense"
           args:
-            units: 11  # number of actions
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 1  # number of actions
             activation: "linear"
             kernel_initializer:
               class: "RandomUniform"
@@ -328,8 +257,18 @@ policy:
 
         - type: "Dense"
           args:
-            units: 11  # number of actions
-            activation: "linear"
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 6  # 3 for mu + 3 for sigma
+            activation: "tanh"
             kernel_initializer:
               class: "RandomUniform"
               module: "tensorflow.python.keras.initializers"
@@ -342,6 +281,11 @@ policy:
               args:
                 minval: -0.003
                 maxval: 0.003
+
+actor_optim:
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.0001
 
 critic_optim:
   schedule:
@@ -356,71 +300,14 @@ training:
 agents:
   - algorithm_id: 0
     agents:
-#      - agents_count: 1
-#        visualize: True
-#
-#      - agents_count: 1
-#        exploration:
-#          type: "boltzmann"
-#          temp: 0.0001
-#
-#      - agents_count: 2
-#        exploration:
-#          type: "boltzmann"
-#          temp: 0.001
-##        env_params:
-##          start_level_inc: -1
-#
-##      - agents_count: 1
-##        exploration:
-##          type: "boltzmann"
-##          temp: 0.001
-###        env_params:
-###          start_level_inc: -1
-#
-#      - agents_count: 2
-#        exploration:
-#          type: "boltzmann"
-#          temp: 0.01
-#
-#      - agents_count: 1
-#        exploration:
-#          type: "boltzmann"
-#          temp: 0.1
-
-
-
-
-# save eps
       - agents_count: 1
-        store_episodes: True
-
-      - agents_count: 1
-        store_episodes: True
+        visualize: True
         exploration:
-          type: "boltzmann"
-          temp: 0.0001
+          built_in_algo: True
+          validation: True
 
-      - agents_count: 1
-        store_episodes: True
+      - agents_count: 4
+        visualize: True
         exploration:
-          type: "boltzmann"
-          temp: 0.001
-
-      - agents_count: 1
-        store_episodes: True
-        exploration:
-          type: "boltzmann"
-          temp: 0.01
-
-      - agents_count: 1
-        store_episodes: True
-        exploration:
-          type: "boltzmann"
-          temp: 0.01
-
-      - agents_count: 1
-        store_episodes: True
-        exploration:
-          type: "boltzmann"
-          temp: 0.1
+          built_in_algo: True
+          validation: False
