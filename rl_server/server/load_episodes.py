@@ -75,12 +75,38 @@ from rl_server.server.rl_client import RLClient
 #     print(converted_obs[0].shape, converted_obs[1].shape, converted_obs[2].shape)
 #     return converted_obs
 
+# to gray
+def convert_obs(observations):
+    converted_obs = [[], []]
+    for i in range(len(observations[0])):
+        converted_obs[0].append(
+            cv2.cvtColor(
+                cv2.resize(
+                    np.transpose(observations[0][i], (1, 2, 0)),
+                    (84, 84)
+                ),
+                cv2.COLOR_RGB2GRAY
+            )
+        )
+        converted_obs[1].append(
+            cv2.cvtColor(
+                cv2.resize(
+                    np.transpose(observations[0][i], (1, 2, 0)),
+                    (32, 32)
+                ),
+                cv2.COLOR_RGB2GRAY
+            )
+        )
+    converted_obs[0] = np.array(converted_obs[0], dtype=np.uint8)
+    converted_obs[1] = np.array(converted_obs[1], dtype=np.uint8)
+    # converted_obs.append(observations[1])
+
+    # print(converted_obs[0].shape, converted_obs[1].shape, converted_obs[2].shape)
+    return converted_obs
+
 def convert_reward(rewards):
-    # print(np.sum(rewards))
-    for i in range(len(rewards)):
-    #    rewards[i] = 3. if rewards[i] > 0.05 else 0.01
-        rewards[i] = 0. if rewards[i] < 0.5 else 1.
-    #print(np.sum(rewards))
+   for i in range(len(rewards)):
+       rewards[i] = 0. if rewards[i] < 0.5 else 4.
 
 
 
@@ -89,7 +115,7 @@ def convert_reward(rewards):
 #         rewards[i] *= 10.
 
 rl_client = RLClient(
-    port=config.server.client_start_port
+    port=config.server.client_start_port + args.agent_id
 )
 
 ep_i = 0
@@ -100,6 +126,14 @@ while True:
         with open(fpath, 'rb') as f:
             episode = pickle.load(f)
             # episode[0] = convert_obs(episode[0])
+            # print(episode[0][0].shape)
+            # print(np.transpose(episode[0][0], (0, 2, 3, 1))[0].shape)
+            # episode[0] = [
+            #     cv2.cvtColor(np.transpose(episode[0][0], (0, 2, 3, 1))[0], cv2.COLOR_RGB2GRAY),
+            #     cv2.cvtColor(np.transpose(episode[0][1], (0, 2, 3, 1))[0], cv2.COLOR_RGB2GRAY)
+            #     # episode[0][2],
+            # ]
+            episode[0] = convert_obs(episode[0])
             convert_reward(episode[2])
             # convert_reward_breakout(episode[2])
             rl_client.store_episode(episode)

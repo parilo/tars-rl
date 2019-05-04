@@ -139,3 +139,22 @@ class DQN(BaseAlgoDiscrete):
 
     def reset_states(self):
         self._critic.reset_states()
+
+    def save_actor(self, sess, path):
+        print('-- save actor')
+        # vars = self._policy.variables()
+        # for v in vars:
+        #     print(v)
+        # saver = tf.train.Saver(max_to_keep=None, var_list=vars)
+        # saver.save(sess, path)
+        tf.saved_model.simple_save(
+            sess,
+            path,
+            inputs=dict(zip(
+                ['input_' + str(i) for i in range(len(self.states_ph))],
+                self.states_ph
+            )),
+            outputs={
+                'actor_output': self._q_values
+            }
+        )

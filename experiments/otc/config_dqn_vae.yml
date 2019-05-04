@@ -1,0 +1,221 @@
+framework: tensorflow
+
+env:
+  env_module: envs.otc
+  env_class: ObstacleTowerEnvWrapper
+  additional_env_parameters:
+    environment_filename: "/home/anton/devel/otc/ObstacleTower/obstacletower.x86_64"
+    retro: True
+    grayscale: True
+#    vae_path: "/home/anton/devel/otc/otc-vae/log_1/models/enc_model_528.h5"
+    obs_server:
+      port: 13977
+  is_gym: False
+  obs_shapes: [
+    [229]  #,
+#    [7]
+#    [8]
+  ]  # list of lists
+  obs_dtypes: ["float32"]
+  history_length: [32]
+  obs_is_image: False
+#  obs_image_resize_to: [84, 84]
+#  obs_image_to_grayscale: True  # used V from HSV
+  action_size: 7
+  action_postprocess:
+    type: "argmax of softmax"
+  action_remap_discrete: [
+    0,  # no
+    3,  # j
+    6,  # cam left
+    12,  # cam right
+    18,  # forward
+    21,  # jump + forward
+#    24,  # forw + cam left
+#    27,  # f + j + cam left
+#    30,  # f + cam right
+#    33,  # f + j + cam right
+    36  # backward
+  ]
+  frame_skip: 2
+  step_limit: 0
+  agent_buffer_size: 10001
+  reward_scale: 1.
+  reinit_random_action_every: 5
+  log_every_n_steps: 1000
+  max_episode_length: 10000
+  discrete_actions: True
+#  reward_clip:
+#    min: 0.95  # if reward > 0., for example turn 0.1 -> 0.5
+#  stop_if_same_state_repeat: 30
+#  render_with_cv2: True
+#  render_with_cv2_resize: [400, 400]
+
+server:
+  seed: 42
+  num_clients: 16
+  experience_replay_buffer_size: 14000000
+  use_prioritized_buffer: false
+  train_every_nth: 1.
+  start_learning_after: 10000
+  target_critic_update_period: 1
+  show_stats_period: 10
+  save_model_period: 25000
+  ip_address: "0.0.0.0"
+  client_start_port: 12977
+  logdir: "logs/otc_68"
+#  load_checkpoint: "logs/otc_66/model-125000.ckpt"
+
+obs_server:
+  num_clients: 16
+  ip_address: "0.0.0.0"
+  client_start_port: 13977
+#  encoder_model_path: "/home/anton/devel/otc/otc-vae/log_1/models/enc_model_528.h5"
+  encoder_model_path: "/home/anton/devel/otc/otc-vae/log_2x_1024_100/models/enc_model_44.h5"
+
+algo_name: "dqn"
+
+algorithm:
+  n_step: 1
+  gamma: 0.99
+  target_critic_update_rate: 0.0005
+
+nn_engine: "keras"
+
+critic:
+  nn_arch:
+
+#    - input: "base_output"
+#      name: "output"
+#      layers:
+
+    - input: 0
+      name: "long-memory"
+      layers:
+
+#        - type: "Dense"
+#          args:
+#            units: 512
+#            activation: "relu"
+#
+#        - type: "Dense"
+#          args:
+#            units: 512
+#            activation: "relu"
+
+#        - type: "Concatenate"
+#          args:
+#            axis: 2
+
+        - type: "CuDNNLSTM"
+          args:
+            units: 384
+
+#        - type: "Dense"
+#          args:
+#            units: 1024
+#            activation: "relu"
+
+    - input: "long-memory"  #, "vec-obs"]
+      name: "output"
+      layers:
+
+#        - type: "Concatenate"
+#          args:
+#            axis: 1
+
+        - type: "Dense"
+          args:
+            units: 1024
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 7  # number of actions
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+
+critic_optim:
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.0005
+
+training:
+  schedule:
+    - limit: 0  # of train ops
+      batch_size: 2560
+
+agents:
+  - algorithm_id: 0
+    agents:
+
+      - agents_count: 1
+        visualize: True
+
+      - agents_count: 1
+        exploration:
+          type: "boltzmann"
+          temp: 0.1
+
+      - agents_count: 1
+        exploration:
+          type: "e-greedy"
+          random_prob: 0.4
+
+      - agents_count: 1
+        exploration:
+          type: "e-greedy"
+          random_prob: 0.3
+
+      - agents_count: 1
+        exploration:
+          type: "e-greedy"
+          random_prob: 0.2
+
+      - agents_count: 1
+        exploration:
+          type: "e-greedy"
+          random_prob: 0.1
+
+
+
+#      - agents_count: 1
+#        exploration:
+#          type: "boltzmann"
+#          temp: 0.02
+#
+#      - agents_count: 1
+#        exploration:
+#          type: "boltzmann"
+#          temp: 0.05
+#
+#      - agents_count: 1
+#        exploration:
+#          type: "boltzmann"
+#          temp: 0.1
+#
+#      - agents_count: 1
+#        exploration:
+#          type: "boltzmann"
+#          temp: 0.2

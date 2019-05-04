@@ -33,11 +33,11 @@ def create_algorithm(
     if algo_config.isset('nn_engine'):
         if algo_config.nn_engine == 'keras':
 
-            if algo_config.isset('actor'):
-                from rl_server.tensorflow.networks.actor_networks_keras import ActorNetwork as ActorNetworkKeras
-                ActorNetwork = ActorNetworkKeras
-                actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
-                del actor_params['nn_engine']
+            # if algo_config.isset('actor'):
+            #     from rl_server.tensorflow.networks.actor_networks_keras import ActorNetwork as ActorNetworkKeras
+            #     ActorNetwork = ActorNetworkKeras
+            #     actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
+            #     del actor_params['nn_engine']
 
             from rl_server.tensorflow.networks.critic_networks_keras import CriticNetwork as CriticNetworkKeras
             CriticNetwork = CriticNetworkKeras
@@ -90,6 +90,8 @@ def create_algorithm(
 
     if name == 'dqn':
 
+        critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
+
         critic = CriticNetwork(
             state_shapes=state_shapes,
             action_size=action_size,
@@ -116,7 +118,7 @@ def create_algorithm(
         # base_network = copy.deepcopy(algo_config.as_obj()["base_network"])
         critic_q_params = copy.deepcopy(algo_config.as_obj()["critic_q"])
         critic_v_params = copy.deepcopy(algo_config.as_obj()["critic_v"])
-        policy_params = copy.deepcopy(algo_config.as_obj()["policy"])
+        policy_params = copy.deepcopy(algo_config.as_obj()["actor"])
 
         critic_q_params = combine_with_base_network(
             copy.deepcopy(algo_config.as_obj()[critic_q_params['base_network']]),
@@ -160,6 +162,8 @@ def create_algorithm(
             action_insert_block=-1
         )
 
+        actor_lr = tf.placeholder(tf.float32, (), "actor_lr")
+
         from rl_server.tensorflow.algo.dqn_sac import DQN_SAC
         agent_algorithm = DQN_SAC(
             state_shapes=state_shapes,
@@ -169,10 +173,14 @@ def create_algorithm(
             policy=policy,
             critic_optimizer=tf.train.AdamOptimizer(
                 learning_rate=critic_lr),
+            actor_optimizer=tf.train.AdamOptimizer(
+                learning_rate=actor_lr),
             **algo_config.as_obj()["algorithm"],
             scope=algo_scope,
             placeholders=placeholders,
+            actor_lr=actor_lr,
             critic_optim_schedule=algo_config.as_obj()["critic_optim"],
+            actor_optim_schedule=algo_config.as_obj()["actor_optim"],
             training_schedule=algo_config.as_obj()["training"])
 
     elif name == 'dqn_td3':

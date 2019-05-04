@@ -2,6 +2,7 @@ import numpy as np
 
 from .tcp_client_server import TCPServer
 from .serialization import serialize, deserialize
+from .rl_client import np_arrays_to_strings, strings_to_np_arrays
 
 
 def string_to_obs(strings, obs_shapes, obs_dtypes):
@@ -35,7 +36,14 @@ def req_to_episode(req, obs_shapes, obs_dtypes):
     rewards = np.array(req["rewards"], dtype=np.float32)
     dones = np.array(req["dones"], dtype=np.bool)
     return [observations, actions, rewards, dones]
-    
+
+
+def req_to_obs(req):
+    """ Preprocess deserealized request to obtain observation
+    """
+    obs = strings_to_np_arrays(req["obs"])
+    return obs
+
 
 def weights_to_string(weights):
     for nn_name in weights:
@@ -46,6 +54,16 @@ def weights_to_string(weights):
                 'data': np_array.reshape(-1).tostring(),
                 'shape': np_array.shape
             }
+
+
+#def np_arrays_to_string(np_arrays):
+#    output = []
+#    for np_array in np_arrays:
+#        output.append({
+#            'data': np_array.reshape(-1).tostring(),
+#            'shape': np_array.shape
+#        })
+#    return output
 
 
 class RLServerAPI:
@@ -94,6 +112,9 @@ class RLServerAPI:
     def set_get_weights_callback(self, callback):
         self._get_weights_callback = callback
 
+    def set_preprocess_obs_callback(self, callback):
+        self._preprocess_obs_callback = callback
+
     def start_server(self):
         for i in range(self._num_clients):
             server = TCPServer(self._ip_address,
@@ -114,5 +135,9 @@ class RLServerAPI:
         elif method == "get_weights":
             response = self._get_weights_callback(req["index"])
             weights_to_string(response)
+
+        elif method == "preprocess_obs":
+            response = self._preprocess_obs_callback(req_to_obs(req))
+            response = np_arrays_to_strings(response)
 
         return serialize(response)

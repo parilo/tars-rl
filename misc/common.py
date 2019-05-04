@@ -110,6 +110,9 @@ def parse_load_episodes_args():
     parser.add_argument(
         "--eps_dir",
         type=str, required=True)
+    parser.add_argument(
+        "--agent_id",
+        type=int, required=False, default=0)
     return parser.parse_args()
 
 

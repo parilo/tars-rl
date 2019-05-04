@@ -68,7 +68,7 @@ class GymEnvWrapper:
         return obs
 
     def process_reward(self, reward):
-        return reward
+        return reward * self.reward_scale
 
     def step(self, action):
         reward = 0.
@@ -93,7 +93,7 @@ class GymEnvWrapper:
             else:
                 self.env.render()
 
-        reward_shaped = reward * self.reward_scale
+        reward_shaped = reward
         self.total_reward += reward
         self.total_reward_shaped += reward_shaped
         self.time_step += 1

@@ -14,14 +14,18 @@ class DQN_SAC(BaseAlgoDiscrete):
         critic_q,
         critic_v,
         critic_optimizer,
+        actor_optimizer,
         n_step=1,
         critic_grad_val_clip=None,
         critic_grad_norm_clip=None,
         gamma=0.99,
         target_critic_update_rate=1.0,
+        h_reward_scale=1.0,
         scope="algorithm",
         placeholders=None,
+        actor_lr=None,
         critic_optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
+        actor_optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
         training_schedule={'schedule': [{'limit': 0, 'batch_size_mult': 1}]}
     ):
         super().__init__(
@@ -31,6 +35,7 @@ class DQN_SAC(BaseAlgoDiscrete):
             critic_optim_schedule,
             training_schedule
         )
+        self.actor_lr = actor_lr
 
         self._policy = policy  # log(p_i)
         self._critic_q = critic_q
@@ -41,20 +46,23 @@ class DQN_SAC(BaseAlgoDiscrete):
         # self._critic_v_weights_tool = ModelWeightsTool(critic_v)
         # self._target_critic_weights_tool = ModelWeightsTool(self._target_critic_v)
         self._critic_optimizer = critic_optimizer
+        self._actor_optimizer = actor_optimizer
         self._n_step = n_step
         self._critic_grad_val_clip = critic_grad_val_clip
         self._critic_grad_norm_clip = critic_grad_norm_clip
         self._gamma = gamma
         self._target_critic_update_rate = target_critic_update_rate
+        self._h_reward_scale = h_reward_scale
+        self._actor_optim_schedule = actor_optim_schedule
 
         with tf.name_scope(scope):
             self.build_graph()
 
-    def _get_critic_update(self, critic, loss):
+    def _get_critic_update(self, critic, loss, optimizer):
         update_op = network_update(
             loss,
             critic,
-            self._critic_optimizer,
+            optimizer,
             self._critic_grad_val_clip,
             self._critic_grad_norm_clip
         )
@@ -79,6 +87,9 @@ class DQN_SAC(BaseAlgoDiscrete):
         values_indices = tf.stack([indices_range, indices], axis=1)
         return tf.gather_nd(values, values_indices)
 
+    def get_actor_lr(self, step_index):
+        return self.get_schedule_params(self._actor_optim_schedule, step_index)['lr']
+
     def build_graph(self):
         self.create_placeholders()
 
@@ -96,10 +107,11 @@ class DQN_SAC(BaseAlgoDiscrete):
                 # tf.log(tf.nn.softmax(self._policy_logits)),
                 self._policy_logits,
                 stohastic_action
+                #tf.multinomial(tf.nn.softmax(self._policy_logits), 1, output_dtype=tf.int32)[:, 0]
             )
             print('stohastic_action_logit', stohastic_action_logit)
 
-            h_reward = - 0.0001 * stohastic_action_logit  # entropy reward
+            h_reward = - self._h_reward_scale * stohastic_action_logit  # entropy reward
             self._mean_h_reward = tf.reduce_mean(h_reward)
             target_v = self.get_values_of_indices(
                 self._critic_q(self.states_ph),
@@ -127,12 +139,13 @@ class DQN_SAC(BaseAlgoDiscrete):
             # ))
             self._loss_pi = tf.losses.huber_loss(
                 prediction_q - prediction_v,
+                # prediction_q,
                 self.get_values_of_indices(self._policy_logits, self.actions_ph)
             )
 
-            self._critic_v_update = self._get_critic_update(self._critic_v, self._loss_v)
-            self._critic_q_update = self._get_critic_update(self._critic_q, self._loss_q)
-            self._policy_update = self._get_critic_update(self._policy, self._loss_pi)
+            self._critic_v_update = self._get_critic_update(self._critic_v, self._loss_v, self._critic_optimizer)
+            self._critic_q_update = self._get_critic_update(self._critic_q, self._loss_q, self._critic_optimizer)
+            self._policy_update = self._get_critic_update(self._policy, self._loss_pi, self._actor_optimizer)
 
         with tf.name_scope("targets_update"):
             self._targets_init_op = self._get_targets_init()
@@ -154,6 +167,7 @@ class DQN_SAC(BaseAlgoDiscrete):
         critic_lr = self.get_critic_lr(step_index)
         feed_dict = {
             self.critic_lr_ph: critic_lr,
+            self.actor_lr: self.get_actor_lr(step_index),
             **dict(zip(self.states_ph, batch.s)),
             **{self.actions_ph: batch.a},
             **{self.rewards_ph: batch.r},

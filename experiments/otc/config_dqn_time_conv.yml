@@ -57,7 +57,7 @@ server:
   save_model_period: 50000
   ip_address: "0.0.0.0"
   client_start_port: 12977
-  logdir: "logs/otc_33"
+  logdir: "logs/otc_33_model"
 #  load_checkpoint: "logs/otc_31/model-1000000.ckpt"
 
 algo_name: "dqn"

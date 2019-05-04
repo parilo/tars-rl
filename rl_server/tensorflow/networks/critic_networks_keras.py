@@ -68,6 +68,7 @@ class CriticNetwork:
                 #     out_layer = Concatenate(axis=1)([out_layer, input_action])
                 if 'args' in layer_data:
                     process_layer_args(layer_data['args'])
+                    print('--- input', out_layer)
                     out_layer = LayerClass(**layer_data['args'])(out_layer)
                 else:
                     out_layer = LayerClass()(out_layer)

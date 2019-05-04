@@ -43,7 +43,7 @@ def episode_to_req(episode, method="store_episode"):
         "dones": str_don
     }
     return req
-    
+
 
 def string_to_weights(weights):
     for nn_name in weights:
@@ -54,6 +54,29 @@ def string_to_weights(weights):
                 data['data'],
                 dtype=np.float32
             ).reshape(data['shape'])
+
+
+def strings_to_np_arrays(data):
+    output = []
+    for i in range(len(data)):
+        data_item = data[i]
+        output.append(np.frombuffer(
+            data_item['data'],
+            dtype=np.dtype(data_item['dtype'])
+        ).reshape(data_item['shape']))
+    return output
+
+
+def np_arrays_to_strings(data):
+    output = []
+    for i in range(len(data)):
+        data_item = data[i]
+        output.append({
+            'data': data_item.reshape(-1).tostring(),
+            'shape': data_item.shape,
+            'dtype': str(data_item.dtype)
+        })
+    return output
 
 
 class RLClient:
@@ -85,4 +108,12 @@ class RLClient:
             data = self._tcp_client.write_and_read_with_retries(req)
             data = deserialize(data)
             string_to_weights(data)
+            return data
+
+    def preprocess_obs(self, obs):
+        req = serialize({'method': 'preprocess_obs', 'obs': np_arrays_to_strings(obs)})
+        with self._tcp_lock:
+            data = self._tcp_client.write_and_read_with_retries(req)
+            data = deserialize(data)
+            data = strings_to_np_arrays(data)
             return data
