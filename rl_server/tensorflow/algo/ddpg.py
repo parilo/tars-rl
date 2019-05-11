@@ -57,7 +57,7 @@ class DDPG(BaseAlgo):
             self.build_graph()
 
     def _get_gradients_wrt_actions(self):
-        q_values = self._critic([self.states_ph, self.actions_ph])
+        q_values = self._critic(self.states_ph + [self.actions_ph])
         gradients = tf.gradients(q_values, self.actions_ph)[0]
         return gradients
 
@@ -100,16 +100,16 @@ class DDPG(BaseAlgo):
             self._gradients = self._get_gradients_wrt_actions()
 
         with tf.name_scope("actor_update"):
-            self._q_values = self._critic([self.states_ph, self._actor(self.states_ph)])
+            self._q_values = self._critic(self.states_ph + [self._actor(self.states_ph)])
             self._policy_loss = -tf.reduce_mean(self._q_values)
             self._actor_update = self._get_actor_update(self._policy_loss)
 
         with tf.name_scope("critic_update"):
-            q_values = self._critic([self.states_ph, self.actions_ph])
+            q_values = self._critic(self.states_ph + [self.actions_ph])
             next_actions = self._actor(self.next_states_ph)
             # next_actions = self._target_actor(self.next_states_ph)
             next_q_values = self._target_critic(
-                [self.next_states_ph, next_actions])
+                self.next_states_ph + [next_actions])
             # print(self._gamma, self._n_step)
             gamma = self._gamma ** self._n_step
             td_targets = self.rewards_ph[:, None] + gamma * (
@@ -177,3 +177,7 @@ class DDPG(BaseAlgo):
     def set_weights(self, sess, weights):
         self._actor_weights_tool.set_weights(sess, weights['actor'])
         self._critic_weights_tool.set_weights(sess, weights['critic'])
+
+    def reset_states(self):
+        self._actor.reset_states()
+        self._critic.reset_states()

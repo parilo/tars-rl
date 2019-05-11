@@ -3,15 +3,20 @@ framework: tensorflow
 env:
   name: LunarLanderContinuous-v2
   is_gym: True
-  obs_size: 8
+  obs_shapes: [[8]]  # list of lists
+  obs_dtypes: ["float32"]
+  history_length: [3]
+  obs_is_image: False
+#  obs_size: 8
+#  history_length: 3
   action_size: 2
   frame_skip: 2
   step_limit: 0
   agent_buffer_size: 510
-  history_length: 3
   reward_scale: 0.1
   reinit_random_action_every: 5
   log_every_n_steps: 1000
+  max_episode_length: 10000
 
 server:
   seed: 44
@@ -25,7 +30,7 @@ server:
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "experiments/lunar_lander/logs/lunar_lander_ddpg_seed_44"
+  logdir: "logs/lunar_lander_ddpg"
   #load_checkpoint: ""
 
 algo_name: "ddpg"
@@ -33,60 +38,132 @@ algo_name: "ddpg"
 algorithm:
   n_step: 1
   gamma: 0.99
-  actor_grad_val_clip: 1.0
-  target_actor_update_rate: 0.0025
-  target_critic_update_rate: 0.005
+#  actor_grad_val_clip: 1.0
+  target_actor_update_rate: 0.001
+  target_critic_update_rate: 0.001
+
+nn_engine: "keras"
+
+#actor:
+#  lstm_network: False
+#  hiddens: [128, 128, 128]
+#  activations: ["relu", "relu", "relu"]
+#  layer_norm: False
+#  noisy_layer: False
+#  output_activation: "tanh"
+#
+#critic:
+#  lstm_network: False
+#  hiddens: [128, 128, 128]
+#  activations: ["relu", "relu", "relu"]
+#  layer_norm: False
+#  noisy_layer: False
+#  output_activation: "linear"
+#  action_insert_block: 0
+#  num_atoms: 1
 
 actor:
-  lstm_network: False
-  hiddens: [128, 128, 128]
-  activations: ["relu", "relu", "relu"]
-  layer_norm: False
-  noisy_layer: False
-  output_activation: "tanh"
+  nn_arch:
+    - input: 0
+      name: "output"
+      layers:
+
+        - type: "Flatten"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 2  # number of actions
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
 
 critic:
-  lstm_network: False
-  hiddens: [128, 128, 128]
-  activations: ["relu", "relu", "relu"]
-  layer_norm: False
-  noisy_layer: False
-  output_activation: "linear"
-  action_insert_block: 0
-  num_atoms: 1
+  use_action_input: True
+  nn_arch:
+    - input: 0
+      name: "flatten_output"
+      layers:
+        - type: "Flatten"
+
+    - input: ["flatten_output", "input_action"]
+      name: "output"
+      layers:
+
+        - type: "Concatenate"
+          args:
+            axis: 1
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 1  # number of actions
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
 
 actor_optim:
   schedule:
     - limit: 0  # of train ops
-      lr: 0.001
-    - limit: 500000
-      lr: 0.0005
-    - limit: 1000000
-      lr: 0.0005
-    - limit: 1500000
-      lr: 0.00025
+      lr: 0.0001
 
 critic_optim:
   schedule:
     - limit: 0  # of train ops
-      lr: 0.001
-    - limit: 500000
-      lr: 0.0005
-    - limit: 1000000
-      lr: 0.0005
-    - limit: 1500000
-      lr: 0.00025
+      lr: 0.0001
 
 training:
   schedule:
     - limit: 0  # of train ops
       batch_size: 2560
-    - limit: 500000
-      batch_size: 2560
-    - limit: 1000000
-      batch_size: 5120
-    - limit: 1500000
-      batch_size: 5120
 
 agents:
   - algorithm_id: 0
