@@ -293,19 +293,26 @@ class RLAgent:
                     # action_target = self._agent_model.act_batch_target(prepare_state(state))[0]
                     action = np.array(action)
                     # action_target = np.array(action_target)
+                    # if self._id ==  2: print('--- action before expl', action)
 
+                    # if self._id ==  2: print('--- expl')
                     if not self._validation:
+                        # if self._id == 2: print('--- expl expl')
                         if self._exploration.normal_noise is not None:
                             # exploration with normal noise
                             action += np.random.normal(
                                scale=self._exploration.normal_noise,
                                size=self._action_size
                             )
+                            # if self._id == 2: print('--- expl normal noise', action)
                         if self._exploration.random_action_prob is not None:
+                            # if self._id == 2: print('--- expl random action')
                             if random.random() < self._exploration.random_action_prob:
                                 action = self._env.get_random_action()
+                                # if self._id == 2: print('--- expl random action 2', action)
 
                     action = self._clipping_function(action)
+                    # if self._id ==  2: print('--- action after expl', action)
 
                 # action remap function
                 if self._action_remap_function is not None:
@@ -317,12 +324,16 @@ class RLAgent:
             env_action = self._action_postprocess(env_action)
 
             if not self._validation and n_steps % 500 == 0:
-                print(self._id, '\n', env_action_scores, '\n', self._action_scores)
+                if hasattr(self, '_action_scores'):
+                    print(self._id, '\n', env_action_scores, '\n', self._action_scores)
 
             if self._action_remap_discrete_func is not None:
                 env_action_remapped = self._action_remap_discrete_func(env_action)
             else:
                 env_action_remapped = env_action
+
+            # if self._id == 2:
+            #     print('--- action', env_action_remapped)
 
             next_obs, reward, done, info = self._env.step(env_action_remapped)
 

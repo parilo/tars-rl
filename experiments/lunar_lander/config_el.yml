@@ -1,0 +1,290 @@
+framework: tensorflow
+
+env:
+  name: LunarLanderContinuous-v2
+  is_gym: True
+  obs_shapes: [[8]]  # list of lists
+  obs_dtypes: ["float32"]
+  history_length: [3]
+  obs_is_image: False
+#  obs_size: 8
+#  history_length: 3
+  action_size: 2
+  frame_skip: 2
+  step_limit: 0
+  agent_buffer_size: 510
+  reward_scale: 0.1
+  reinit_random_action_every: 5
+  log_every_n_steps: 1000
+  max_episode_length: 10000
+  clip_action: 'tanh'
+
+server:
+  seed: 44
+  num_clients: 16
+  experience_replay_buffer_size: 5000000
+  use_prioritized_buffer: false
+  train_every_nth: 1.
+  start_learning_after: 5000
+  target_critic_update_period: 1
+  target_actor_update_period: 1
+  show_stats_period: 100
+  save_model_period: 5000
+  client_start_port: 10977
+  logdir: "logs/lunar_lander_el"
+  #load_checkpoint: ""
+
+algo_name: "env_learning"
+
+algorithm:
+  n_step: 10
+  gamma: 0.99
+#  actor_grad_val_clip: 1.0
+  target_actor_update_rate: 0.001
+  target_critic_update_rate: 0.001
+
+nn_engine: "keras"
+
+env_model:
+  use_action_input: True
+  nn_arch:
+    - input: 0
+      name: "flatten_output"
+      layers:
+        - type: "Flatten"
+
+    - input: ["flatten_output", "input_action"]
+      name: "output"
+      layers:
+
+        - type: "Concatenate"
+          args:
+            axis: 1
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 8  # number of actions
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+
+reward_model:
+  use_next_state_input: True
+  nn_arch:
+    - input: 0
+      name: "flatten_output_1"
+      layers:
+        - type: "Flatten"
+
+    - input: 1
+      name: "flatten_output_2"
+      layers:
+        - type: "Flatten"
+
+    - input: ["flatten_output_1", "flatten_output_2"]
+      name: "output"
+      layers:
+
+        - type: "Concatenate"
+          args:
+            axis: 1
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 1  # number of actions
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+
+done_model:
+  use_action_input: True
+  use_next_state_input: True
+  nn_arch:
+    - input: 0
+      name: "flatten_output_1"
+      layers:
+        - type: "Flatten"
+
+    - input: 1
+      name: "flatten_output_2"
+      layers:
+        - type: "Flatten"
+
+    - input: ["flatten_output_1", "flatten_output_2", "input_action"]
+      name: "output"
+      layers:
+
+        - type: "Concatenate"
+          args:
+            axis: 1
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 1  # number of actions
+            activation: "sigmoid"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+
+actor:
+  nn_arch:
+    - input: 0
+      name: "output"
+      layers:
+
+        - type: "Flatten"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 2  # number of actions
+            activation: "tanh"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+
+critic_optim:
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.0001
+
+training:
+  schedule:
+    - limit: 0  # of train ops
+      batch_size: 2560
+
+agents:
+  - algorithm_id: 0
+    agents:
+      - agents_count: 1
+        visualize: True
+
+      - agents_count: 1
+        visualize: False
+
+      - agents_count: 1
+        visualize: True
+        exploration:
+          normal_noise: 1.
+          random_action_prob: 0.5
+
+      - agents_count: 1
+        visualize: False
+        exploration:
+          normal_noise: 1.
+          random_action_prob: 0.5
+
+      - agents_count: 1
+        visualize: False
+        exploration:
+          normal_noise: 1.
+          random_action_prob: 0.25
+
+      - agents_count: 1
+        visualize: False
+        exploration:
+          normal_noise: 0.5
+          random_action_prob: 0.2
+
+      - agents_count: 1
+        visualize: False
+        exploration:
+          normal_noise: 0.2
+          random_action_prob: 0.1

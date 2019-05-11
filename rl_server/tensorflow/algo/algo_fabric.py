@@ -9,13 +9,14 @@ from rl_server.tensorflow.algo.td3 import TD3
 from rl_server.tensorflow.algo.quantile_td3 import QuantileTD3
 from rl_server.tensorflow.algo.sac import SAC
 from rl_server.tensorflow.algo.prioritized_ddpg import PrioritizedDDPG
-from rl_server.tensorflow.networks.actor_networks_lstm import ActorNetwork as ActorNetworkLSTM
-from rl_server.tensorflow.networks.critic_networks_lstm import CriticNetwork as CriticNetworkLSTM
-from rl_server.tensorflow.networks.actor_networks import (
-    ActorNetwork as ActorNetworkFF,
-    GaussActorNetwork as GaussActorNetworkFF
-)
-from rl_server.tensorflow.networks.critic_networks import CriticNetwork as CriticNetworkFF
+from rl_server.tensorflow.algo.env_learning import EnvLearning
+# from rl_server.tensorflow.networks.actor_networks_lstm import ActorNetwork as ActorNetworkLSTM
+# from rl_server.tensorflow.networks.critic_networks_lstm import CriticNetwork as CriticNetworkLSTM
+# from rl_server.tensorflow.networks.actor_networks import (
+#     ActorNetwork as ActorNetworkFF,
+#     GaussActorNetwork as GaussActorNetworkFF
+# )
+# from rl_server.tensorflow.networks.critic_networks import CriticNetwork as CriticNetworkFF
 
 
 def combine_with_base_network(base_network_params, network_params):
@@ -39,8 +40,8 @@ def create_algorithm(
             #     actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
             #     del actor_params['nn_engine']
 
-            from rl_server.tensorflow.networks.critic_networks_keras import CriticNetwork as CriticNetworkKeras
-            CriticNetwork = CriticNetworkKeras
+            from rl_server.tensorflow.networks.critic_networks_keras import CriticNetwork  #as CriticNetworkKeras
+            #CriticNetwork = CriticNetworkKeras
 
             if algo_config.isset('critic'):
                 critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
@@ -48,24 +49,25 @@ def create_algorithm(
         else:
             raise NotImplementedError()
     else:
-        if algo_config.isset('actor'):
-            if algo_config.actor.lstm_network:
-                ActorNetwork = ActorNetworkLSTM
-                GaussActorNetwork = None
-            else:
-                ActorNetwork = ActorNetworkFF
-                GaussActorNetwork = GaussActorNetworkFF
-
-            actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
-            del actor_params['lstm_network']
-
-        if algo_config.critic.lstm_network:
-            CriticNetwork = CriticNetworkLSTM
-        else:
-            CriticNetwork = CriticNetworkFF
-
-        critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
-        del critic_params['lstm_network']
+        raise NotImplementedError()
+        # if algo_config.isset('actor'):
+        #     if algo_config.actor.lstm_network:
+        #         ActorNetwork = ActorNetworkLSTM
+        #         GaussActorNetwork = None
+        #     else:
+        #         ActorNetwork = ActorNetworkFF
+        #         GaussActorNetwork = GaussActorNetworkFF
+        #
+        #     actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
+        #     del actor_params['lstm_network']
+        #
+        # if algo_config.critic.lstm_network:
+        #     CriticNetwork = CriticNetworkLSTM
+        # else:
+        #     CriticNetwork = CriticNetworkFF
+        #
+        # critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
+        # del critic_params['lstm_network']
 
     # algorithm
     name = algo_config.algo_name
@@ -215,15 +217,64 @@ def create_algorithm(
             critic_optim_schedule=algo_config.as_obj()["critic_optim"],
             training_schedule=algo_config.as_obj()["training"])
 
+    elif name == 'env_learning':
+
+        env_model_params = copy.deepcopy(algo_config.as_obj()["env_model"])
+        reward_model_params = copy.deepcopy(algo_config.as_obj()["reward_model"])
+        done_model_params = copy.deepcopy(algo_config.as_obj()["done_model"])
+        actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
+
+        env_model = CriticNetwork(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            **env_model_params,
+            scope='env_model_' + scope_postfix)
+
+        reward_model = CriticNetwork(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            **reward_model_params,
+            scope='reward_model_' + scope_postfix)
+
+        done_model = CriticNetwork(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            **done_model_params,
+            scope='done_model_' + scope_postfix)
+
+        actor = CriticNetwork(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            **actor_params,
+            scope='actor_' + scope_postfix)
+
+        agent_algorithm = EnvLearning(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            actor=actor,
+            env_model=env_model,
+            reward_model=reward_model,
+            done_model=done_model,
+            optimizer=tf.train.AdamOptimizer(learning_rate=critic_lr),
+            n_step=algo_config.as_obj()["algorithm"]['n_step'],
+            scope="algorithm",
+            placeholders=placeholders[1:],
+            optim_schedule=algo_config.as_obj()["critic_optim"],
+            training_schedule=algo_config.as_obj()["training"]
+        )
+
     elif name in ["ddpg", "categorical_ddpg", "quantile_ddpg"]:
 
-        actor = ActorNetwork(
+        actor_params = copy.deepcopy(algo_config.as_obj()["actor"])
+
+        actor = CriticNetwork(
             state_shapes=state_shapes,
             action_size=action_size,
             **actor_params,
             scope=actor_scope)
 
         if name == "ddpg":
+            critic_params = copy.deepcopy(algo_config.as_obj()["critic"])
             critic = CriticNetwork(
                 state_shapes=state_shapes,
                 action_size=action_size,
@@ -234,24 +285,24 @@ def create_algorithm(
                 DDPG_algorithm = PrioritizedDDPG
             else:
                 DDPG_algorithm = DDPG
-        elif name == "categorical_ddpg":
-            assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(
-                name)
-            critic = CriticNetwork(
-                state_shape=state_shapes[0],
-                action_size=action_size,
-                **critic_params,
-                scope=critic_scope)
-            DDPG_algorithm = CategoricalDDPG
-        elif name == "quantile_ddpg":
-            assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(
-                name)
-            critic = CriticNetwork(
-                state_shape=state_shapes[0],
-                action_size=action_size,
-                **critic_params,
-                scope=critic_scope)
-            DDPG_algorithm = QuantileDDPG
+        # elif name == "categorical_ddpg":
+        #     assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(
+        #         name)
+        #     critic = CriticNetwork(
+        #         state_shape=state_shapes[0],
+        #         action_size=action_size,
+        #         **critic_params,
+        #         scope=critic_scope)
+        #     DDPG_algorithm = CategoricalDDPG
+        # elif name == "quantile_ddpg":
+        #     assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(
+        #         name)
+        #     critic = CriticNetwork(
+        #         state_shape=state_shapes[0],
+        #         action_size=action_size,
+        #         **critic_params,
+        #         scope=critic_scope)
+        #     DDPG_algorithm = QuantileDDPG
         else:
             raise NotImplementedError
 

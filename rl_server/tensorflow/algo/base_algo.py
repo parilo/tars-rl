@@ -133,8 +133,8 @@ def network_update(
         loss,
         network,
         optimizer,
-        grad_val_clip,
-        grad_norm_clip
+        grad_val_clip=None,
+        grad_norm_clip=None
 ):
     gradients = optimizer.compute_gradients(
         loss,
