@@ -26,6 +26,7 @@ class SAC(BaseAlgo):
         critic_grad_norm_clip=None,
         gamma=0.99,
         reward_scale=1.,
+        log_pi_scale=1.,
         mu_and_sig_reg=1e-3,
         target_critic_update_rate=1.0,
         # target_actor_update_rate=1.0,
@@ -65,6 +66,7 @@ class SAC(BaseAlgo):
         self._critic_grad_norm_clip = critic_grad_norm_clip
         self._gamma = gamma
         self._reward_scale = reward_scale
+        self._log_pi_scale = log_pi_scale
         self._mu_and_sig_reg = mu_and_sig_reg
         self._target_critic_update_rate = target_critic_update_rate
 
@@ -171,7 +173,7 @@ class SAC(BaseAlgo):
             q_values1 = self._critic_q1([self.states_ph, actions])
             q_values2 = self._critic_q2([self.states_ph, actions])
             q_values = tf.minimum(q_values1, q_values2)
-            target_v_values = q_values - log_pi
+            target_v_values = q_values - self._log_pi_scale * log_pi
             self._v_loss = 0.5 * tf.reduce_mean(
                 (v_values - tf.stop_gradient(target_v_values)) ** 2)
             self._value_loss = self._v_loss

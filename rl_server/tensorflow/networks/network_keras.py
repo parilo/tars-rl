@@ -160,4 +160,5 @@ class NetworkKeras:
                 nn_arch=self.nn_arch,
                 num_atoms=self.num_atoms,
                 v=self.v,
+                have_action_input=self.has_action_input,
                 scope=scope)

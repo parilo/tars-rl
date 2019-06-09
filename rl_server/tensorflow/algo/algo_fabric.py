@@ -382,31 +382,36 @@ def create_algorithm(
 
     elif name == "td3":
 
-        assert not algo_config.server.use_prioritized_buffer, '{} have no prioritized version. use ddpg'.format(name)
+        policy_params = get_network_params(algo_config, 'policy')
+        policy = NetworkKeras(
+            state_shapes=state_shapes,
+            action_size=action_size,
+            **policy_params,
+            scope="policy_" + scope_postfix
+        )
 
-        actor = ActorNetwork(
-            state_shape=state_shapes[0],
+        critic_1_params = get_network_params(algo_config, 'critic_1')
+        critic_1 = NetworkKeras(
+            state_shapes=state_shapes,
             action_size=action_size,
-            **actor_params,
-            scope=actor_scope)
-       
-        critic1 = CriticNetwork(
-            state_shape=state_shapes[0],
+            **critic_1_params,
+            scope="critic_1_" + scope_postfix
+        )
+
+        critic_2_params = get_network_params(algo_config, 'critic_2')
+        critic_2 = NetworkKeras(
+            state_shapes=state_shapes,
             action_size=action_size,
-            **critic_params,
-            scope="critic1_" + scope_postfix)
-        critic2 = CriticNetwork(
-            state_shape=state_shapes[0],
-            action_size=action_size,
-            **critic_params,
-            scope="critic2_" + scope_postfix)
+            **critic_2_params,
+            scope="critic_2_" + scope_postfix
+        )
 
         agent_algorithm = TD3(
             state_shapes=state_shapes,
             action_size=action_size,
-            actor=actor,
-            critic1=critic1,
-            critic2=critic2,
+            actor=policy,
+            critic1=critic_1,
+            critic2=critic_2,
             actor_optimizer=tf.train.AdamOptimizer(
                 learning_rate=actor_lr),
             critic1_optimizer=tf.train.AdamOptimizer(
