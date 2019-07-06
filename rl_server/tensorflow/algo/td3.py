@@ -243,3 +243,8 @@ class TD3(BaseAlgo):
 
     def get_critic_update_op(self):
         return self._critic_update
+
+    def reset_states(self):
+        self._critic1.reset_states()
+        self._critic2.reset_states()
+        self._actor.reset_states()

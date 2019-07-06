@@ -1,0 +1,313 @@
+framework: tensorflow
+
+env:
+  env_module: envs.carracing
+  env_class: CarRacingWrapper
+  is_gym: False
+  obs_shapes: [[1, 96, 96]]  # list of lists
+  obs_dtypes: ["uint8"]
+  history_length: [3]
+  obs_is_image: True
+  obs_image_to_grayscale: True
+  action_size: 3
+  frame_skip: 1
+  step_limit: 0
+  agent_buffer_size: 1001
+  reward_scale: 1.
+  reinit_random_action_every: 5
+  log_every_n_steps: 1000
+  max_episode_length: 1000
+  discrete_actions: False
+  remap_action:
+    low:
+      before: [-1., -1., -1.]
+      after: [-1., 0., 0.]
+    high:
+      before: [1., 1., 1.]
+      after: [1., 1., 1.]
+
+server:
+  seed: 42
+  num_clients: 16
+  experience_replay_buffer_size: 4000000
+  use_prioritized_buffer: false
+  train_every_nth: 1.
+  start_learning_after: 10000
+  target_critic_update_period: 1
+  show_stats_period: 10
+  save_model_period: 20000
+  ip_address: "0.0.0.0"
+  client_start_port: 13977
+  logdir: "logs/carracing"
+#  load_checkpoint: "logs/otc_42/model-275000.ckpt"
+
+algo_name: "sac"
+
+algorithm:
+  n_step: 1
+  gamma: 0.99
+  target_critic_update_rate: 0.001
+  reward_scale: 10.
+  mu_and_sig_reg: 0.00003
+  action_squash_func: "tanh"
+
+nn_engine: "keras"
+
+base_network:
+  nn_arch:
+    - input: 0
+      name: "short-memory-1"
+      layers:
+
+        - type: "Scale"
+          mult: 0.0078  # 2. / 255
+          bias: -0.5
+
+        - type: "Permute"
+          args:
+            dims: [2, 1, 3, 4]
+
+        - type: "Conv3D"  # 32 x 21 x 21 = 14112
+          args:
+            filters: 32
+            kernel_size: [1, 8, 8]
+            strides: [1, 4, 4]
+            padding: "same"
+            data_format: "channels_first"
+        - type: "Activation"
+          args:
+            activation: "relu"
+
+    - input: "short-memory-1"
+      name: "short-memory-2"
+      layers:
+
+        - type: "Conv3D"  # 64 x 11 x 11 = 7744
+          args:
+            filters: 64
+            kernel_size: [1, 4, 4]
+            strides: [1, 2, 2]
+            padding: "same"
+            data_format: "channels_first"
+        - type: "Activation"
+          args:
+            activation: "relu"
+
+    - input: "short-memory-2"
+      name: "short-memory-3"
+      layers:
+
+        - type: "Conv3D"  # 128 x 6 x 6 = 4608
+          args:
+            filters: 128
+            kernel_size: [1, 4, 4]
+            strides: [1, 2, 2]
+            padding: "same"
+            data_format: "channels_first"
+        - type: "Activation"
+          args:
+            activation: "relu"
+
+        - type: "Permute"
+          args:
+            dims: [2, 1, 3, 4]
+
+        - type: "Reshape"
+          args:
+            target_shape: [3, 4608]
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+    - input: "short-memory-1"
+      name: "short-memory-1-fc"
+      layers:
+
+        - type: "Permute"
+          args:
+            dims: [2, 1, 3, 4]
+
+        - type: "Reshape"
+          args:
+            target_shape: [3, 18432]
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+    - input: "short-memory-2"
+      name: "short-memory-2-fc"
+      layers:
+
+        - type: "Permute"
+          args:
+            dims: [2, 1, 3, 4]
+
+        - type: "Reshape"
+          args:
+            target_shape: [3, 9216]
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+    - input: ["short-memory-1-fc", "short-memory-2-fc", "short-memory-3"]
+      name: "base_output"
+      layers:
+
+        - type: "Concatenate"
+          args:
+            axis: 2
+
+        - type: "CuDNNLSTM"
+          args:
+            units: 256
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+critic_v:
+  base_network: "base_network"
+  nn_arch:
+
+    - input: "base_output"
+      name: "output"
+      layers:
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 1  # number of actions
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+
+critic_q:
+  base_network: "base_network"
+  have_action_input: true
+  nn_arch:
+
+    - input: ["base_output", "action"]
+      name: "output"
+      layers:
+
+        - type: "Concatenate"
+          args:
+            axis: 1
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 1  # number of actions
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+
+policy:
+  base_network: "base_network"
+  nn_arch:
+
+    - input: "base_output"
+      name: "output"
+      layers:
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 512
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 6  # 3 for mu + 3 for sigma
+            activation: "tanh"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+
+actor_optim:
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.0001
+
+critic_optim:
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.0001
+
+training:
+  schedule:
+    - limit: 0  # of train ops
+      batch_size: 256
+
+agents:
+  - algorithm_id: 0
+    agents:
+      - agents_count: 1
+        visualize: True
+        exploration:
+          built_in_algo: True
+          validation: True
+
+      - agents_count: 4
+        visualize: True
+        exploration:
+          built_in_algo: True
+          validation: False

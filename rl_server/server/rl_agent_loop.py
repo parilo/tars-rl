@@ -61,6 +61,12 @@ class RLAgent:
             low_to = exp_config.env.remap_action.low.after
             high_from = exp_config.env.remap_action.high.before
             high_to = exp_config.env.remap_action.high.after
+
+            low_from = np.array(low_from) if isinstance(low_from, list) else low_from
+            low_to = np.array(low_to) if isinstance(low_to, list) else low_to
+            high_from = np.array(high_from) if isinstance(high_from, list) else high_from
+            high_to = np.array(high_to) if isinstance(high_to, list) else high_to
+
             def remap_func (action):
                 return (action - low_from) / (high_from - low_from) * (high_to - low_to) + low_to
             self._action_remap_function = remap_func
@@ -320,12 +326,14 @@ class RLAgent:
                 else:
                     env_action = action
 
-            env_action_scores = env_action
             env_action = self._action_postprocess(env_action)
 
-            if not self._validation and n_steps % 500 == 0:
-                if hasattr(self, '_action_scores'):
-                    print(self._id, '\n', env_action_scores, '\n', self._action_scores)
+            if self._id == 1 and n_steps % 100 == 0:
+                print(self._id, env_action)
+
+            # if not self._validation and n_steps % 500 == 0:
+            #     if hasattr(self, '_action_scores'):
+            #         print(self._id, '\n', env_action_scores, '\n', self._action_scores)
 
             if self._action_remap_discrete_func is not None:
                 env_action_remapped = self._action_remap_discrete_func(env_action)

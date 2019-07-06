@@ -70,6 +70,19 @@ class GymEnvWrapper:
     def process_reward(self, reward):
         return reward * self.reward_scale
 
+    def render(self, observation):
+        if self.render_with_cv2:
+            env_img = self.preprocess_obs(observation)
+            if self.render_with_cv2_resize is not None:
+                env_img = cv2.resize(env_img, tuple(self.render_with_cv2_resize))
+            cv2.imshow(
+                str(self.agent_id),
+                env_img
+            )
+            cv2.waitKey(3)
+        else:
+            self.env.render()
+
     def step(self, action):
         reward = 0.
         for i in range(self.frame_skip):
@@ -81,17 +94,7 @@ class GymEnvWrapper:
                 break
 
         if self.visualize:
-            if self.render_with_cv2:
-                env_img = self.preprocess_obs(observation)
-                if self.render_with_cv2_resize is not None:
-                    env_img = cv2.resize(env_img, tuple(self.render_with_cv2_resize))
-                cv2.imshow(
-                    str(self.agent_id),
-                    env_img
-                )
-                cv2.waitKey(3)
-            else:
-                self.env.render()
+            self.render(observation)
 
         reward_shaped = reward
         self.total_reward += reward
