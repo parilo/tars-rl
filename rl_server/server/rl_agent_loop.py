@@ -328,8 +328,8 @@ class RLAgent:
 
             env_action = self._action_postprocess(env_action)
 
-            if self._id == 1 and n_steps % 100 == 0:
-                print(self._id, env_action)
+            # if self._id == 1 and n_steps % 100 == 0:
+            #     print(self._id, env_action)
 
             # if not self._validation and n_steps % 500 == 0:
             #     if hasattr(self, '_action_scores'):

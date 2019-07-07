@@ -3,7 +3,7 @@ import copy
 
 import tensorflow as tf
 from tensorflow.python import keras
-from tensorflow.python.keras.layers import Dense, Concatenate, Reshape, Activation, Lambda
+from tensorflow.python.keras.layers import Lambda
 
 
 def process_layer_args(layer_args):
@@ -54,7 +54,7 @@ class NetworkKeras:
 
     def process_layers(self, layers_info, layers_input):
 
-        print('--- branch')
+        # print('--- branch')
         keras_module = importlib.import_module('tensorflow.python.keras.layers')
 
         out_layer = layers_input
@@ -72,12 +72,10 @@ class NetworkKeras:
             else:
                 out_layer = special_layer_output
 
-            print(out_layer)
+            # print(out_layer)
         return out_layer
 
     def build_model(self):
-
-        print('--- build', self.scope)
 
         with tf.variable_scope(self.scope):
 
@@ -141,11 +139,8 @@ class NetworkKeras:
             return shape[0] * shape[1]
 
     def __call__(self, inputs):
-        if self.has_action_input:
-            model_input = inputs[0] + [inputs[1]]
-        else:
-            model_input = inputs
-        return self.model(model_input)
+        # print('--- ', __file__, ' inputs', inputs)
+        return self.model(inputs)
 
     def variables(self):
         return self.model.trainable_weights

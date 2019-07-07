@@ -77,6 +77,8 @@ class RLTrainer:
                 if buffer_size > self._step_index * self._train_every:
                     self.train_step()
                     self._step_index += 1
+                else:
+                    time.sleep(0.1)
             elif buffer_size < self._start_learning_after \
                     and self._step_index % 10 == 0:
                 print("--- buffer size {}".format(buffer_size))

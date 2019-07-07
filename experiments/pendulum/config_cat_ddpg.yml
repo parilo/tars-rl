@@ -23,17 +23,17 @@ server:
   num_clients: 16
   experience_replay_buffer_size: 5000000
   use_prioritized_buffer: false
-  train_every_nth: 512
+  train_every_nth: 1.
   start_learning_after: 5000
   target_critic_update_period: 1
   target_actor_update_period: 1
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/pendulum_asd"
+  logdir: "logs/pendulum_cat_asd"
   #load_checkpoint: ""
 
-algo_name: "ddpg"
+algo_name: "categorical_ddpg"
 
 algorithm:
   n_step: 1
@@ -84,6 +84,8 @@ actor:
 
 critic:
   have_action_input: true
+  num_atoms: 101
+  v: [-10., 10.]
   nn_arch:
 
     - input: 0
@@ -116,7 +118,7 @@ critic:
 
         - type: "Dense"
           args:
-            units: 1
+            units: 101
             activation: "linear"
             kernel_initializer:
               class: "RandomUniform"

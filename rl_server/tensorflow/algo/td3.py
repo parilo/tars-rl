@@ -2,6 +2,73 @@ import tensorflow as tf
 
 from .base_algo import BaseAlgo, network_update, target_network_update
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
+from rl_server.tensorflow.algo.algo_fabric import get_network_params, get_optimizer_class
+from rl_server.tensorflow.networks.network_keras import NetworkKeras
+from rl_server.tensorflow.algo.base_algo import create_placeholders
+
+
+def create_algo(algo_config, placeholders, scope_postfix):
+
+    _, _, state_shapes, action_size = algo_config.get_env_shapes()
+    if placeholders is None:
+        placeholders = create_placeholders(state_shapes, action_size)
+    algo_scope = 'td3' + scope_postfix
+    actor_lr = placeholders[0]
+    critic_lr = placeholders[1]
+
+    actor_optim_info = algo_config.as_obj()['actor_optim']
+    critic_optim_info = algo_config.as_obj()['critic_optim']
+
+    actor_params = get_network_params(algo_config, 'actor')
+    actor = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **actor_params,
+        scope="actor_" + scope_postfix
+    )
+
+    critic_1_params = get_network_params(algo_config, 'critic_1')
+    critic_1 = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **critic_1_params,
+        scope="critic_1_" + scope_postfix
+    )
+
+    critic_2_params = get_network_params(algo_config, 'critic_2')
+    critic_2 = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **critic_2_params,
+        scope="critic_2_" + scope_postfix
+    )
+
+    return TD3(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        actor=actor,
+        critic1=critic_1,
+        critic2=critic_2,
+
+        actor_optimizer = get_optimizer_class(actor_optim_info)(
+            learning_rate=actor_lr),
+        critic_optimizer = get_optimizer_class(critic_optim_info)(
+            learning_rate=critic_lr),
+        critic_optimizer = get_optimizer_class(critic_optim_info)(
+            learning_rate=critic_lr),
+
+        actor_optimizer=tf.train.AdamOptimizer(
+            learning_rate=actor_lr),
+        critic1_optimizer=tf.train.AdamOptimizer(
+            learning_rate=critic_lr),
+        critic2_optimizer=tf.train.AdamOptimizer(
+            learning_rate=critic_lr),
+        **algo_config.as_obj()["algorithm"],
+        scope=algo_scope,
+        placeholders=placeholders,
+        actor_optim_schedule=algo_config.as_obj()["actor_optim"],
+        critic_optim_schedule=algo_config.as_obj()["critic_optim"],
+        training_schedule=algo_config.as_obj()["training"])
 
 
 class TD3(BaseAlgo):
@@ -68,7 +135,7 @@ class TD3(BaseAlgo):
 
     # protected methods, may be arbitrary
     def _get_gradients_wrt_actions(self):
-        q_values = self._critic1([self.states_ph, self.actions_ph])
+        q_values = self._critic1(self.states_ph + [self.actions_ph])
         gradients = tf.gradients(q_values, self.actions_ph)[0]
         return gradients
 
@@ -125,15 +192,15 @@ class TD3(BaseAlgo):
             self._gradients = self._get_gradients_wrt_actions()
 
         with tf.name_scope("actor_update"):
-            q_values1 = self._critic1([self.states_ph, self._actor(self.states_ph)])
-            q_values2 = self._critic2([self.states_ph, self._actor(self.states_ph)])
+            q_values1 = self._critic1(self.states_ph + [self._actor(self.states_ph)])
+            q_values2 = self._critic2(self.states_ph + [self._actor(self.states_ph)])
             self._q_values_min = tf.minimum(q_values1, q_values2)
             self._policy_loss = -tf.reduce_mean(self._q_values_min)
             self._actor_update = self._get_actor_update(self._policy_loss)
 
         with tf.name_scope("critic_update"):
-            q_values1 = self._critic1([self.states_ph, self.actions_ph])
-            q_values2 = self._critic2([self.states_ph, self.actions_ph])
+            q_values1 = self._critic1(self.states_ph + [self.actions_ph])
+            q_values2 = self._critic2(self.states_ph + [self.actions_ph])
             next_actions = self._target_actor(self.next_states_ph)
             actions_noise = tf.random_normal(
                 tf.shape(next_actions), mean=0.0, stddev=self._act_noise_std)
@@ -141,9 +208,9 @@ class TD3(BaseAlgo):
                 actions_noise, -self._act_noise_clip, self._act_noise_clip)
             next_actions = next_actions + clipped_noise
             next_q_values1 = self._target_critic1(
-                [self.next_states_ph, next_actions])
+                self.next_states_ph + [next_actions])
             next_q_values2 = self._target_critic2(
-                [self.next_states_ph, next_actions])
+                self.next_states_ph + [next_actions])
             next_q_values_min = tf.minimum(next_q_values1, next_q_values2)
             gamma = self._gamma ** self._n_step
             td_targets = self.rewards_ph[:, None] + gamma * (

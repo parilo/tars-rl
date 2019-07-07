@@ -2,6 +2,59 @@ import tensorflow as tf
 
 from .base_algo import BaseAlgo, network_update, target_network_update
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
+from rl_server.tensorflow.algo.algo_fabric import get_network_params, get_optimizer_class
+from rl_server.tensorflow.networks.network_keras import NetworkKeras
+from rl_server.tensorflow.algo.base_algo import create_placeholders
+
+
+def create_algo(algo_config, placeholders, scope_postfix):
+    return ddpg_create_algo(DDPG, algo_config, placeholders, scope_postfix)
+
+
+def ddpg_create_algo(AlgoClass, algo_config, placeholders, scope_postfix):
+
+    _, _, state_shapes, action_size = algo_config.get_env_shapes()
+    if placeholders is None:
+        placeholders = create_placeholders(state_shapes, action_size)
+    algo_scope = 'ddpg' + scope_postfix
+    actor_lr = placeholders[0]
+    critic_lr = placeholders[1]
+
+    actor_params = get_network_params(algo_config, 'actor')
+    actor = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **actor_params,
+        scope="actor_" + scope_postfix
+    )
+
+    critic_params = get_network_params(algo_config, 'critic')
+    critic = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **critic_params,
+        scope="critic_" + scope_postfix
+    )
+
+    actor_optim_info = algo_config.as_obj()['actor_optim']
+    critic_optim_info = algo_config.as_obj()['critic_optim']
+
+    return DDPG(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        actor=actor,
+        critic=critic,
+        actor_optimizer=get_optimizer_class(actor_optim_info)(
+            learning_rate=actor_lr),
+        critic_optimizer=get_optimizer_class(critic_optim_info)(
+            learning_rate=critic_lr),
+        **algo_config.as_obj()["algorithm"],
+        scope=algo_scope,
+        placeholders=placeholders,
+        actor_optim_schedule=actor_optim_info,
+        critic_optim_schedule=critic_optim_info,
+        training_schedule=algo_config.as_obj()["training"]
+    )
 
 
 class DDPG(BaseAlgo):

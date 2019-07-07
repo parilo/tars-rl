@@ -1,12 +1,16 @@
 import tensorflow as tf
 
-from .ddpg import DDPG
+from .ddpg import DDPG, ddpg_create_algo
+
+
+def create_algo(algo_config, placeholders, scope_postfix):
+    return ddpg_create_algo(CategoricalDDPG, algo_config, placeholders, scope_postfix)
 
 
 class CategoricalDDPG(DDPG):
 
     def _get_gradients_wrt_actions(self):
-        logits = self._critic([self.states_ph, self.actions_ph])
+        logits = self._critic(self.states_ph + [self.actions_ph])
         probs = tf.nn.softmax(logits)
         q_values = tf.reduce_sum(probs * self._z, axis=-1)
         gradients = tf.gradients(q_values, self.actions_ph)[0]
@@ -15,6 +19,7 @@ class CategoricalDDPG(DDPG):
     def build_graph(self):
         self._num_atoms = self._critic.num_atoms
         self._v_min, self._v_max = self._critic.v
+        print('--- build_graph', self._num_atoms, self._v_min, self._v_max)
         self._delta_z = (self._v_max - self._v_min) / (self._num_atoms - 1)
         self._z = tf.lin_space(
             start=self._v_min, stop=self._v_max, num=self._num_atoms)
@@ -26,17 +31,17 @@ class CategoricalDDPG(DDPG):
 
         with tf.name_scope("actor_update"):
             logits = self._critic(
-                [self.states_ph, self._actor(self.states_ph)])
+                self.states_ph + [self._actor(self.states_ph)])
             probs = tf.nn.softmax(logits)
             self._q_values = tf.reduce_sum(probs * self._z, axis=-1)
             self._policy_loss = -tf.reduce_mean(self._q_values)
             self._actor_update = self._get_actor_update(self._policy_loss)
 
         with tf.name_scope("critic_update"):
-            logits = self._critic([self.states_ph, self.actions_ph])
+            logits = self._critic(self.states_ph + [self.actions_ph])
             next_actions = self._target_actor(self.next_states_ph)
             next_logits = self._target_critic(
-                [self.next_states_ph, next_actions])
+                self.next_states_ph + [next_actions])
             next_probs = tf.nn.softmax(next_logits)
             gamma = self._gamma ** self._n_step
             target_atoms = self.rewards_ph[:, None] + gamma * (

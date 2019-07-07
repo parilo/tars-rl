@@ -30,10 +30,10 @@ server:
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/pendulum_asd"
+  logdir: "logs/pendulum_qddpg_asd"
   #load_checkpoint: ""
 
-algo_name: "ddpg"
+algo_name: "quantile_ddpg"
 
 algorithm:
   n_step: 1
@@ -84,6 +84,7 @@ actor:
 
 critic:
   have_action_input: true
+  num_atoms: 101
   nn_arch:
 
     - input: 0
@@ -116,7 +117,7 @@ critic:
 
         - type: "Dense"
           args:
-            units: 1
+            units: 101
             activation: "linear"
             kernel_initializer:
               class: "RandomUniform"

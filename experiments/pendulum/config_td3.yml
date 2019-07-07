@@ -3,37 +3,34 @@ framework: tensorflow
 env:
   name: Pendulum-v0
   is_gym: True
-  obs_size: 3
+
+  obs_shapes: [[3]]
+  obs_dtypes: ["float32"]
+  obs_is_image: False
+  history_length: [2]
+
   action_size: 1
   frame_skip: 2
   step_limit: 0
   agent_buffer_size: 110
-  history_length: 2
   reward_scale: 0.1
   reinit_random_action_every: 5
   log_every_n_steps: 1000
-  # example of action remapping
-#  remap_action:
-#    low:
-#      before: -1.
-#      after: -1.
-#    high:
-#      before: 1.
-#      after: 1.
+  max_episode_length: 110
 
 server:
-  seed: 45
+  seed: 42
   num_clients: 16
   experience_replay_buffer_size: 5000000
   use_prioritized_buffer: false
-  train_every_nth: 1.
+  train_every_nth: 256
   start_learning_after: 5000
   target_critic_update_period: 1
   target_actor_update_period: 1
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "experiments/pendulum/logs/pendulum_td3_seed_45"
+  logdir: "logs/pendulum_td3_asd"
   #load_checkpoint: ""
 
 algo_name: "td3"
@@ -46,55 +43,161 @@ algorithm:
   target_critic_update_rate: 0.005
 
 actor:
-  lstm_network: False
-  hiddens: [128, 128, 128]
-  activations: ["relu", "relu", "relu"]
-  layer_norm: False
-  noisy_layer: False
-  output_activation: "tanh"
+  nn_arch:
 
-critic:
-  lstm_network: False
-  hiddens: [128, 128, 128]
-  activations: ["relu", "relu", "relu"]
-  layer_norm: False
-  noisy_layer: False
-  output_activation: "linear"
-  action_insert_block: 0
-  num_atoms: 1
+    - input: 0
+      name: "output"
+      layers:
+        - type: "Flatten"
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 1  # number of actions
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+
+critic_1:
+  have_action_input: true
+  nn_arch:
+
+    - input: 0
+      name: "flatten-obs"
+      layers:
+        - type: "Flatten"
+
+    - input: ["flatten-obs", "action"]
+      name: "output"
+      layers:
+
+        - type: "Concatenate"
+          args:
+            axis: 1
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 1
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+
+critic_2:
+  have_action_input: true
+  nn_arch:
+
+    - input: 0
+      name: "flatten-obs"
+      layers:
+        - type: "Flatten"
+
+    - input: ["flatten-obs", "action"]
+      name: "output"
+      layers:
+
+        - type: "Concatenate"
+          args:
+            axis: 1
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 1
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
 
 actor_optim:
+  module: tensorflow.train
+  class: AdamOptimizer
   schedule:
     - limit: 0  # of train ops
       lr: 0.001
-    - limit: 500000
-      lr: 0.0005
-    - limit: 1000000
-      lr: 0.0005
-    - limit: 1500000
-      lr: 0.00025
 
 critic_optim:
+  module: tensorflow.train
+  class: AdamOptimizer
   schedule:
     - limit: 0  # of train ops
       lr: 0.001
-    - limit: 500000
-      lr: 0.0005
-    - limit: 1000000
-      lr: 0.0005
-    - limit: 1500000
-      lr: 0.00025
 
 training:
   schedule:
     - limit: 0  # of train ops
       batch_size: 2560
-    - limit: 500000
-      batch_size: 2560
-    - limit: 1000000
-      batch_size: 5120
-    - limit: 1500000
-      batch_size: 5120
 
 agents:
   - algorithm_id: 0
