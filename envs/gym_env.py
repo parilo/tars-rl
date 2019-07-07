@@ -58,7 +58,6 @@ class GymEnvWrapper:
                 obs = cv2.resize(obs, tuple(self.obs_image_resize_to))
 
             if self.obs_image_to_grayscale:
-                # obs = cv2.cvtColor(obs, cv2.COLOR_BGR2HSV)[:, :, 2]
                 obs = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
             else:
                 obs = np.transpose(obs, (2, 0, 1))

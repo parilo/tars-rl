@@ -7,7 +7,10 @@ algo_names = [
     'td3',
     'quantile_td3',
     'sac',
-    'env_learning'
+    'env_learning',
+    'dqn',
+    'td_dqn',
+    'sac_discrete'
 ]
 
 algo_create_funcs = {}

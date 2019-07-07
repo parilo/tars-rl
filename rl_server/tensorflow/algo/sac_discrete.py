@@ -3,14 +3,78 @@ import tensorflow as tf
 from .base_algo_discrete import BaseAlgoDiscrete
 from .base_algo import network_update, target_network_update
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
+from rl_server.tensorflow.algo.algo_fabric import get_network_params, get_optimizer_class
+from rl_server.tensorflow.networks.network_keras import NetworkKeras
+from rl_server.tensorflow.algo.base_algo_discrete import create_placeholders
 
 
-class DQN_SAC(BaseAlgoDiscrete):
+def create_placeholders_sac_discrete(state_shapes):
+    ph = create_placeholders(state_shapes)
+    actor_lr = tf.placeholder(tf.float32, (), "actor_lr")
+    return [actor_lr] + list(ph)
+
+
+def create_algo(algo_config, placeholders, scope_postfix):
+
+    _, _, state_shapes, action_size = algo_config.get_env_shapes()
+    if placeholders is None:
+        placeholders = create_placeholders_sac_discrete(state_shapes)
+    algo_scope = 'sac_discrete_' + scope_postfix
+    actor_lr = placeholders[0]
+    critic_lr = placeholders[1]
+
+    actor_optim_info = algo_config.as_obj()['actor_optim']
+    critic_optim_info = algo_config.as_obj()['critic_optim']
+
+    critic_q_params = get_network_params(algo_config, "critic_q")
+    critic_v_params = get_network_params(algo_config, "critic_v")
+    actor_params = get_network_params(algo_config, "actor")
+
+    critic_q = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **critic_q_params,
+        scope='critic_q'
+    )
+
+    critic_v = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **critic_v_params,
+        scope='critic_v'
+    )
+
+    actor = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **actor_params,
+        scope='actor'
+    )
+
+    return SAC_Discrete(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        critic_q=critic_q,
+        critic_v=critic_v,
+        actor=actor,
+        critic_optimizer=get_optimizer_class(critic_optim_info)(
+            learning_rate=critic_lr),
+        actor_optimizer=get_optimizer_class(critic_optim_info)(
+            learning_rate=actor_lr),
+        **algo_config.as_obj()["algorithm"],
+        scope=algo_scope,
+        placeholders=placeholders,
+        critic_optim_schedule=critic_optim_info,
+        actor_optim_schedule=actor_optim_info,
+        training_schedule=algo_config.as_obj()["training"])
+
+
+class SAC_Discrete(BaseAlgoDiscrete):
     def __init__(
         self,
         state_shapes,
         action_size,
-        policy,
+        actor,
         critic_q,
         critic_v,
         critic_optimizer,
@@ -23,7 +87,6 @@ class DQN_SAC(BaseAlgoDiscrete):
         h_reward_scale=1.0,
         scope="algorithm",
         placeholders=None,
-        actor_lr=None,
         critic_optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
         actor_optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
         training_schedule={'schedule': [{'limit': 0, 'batch_size_mult': 1}]}
@@ -35,13 +98,11 @@ class DQN_SAC(BaseAlgoDiscrete):
             critic_optim_schedule,
             training_schedule
         )
-        self.actor_lr = actor_lr
-
-        self._policy = policy  # log(p_i)
+        self._actor = actor  # log(p_i)
         self._critic_q = critic_q
         self._critic_v = critic_v
         self._target_critic_v = critic_v.copy(scope=scope + "/target_critic")
-        self._policy_wt = ModelWeightsTool(policy)
+        self._policy_wt = ModelWeightsTool(actor)
         # self._critic_q_weights_tool = ModelWeightsTool(critic_q)
         # self._critic_v_weights_tool = ModelWeightsTool(critic_v)
         # self._target_critic_weights_tool = ModelWeightsTool(self._target_critic_v)
@@ -90,15 +151,24 @@ class DQN_SAC(BaseAlgoDiscrete):
     def get_actor_lr(self, step_index):
         return self.get_schedule_params(self._actor_optim_schedule, step_index)['lr']
 
+    def create_placeholders(self):
+        if self.placeholders is None:
+            self.placeholders = create_placeholders_sac_discrete(self.state_shapes)
+
+        self.actor_lr_ph = self.placeholders[0]
+        self.critic_lr_ph = self.placeholders[1]
+        self.states_ph = self.placeholders[2]
+        self.actions_ph = self.placeholders[3]
+        self.rewards_ph = self.placeholders[4]
+        self.next_states_ph = self.placeholders[5]
+        self.dones_ph = self.placeholders[6]
+
     def build_graph(self):
         self.create_placeholders()
 
-        # with tf.name_scope("taking_action"):
-        #     self._q_values = self._critic(self.states_ph)
-
         with tf.name_scope("critic_update"):
 
-            self._policy_logits = self._policy(self.states_ph)
+            self._policy_logits = self._actor(self.states_ph)
             print('policy_logits', self._policy_logits)
             # stohastic_action = tf.multinomial(tf.nn.softmax(self._policy_logits), 1, output_dtype=tf.int32)[:, 0]
             stohastic_action = self.actions_ph
@@ -145,12 +215,11 @@ class DQN_SAC(BaseAlgoDiscrete):
 
             self._critic_v_update = self._get_critic_update(self._critic_v, self._loss_v, self._critic_optimizer)
             self._critic_q_update = self._get_critic_update(self._critic_q, self._loss_q, self._critic_optimizer)
-            self._policy_update = self._get_critic_update(self._policy, self._loss_pi, self._actor_optimizer)
+            self._policy_update = self._get_critic_update(self._actor, self._loss_pi, self._actor_optimizer)
 
         with tf.name_scope("targets_update"):
             self._targets_init_op = self._get_targets_init()
             self._target_critic_update_op = self._get_target_critic_update()
-
 
     # algorithm interface
 
@@ -167,7 +236,7 @@ class DQN_SAC(BaseAlgoDiscrete):
         critic_lr = self.get_critic_lr(step_index)
         feed_dict = {
             self.critic_lr_ph: critic_lr,
-            self.actor_lr: self.get_actor_lr(step_index),
+            self.actor_lr_ph: self.get_actor_lr(step_index),
             **dict(zip(self.states_ph, batch.s)),
             **{self.actions_ph: batch.a},
             **{self.rewards_ph: batch.r},
@@ -217,15 +286,9 @@ class DQN_SAC(BaseAlgoDiscrete):
     def reset_states(self):
         self._critic_v.reset_states()
         self._critic_q.reset_states()
-        self._policy.reset_states()
+        self._actor.reset_states()
 
     def save_actor(self, sess, path):
-        print('-- save actor')
-        # vars = self._policy.variables()
-        # for v in vars:
-        #     print(v)
-        # saver = tf.train.Saver(max_to_keep=None, var_list=vars)
-        # saver.save(sess, path)
         tf.saved_model.simple_save(
             sess,
             path,

@@ -53,6 +53,8 @@ class NetworkKeras:
         self.v = v
         self.scope = scope or "CriticNetwork"
         self.model = self.build_model()
+        # print('--- model for', self.scope)
+        # self.model.summary()
 
     def process_layers(self, layers_info, layers_input):
 

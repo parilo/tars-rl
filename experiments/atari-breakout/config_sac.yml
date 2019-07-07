@@ -3,15 +3,15 @@ framework: tensorflow
 env:
   name: Breakout-v0
   is_gym: True
-  obs_shapes: [[1, 84, 84]]  # list of lists
+  obs_shapes: [[3, 84, 84]]  # list of lists
   obs_dtypes: ['uint8']
   history_length: [4]
   obs_is_image: True
   obs_image_resize_to: [84, 84]
-  obs_image_to_grayscale: True
+  obs_image_to_grayscale: False
   action_size: 4
   action_postprocess:
-    type: "argmax of softmax"
+    type: "softmax"
   frame_skip: 1
   step_limit: 0
   agent_buffer_size: 5001
@@ -26,26 +26,25 @@ env:
 server:
   seed: 42
   num_clients: 16
-  experience_replay_buffer_size: 4000000
+  experience_replay_buffer_size: 2000000
   use_prioritized_buffer: false
-  train_every_nth: 1.
-  start_learning_after: 500000
+  train_every_nth: 32
+  start_learning_after: 50000
   target_critic_update_period: 1
-#  target_critic_update_period: 2500
   show_stats_period: 10
   save_model_period: 25000
   ip_address: "0.0.0.0"
   client_start_port: 12977
-  logdir: "logs/breakout_sac_from_eps_step_2"
-  load_checkpoint: "logs/breakout_sac_from_eps/model-100000.ckpt"
+  logdir: "logs/breakout_sac_asd"
+#  load_checkpoint: "logs/breakout_sac_from_eps/model-100000.ckpt"
 
-algo_name: "dqn_sac"
+algo_name: "sac_discrete"
 
 algorithm:
   n_step: 1
   gamma: 0.99
   target_critic_update_rate: 0.001
-#  target_critic_update_rate: 1.
+  h_reward_scale: 1.
 
 nn_engine: "keras"
 
@@ -171,7 +170,7 @@ critic_q:
                 minval: -0.003
                 maxval: 0.003
 
-policy:
+actor:
   base_network: "base_network"
   nn_arch:
 
@@ -197,6 +196,15 @@ policy:
                 maxval: 0.003
 
 critic_optim:
+  module: tensorflow.train
+  class: AdamOptimizer
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.0001
+
+actor_optim:
+  module: tensorflow.train
+  class: AdamOptimizer
   schedule:
     - limit: 0  # of train ops
       lr: 0.0001
@@ -214,7 +222,6 @@ agents:
         visualize: True
 
       - agents_count: 1
-#        visualize: True
         exploration:
           type: "boltzmann"
           temp: 0.0001
@@ -225,6 +232,7 @@ agents:
           temp: 0.001
 
       - agents_count: 1
+        visualize: True
         exploration:
           type: "boltzmann"
           temp: 0.01

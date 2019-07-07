@@ -97,7 +97,6 @@ class BaseAlgoDiscrete:
         if self.placeholders is None:
             self.placeholders = create_placeholders(self.state_shapes)
 
-        # self.actor_lr_ph = self.placeholders[0]
         self.critic_lr_ph = self.placeholders[0]
         self.states_ph = self.placeholders[1]
         self.actions_ph = self.placeholders[2]

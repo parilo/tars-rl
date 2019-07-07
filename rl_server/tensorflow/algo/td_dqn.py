@@ -3,9 +3,55 @@ import tensorflow as tf
 from .base_algo_discrete import BaseAlgoDiscrete
 from .base_algo import network_update, target_network_update
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
+from rl_server.tensorflow.algo.algo_fabric import get_network_params, get_optimizer_class
+from rl_server.tensorflow.networks.network_keras import NetworkKeras
+from rl_server.tensorflow.algo.base_algo_discrete import create_placeholders
 
 
-class DQN_TD3(BaseAlgoDiscrete):
+def create_algo(algo_config, placeholders, scope_postfix):
+
+    _, _, state_shapes, action_size = algo_config.get_env_shapes()
+    if placeholders is None:
+        placeholders = create_placeholders(state_shapes)
+    algo_scope = 'dqn_' + scope_postfix
+    critic_lr = placeholders[0]
+
+    critic_params = get_network_params(algo_config, "critic")
+    critic_optim_info = algo_config.as_obj()['critic_optim']
+
+    critic_1 = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **critic_params,
+        scope='critic_1'
+    )
+
+    critic_2 = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **critic_params,
+        scope='critic_2'
+    )
+
+    return TD_DQN(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        critic_1=critic_1,
+        critic_2=critic_2,
+        critic_optimizer=get_optimizer_class(critic_optim_info)(
+            learning_rate=critic_lr),
+        **algo_config.as_obj()["algorithm"],
+        scope=algo_scope,
+        placeholders=placeholders,
+        critic_optim_schedule=critic_optim_info,
+        training_schedule=algo_config.as_obj()["training"])
+
+
+class TD_DQN(BaseAlgoDiscrete):
+    """
+    Twin Delayed DQN, done by analogue to
+    TD3 https://arxiv.org/abs/1802.09477
+    """
     def __init__(
         self,
         state_shapes,
@@ -160,3 +206,7 @@ class DQN_TD3(BaseAlgoDiscrete):
     def set_weights(self, sess, weights):
         self._critic_weights_tool_1.set_weights(sess, weights['critic_1'])
         self._critic_weights_tool_2.set_weights(sess, weights['critic_2'])
+
+    def reset_states(self):
+        self._critic_1.reset_states()
+        self._critic_2.reset_states()

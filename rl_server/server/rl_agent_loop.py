@@ -95,7 +95,7 @@ class RLAgent:
         self._action_postprocess = trivial_action_proctprocess
         if exp_config.env.isset('action_postprocess'):
 
-            if exp_config.env.action_postprocess.type == 'argmax of softmax':
+            if exp_config.env.action_postprocess.type == 'softmax':
                 from scipy.special import softmax
 
                 expl_type_set = (
