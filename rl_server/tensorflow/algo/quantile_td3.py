@@ -1,6 +1,10 @@
 import tensorflow as tf
 
-from .td3 import TD3
+from .td3 import TD3, td3_create_algo
+
+
+def create_algo(algo_config, placeholders, scope_postfix):
+    return td3_create_algo(QuantileTD3, algo_config, placeholders, '_qtd3_' + scope_postfix)
 
 
 def huber_loss(source, target, weights, kappa=1.0):

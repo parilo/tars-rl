@@ -2,6 +2,68 @@ import tensorflow as tf
 
 from .base_algo import BaseAlgo, network_update, target_network_update
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
+from rl_server.tensorflow.algo.algo_fabric import get_network_params, get_optimizer_class
+from rl_server.tensorflow.networks.network_keras import NetworkKeras
+from rl_server.tensorflow.algo.base_algo import create_placeholders
+
+
+def create_placeholders_el(state_shapes, action_size, scope="placeholders"):
+    ph = create_placeholders(state_shapes, action_size, scope)
+    return ph[1:]
+
+def create_algo(algo_config, placeholders, scope_postfix):
+
+    _, _, state_shapes, action_size = algo_config.get_env_shapes()
+    if placeholders is None:
+        placeholders = create_placeholders_el(state_shapes, action_size)
+
+    algo_scope = 'el_' + scope_postfix
+    critic_lr = placeholders[0]
+    critic_optim_info = algo_config.as_obj()['critic_optim']
+
+    env_model_params = get_network_params(algo_config, "env_model")
+    reward_model_params = get_network_params(algo_config, "reward_model")
+    done_model_params = get_network_params(algo_config, "done_model")
+    actor_params = get_network_params(algo_config, "actor")
+
+    env_model = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **env_model_params,
+        scope='env_model_' + scope_postfix)
+
+    reward_model = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **reward_model_params,
+        scope='reward_model_' + scope_postfix)
+
+    done_model = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **done_model_params,
+        scope='done_model_' + scope_postfix)
+
+    actor = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **actor_params,
+        scope='actor_' + scope_postfix)
+
+    return EnvLearning(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        actor=actor,
+        env_model=env_model,
+        reward_model=reward_model,
+        done_model=done_model,
+        optimizer=tf.train.AdamOptimizer(learning_rate=critic_lr),
+        n_step=algo_config.as_obj()["algorithm"]['n_step'],
+        scope="algorithm",
+        placeholders=placeholders,
+        optim_schedule=algo_config.as_obj()["critic_optim"],
+        training_schedule=algo_config.as_obj()["training"]
+    )
 
 
 class EnvLearning:
@@ -15,28 +77,11 @@ class EnvLearning:
         done_model,
         optimizer,
         n_step=1,
-        # actor_grad_val_clip=1.0,
-        # actor_grad_norm_clip=None,
-        # critic_grad_val_clip=None,
-        # critic_grad_norm_clip=None,
-        # gamma=0.99,
-        # target_actor_update_rate=1.0,
-        # target_critic_update_rate=1.0,
         scope="algorithm",
         placeholders=None,
         optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
-        # critic_optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
         training_schedule={'schedule': [{'limit': 0, 'batch_size_mult': 1}]}
     ):
-        # super().__init__(
-        #     state_shapes,
-        #     action_size,
-        #     placeholders,
-        #     actor_optim_schedule,
-        #     critic_optim_schedule,
-        #     training_schedule
-        # )
-
         self._state_shapes = state_shapes
         self._action_size = action_size
         self._actor = actor
@@ -44,7 +89,7 @@ class EnvLearning:
         self._reward_model = reward_model
         self._done_model = done_model
         self._optimizer = optimizer
-        self._n_step = 40  # n_step
+        self._n_step = n_step
         self._scope = scope
         self._placeholders = placeholders
         self._optim_schedule = optim_schedule
@@ -55,62 +100,8 @@ class EnvLearning:
         self._reward_model_weights_tool = ModelWeightsTool(reward_model)
         self._done_model_weights_tool = ModelWeightsTool(done_model)
 
-
-        # self._actor = actor
-        # self._critic = critic
-        # self._target_actor = actor.copy(scope=scope + "/target_actor")
-        # self._target_critic = critic.copy(scope=scope + "/target_critic")
-        # self._actor_weights_tool = ModelWeightsTool(actor)
-        # self._critic_weights_tool = ModelWeightsTool(critic)
-        # self._actor_optimizer = actor_optimizer
-        # self._critic_optimizer = critic_optimizer
-        # self._n_step = n_step
-        # self._actor_grad_val_clip = actor_grad_val_clip
-        # self._actor_grad_norm_clip = actor_grad_norm_clip
-        # self._critic_grad_val_clip = critic_grad_val_clip
-        # self._critic_grad_norm_clip = critic_grad_norm_clip
-        # self._gamma = gamma
-        # self._target_actor_update_rate = target_actor_update_rate
-        # self._target_critic_update_rate = target_critic_update_rate
-
         with tf.name_scope(scope):
             self.build_graph()
-
-    # def _get_gradients_wrt_actions(self):
-    #     q_values = self._critic([self.states_ph, self.actions_ph])
-    #     gradients = tf.gradients(q_values, self.actions_ph)[0]
-    #     return gradients
-    #
-    # def _get_actor_update(self, loss):
-    #     update_op = network_update(
-    #         loss, self._actor, self._actor_optimizer,
-    #         self._actor_grad_val_clip, self._actor_grad_norm_clip)
-    #     return update_op
-    #
-    # def _get_critic_update(self, loss):
-    #     update_op = network_update(
-    #         loss, self._critic, self._critic_optimizer,
-    #         self._critic_grad_val_clip, self._critic_grad_norm_clip)
-    #     return update_op
-    #
-    # def _get_target_actor_update(self):
-    #     update_op = target_network_update(
-    #         self._target_actor, self._actor,
-    #         self._target_actor_update_rate)
-    #     return update_op
-    #
-    # def _get_target_critic_update(self):
-    #     update_op = target_network_update(
-    #         self._target_critic, self._critic,
-    #         self._target_critic_update_rate)
-    #     return update_op
-    #
-    # def _get_targets_init(self):
-    #     actor_init = target_network_update(
-    #         self._target_actor, self._actor, 1.0)
-    #     critic_init = target_network_update(
-    #         self._target_critic, self._critic, 1.0)
-    #     return tf.group(actor_init, critic_init)
 
     def compose_next_state(self, prev_state, next_obs):
         return [tf.concat([
@@ -125,11 +116,7 @@ class EnvLearning:
         dones_mask = tf.cast(tf.sequence_mask(done_ind + 1, self._n_step), dtype=tf.float32)
         return dones_mask
 
-
     def build_graph(self):
-        # self.create_placeholders()
-
-        # self.actor_lr_ph = self.placeholders[0]
         self.critic_lr_ph = self._placeholders[0]
         self.states_ph = self._placeholders[1]
         self.actions_ph = self._placeholders[2]
@@ -139,7 +126,6 @@ class EnvLearning:
 
         with tf.name_scope("taking_action"):
             self._actions = self._actor(self.states_ph)
-            # self._gradients = self._get_gradients_wrt_actions()
 
         with tf.name_scope("env_model_update"):
             self._predicted_next_state = self._env_model(self.states_ph + [self.actions_ph])
@@ -164,7 +150,7 @@ class EnvLearning:
             )
 
         with tf.name_scope("done_model_update"):
-            self._predicted_done = self._done_model(self.states_ph + [self.actions_ph] + self.next_states_ph)[:, -1]
+            self._predicted_done = self._done_model(self.states_ph + self.next_states_ph + [self.actions_ph])[:, -1]
             print('--- self._predicted_done', self._predicted_done)
             self._done_model_loss = tf.losses.huber_loss(self._predicted_done, self.dones_ph)
             self._done_model_update = network_update(
@@ -184,7 +170,7 @@ class EnvLearning:
                 p_next_state = self.compose_next_state(p_state, p_next_state)
                 print('--- p_next_state', p_next_state)
                 p_reward = self._reward_model(p_state + p_next_state)[:, -1]
-                p_done = self._done_model(p_state + [p_action] + p_next_state)[:, -1]
+                p_done = self._done_model(p_state + p_next_state + [p_action])[:, -1]
                 pred_rewards.append(p_reward)
                 pred_done.append(p_done)
                 p_state = p_next_state
@@ -230,13 +216,6 @@ class EnvLearning:
         feed_dict = dict(zip(self.states_ph, states))
         actions = sess.run(self._actions, feed_dict=feed_dict)
         return actions.tolist()
-
-    # def act_batch_with_gradients(self, sess, states):
-    #     feed_dict = dict(zip(self.states_ph, states))
-    #     actions = sess.run(self._actions, feed_dict=feed_dict)
-    #     feed_dict = {**feed_dict, **{self.actions_ph: actions}}
-    #     gradients = sess.run(self._gradients, feed_dict=feed_dict)
-    #     return actions.tolist(), gradients.tolist()
 
     def train(self, sess, step_index, batch, actor_update=True, critic_update=True):
         # if step_index % 1 == 0:
@@ -300,11 +279,9 @@ class EnvLearning:
         }
 
     def target_actor_update(self, sess):
-        # sess.run(self._target_actor_update_op)
         pass
 
     def target_critic_update(self, sess):
-        # sess.run(self._target_critic_update_op)
         pass
 
     def get_weights(self, sess, index=0):

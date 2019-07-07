@@ -30,17 +30,19 @@ server:
   show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/pendulum_qtd3_asd"
+  logdir: "logs/pendulum_sac_asd"
   #load_checkpoint: ""
 
-algo_name: "quantile_td3"
+algo_name: "sac"
 
 algorithm:
   n_step: 1
   gamma: 0.99
 #  actor_grad_val_clip: 1.0
-  target_actor_update_rate: 0.0025
   target_critic_update_rate: 0.005
+  action_squash_func: linear
+  reward_scale: 10.
+  mu_and_sig_reg: 0.00003
 
 actor:
   nn_arch:
@@ -67,7 +69,7 @@ actor:
 
         - type: "Dense"
           args:
-            units: 1  # number of actions
+            units: 2  # number of actions x 2 for mu and sigma
             activation: "linear"
             kernel_initializer:
               class: "RandomUniform"
@@ -82,9 +84,48 @@ actor:
                 minval: -0.003
                 maxval: 0.003
 
-critic:
+critic_v:
+  nn_arch:
+
+    - input: 0
+      name: "output"
+      layers:
+        - type: Flatten
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 128
+            activation: "relu"
+
+        - type: "Dense"
+          args:
+            units: 1
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+
+critic_q:
   have_action_input: true
-  num_atoms: 101
   nn_arch:
 
     - input: 0
@@ -117,7 +158,7 @@ critic:
 
         - type: "Dense"
           args:
-            units: 101
+            units: 1
             activation: "linear"
             kernel_initializer:
               class: "RandomUniform"
@@ -156,18 +197,24 @@ agents:
     agents:
       - agents_count: 1
         visualize: True
+        exploration:
+          built_in_algo: True
+          validation: True
 
       - agents_count: 1
         visualize: False
+        exploration:
+          built_in_algo: True
+          validation: True
 
       - agents_count: 1
         visualize: True
         exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.2
+          built_in_algo: True
+          validation: False
 
       - agents_count: 4
         visualize: False
         exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.2
+          built_in_algo: True
+          validation: False

@@ -3,6 +3,76 @@ from tensorflow.contrib.distributions import MultivariateNormalDiag as Normal
 
 from .base_algo import BaseAlgo, network_update, target_network_update
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
+from rl_server.tensorflow.algo.algo_fabric import get_network_params, get_optimizer_class
+from rl_server.tensorflow.networks.network_keras import NetworkKeras
+from rl_server.tensorflow.algo.base_algo import create_placeholders
+
+
+def create_algo(algo_config, placeholders, scope_postfix):
+
+    _, _, state_shapes, action_size = algo_config.get_env_shapes()
+    if placeholders is None:
+        placeholders = create_placeholders(state_shapes, action_size)
+
+    algo_scope = 'sac_' + scope_postfix
+    actor_lr = placeholders[0]
+    critic_lr = placeholders[1]
+
+    actor_optim_info = algo_config.as_obj()['actor_optim']
+    critic_optim_info = algo_config.as_obj()['critic_optim']
+
+    actor_params = get_network_params(algo_config, 'actor')
+    actor = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **actor_params,
+        scope="policy_" + scope_postfix
+    )
+
+    critic_v_params = get_network_params(algo_config, 'critic_v')
+    critic_v = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **critic_v_params,
+        scope="critic_v_" + scope_postfix
+    )
+
+    critic_q_params = get_network_params(algo_config, 'critic_q')
+    critic_q1 = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **critic_q_params,
+        scope="critic_q1_" + scope_postfix
+    )
+    critic_q2 = NetworkKeras(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        **critic_q_params,
+        scope="critic_q2_" + scope_postfix
+    )
+
+    return SAC(
+        state_shapes=state_shapes,
+        action_size=action_size,
+        actor=actor,
+        critic_v=critic_v,
+        critic_q1=critic_q1,
+        critic_q2=critic_q2,
+        actor_optimizer=get_optimizer_class(actor_optim_info)(
+            learning_rate=actor_lr),
+        critic_v_optimizer=get_optimizer_class(critic_optim_info)(
+            learning_rate=critic_lr),
+        critic_q1_optimizer=get_optimizer_class(critic_optim_info)(
+            learning_rate=critic_lr),
+        critic_q2_optimizer=get_optimizer_class(critic_optim_info)(
+            learning_rate=critic_lr),
+        **algo_config.as_obj()["algorithm"],
+        scope=algo_scope,
+        placeholders=placeholders,
+        actor_optim_schedule=actor_optim_info,
+        critic_optim_schedule=critic_optim_info,
+        training_schedule=algo_config.as_obj()["training"]
+    )
 
 
 class SAC(BaseAlgo):
@@ -29,7 +99,6 @@ class SAC(BaseAlgo):
         log_pi_scale=1.,
         mu_and_sig_reg=1e-3,
         target_critic_update_rate=1.0,
-        # target_actor_update_rate=1.0,
         scope="algorithm",
         placeholders=None,
         actor_optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
@@ -193,6 +262,7 @@ class SAC(BaseAlgo):
             rewards = self._reward_scale * self.rewards_ph[:, None]
             td_targets = rewards + gamma * (
                 1 - self.dones_ph[:, None]) * next_v_values
+
             self._q1_loss = 0.5 * tf.reduce_mean(
                 (q_values1 - tf.stop_gradient(td_targets)) ** 2)
             self._q2_loss = 0.5 * tf.reduce_mean(
@@ -225,6 +295,7 @@ class SAC(BaseAlgo):
         return actions.tolist()
 
     def train(self, sess, step_index, batch, actor_update=True, critic_update=True):
+
         actor_lr = self.get_actor_lr(step_index)
         critic_lr = self.get_critic_lr(step_index)
         feed_dict = {
@@ -235,7 +306,12 @@ class SAC(BaseAlgo):
             **{self.rewards_ph: batch.r},
             **dict(zip(self.next_states_ph, batch.s_)),
             **{self.dones_ph: batch.done}}
-        ops = [self._q1_loss, self._v_loss, self._policy_loss]
+        ops = [
+            self._q1_loss,
+            self._q2_loss,
+            self._v_loss,
+            self._policy_loss
+        ]
         if critic_update:
             ops.append(self._critic_q1_update)
             ops.append(self._critic_q2_update)
@@ -243,11 +319,12 @@ class SAC(BaseAlgo):
         if actor_update:
             ops.append(self._actor_update)
         ops_ = sess.run(ops, feed_dict=feed_dict)
-        q_loss, v_loss, policy_loss = ops_[:3]
+        q1_loss, q2_loss, v_loss, policy_loss = ops_[:4]
         return {
             'critic lr': critic_lr,
             'actor lr': actor_lr,
-            'q loss': q_loss,
+            'q1 loss': q1_loss,
+            'q2 loss': q2_loss,
             'v loss': v_loss,
             'pi loss': policy_loss
         }

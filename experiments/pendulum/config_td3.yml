@@ -43,6 +43,7 @@ algorithm:
   target_critic_update_rate: 0.005
 
 actor:
+  out_activation: "linear"
   nn_arch:
 
     - input: 0
@@ -82,56 +83,7 @@ actor:
                 minval: -0.003
                 maxval: 0.003
 
-critic_1:
-  have_action_input: true
-  nn_arch:
-
-    - input: 0
-      name: "flatten-obs"
-      layers:
-        - type: "Flatten"
-
-    - input: ["flatten-obs", "action"]
-      name: "output"
-      layers:
-
-        - type: "Concatenate"
-          args:
-            axis: 1
-
-        - type: "Dense"
-          args:
-            units: 128
-            activation: "relu"
-
-        - type: "Dense"
-          args:
-            units: 128
-            activation: "relu"
-
-        - type: "Dense"
-          args:
-            units: 128
-            activation: "relu"
-
-        - type: "Dense"
-          args:
-            units: 1
-            activation: "linear"
-            kernel_initializer:
-              class: "RandomUniform"
-              module: "tensorflow.python.keras.initializers"
-              args:
-                minval: -0.003
-                maxval: 0.003
-            bias_initializer:
-              class: "RandomUniform"
-              module: "tensorflow.python.keras.initializers"
-              args:
-                minval: -0.003
-                maxval: 0.003
-
-critic_2:
+critic:
   have_action_input: true
   nn_arch:
 

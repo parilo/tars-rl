@@ -91,9 +91,8 @@ python -m rl_server.server.play --config path/to/config.yml --checkpoint path/to
 
 ## Credits
 
-- Oleksii Hrinchuk, [e-mail](oleksii.hrinchuk@gmail.com), [github](https://github.com/AlexGrinch) 
 - Anton Pechenko, [github](https://github.com/parilo), [linkedin](https://www.linkedin.com/in/antonpechenko), [youtube](https://www.youtube.com/c/AntonPechenko) 
-- Sergey Kolesnikov, [github](https://github.com/Scitator)
+- Oleksii Hrinchuk, [e-mail](oleksii.hrinchuk@gmail.com), [github](https://github.com/AlexGrinch) 
 
 ## References
 1. Continuous Control with Deep Reinforcement Learning (DDPG) ([pdf](https://arxiv.org/pdf/1509.02971.pdf)).

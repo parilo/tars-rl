@@ -38,6 +38,7 @@ class NetworkKeras:
         action_size,
         nn_arch,
         have_action_input=False,
+        use_next_state_input=False,
         num_atoms=1,
         v=(-10., 10.),
         scope=None
@@ -47,6 +48,7 @@ class NetworkKeras:
         self.action_size = action_size
         self.nn_arch = nn_arch
         self.has_action_input = have_action_input
+        self.use_next_state_input = use_next_state_input
         self.num_atoms = num_atoms
         self.v = v
         self.scope = scope or "CriticNetwork"
@@ -75,26 +77,48 @@ class NetworkKeras:
             # print(out_layer)
         return out_layer
 
+    def create_state_input(self, prefix='state_input'):
+        if 'fixed_batch_size' in self.nn_arch:
+            input_state = [keras.layers.Input(
+                batch_shape=[self.nn_arch['fixed_batch_size']] + list(state_part),
+                name=prefix + "_" + str(i)
+            ) for i, state_part in enumerate(self.state_shapes)]
+        else:
+            input_state = [
+                keras.layers.Input(
+                    shape=state_part,
+                    name=prefix + "_" + str(i)
+                )
+                for i, state_part in enumerate(self.state_shapes)
+            ]
+        return input_state
+
     def build_model(self):
 
         with tf.variable_scope(self.scope):
 
-            if 'fixed_batch_size' in self.nn_arch:
-                input_state = [keras.layers.Input(
-                    batch_shape=[self.nn_arch['fixed_batch_size']] + list(state_part),
-                    name="state_input_" + str(i)
-                ) for i, state_part in enumerate(self.state_shapes)]
-            else:
-                input_state = [
-                    keras.layers.Input(
-                        shape=state_part,
-                        name="state_input_" + str(i)
-                    )
-                    for i, state_part in enumerate(self.state_shapes)
-                ]
+            # if 'fixed_batch_size' in self.nn_arch:
+            #     input_state = [keras.layers.Input(
+            #         batch_shape=[self.nn_arch['fixed_batch_size']] + list(state_part),
+            #         name="state_input_" + str(i)
+            #     ) for i, state_part in enumerate(self.state_shapes)]
+            # else:
+            #     input_state = [
+            #         keras.layers.Input(
+            #             shape=state_part,
+            #             name="state_input_" + str(i)
+            #         )
+            #         for i, state_part in enumerate(self.state_shapes)
+            #     ]
 
-            model_inputs = input_state
+            # model_inputs = input_state
+            input_state = self.create_state_input()
 
+            if self.use_next_state_input:
+                input_state.extend(self.create_state_input('next_state_input'))
+
+            model_inputs = []
+            model_inputs.extend(input_state)
             if self.has_action_input:
                 model_inputs.append(
                     keras.layers.Input(shape=(self.action_size,), name="action_input")
@@ -156,4 +180,5 @@ class NetworkKeras:
                 num_atoms=self.num_atoms,
                 v=self.v,
                 have_action_input=self.has_action_input,
+                use_next_state_input=self.use_next_state_input,
                 scope=scope)

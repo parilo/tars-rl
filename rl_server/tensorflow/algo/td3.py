@@ -8,6 +8,10 @@ from rl_server.tensorflow.algo.base_algo import create_placeholders
 
 
 def create_algo(algo_config, placeholders, scope_postfix):
+    return td3_create_algo(TD3, algo_config, placeholders, scope_postfix)
+
+
+def td3_create_algo(AlgoClass, algo_config, placeholders, scope_postfix):
 
     _, _, state_shapes, action_size = algo_config.get_env_shapes()
     if placeholders is None:
@@ -27,48 +31,40 @@ def create_algo(algo_config, placeholders, scope_postfix):
         scope="actor_" + scope_postfix
     )
 
-    critic_1_params = get_network_params(algo_config, 'critic_1')
+    critic_params = get_network_params(algo_config, 'critic')
     critic_1 = NetworkKeras(
         state_shapes=state_shapes,
         action_size=action_size,
-        **critic_1_params,
+        **critic_params,
         scope="critic_1_" + scope_postfix
     )
 
-    critic_2_params = get_network_params(algo_config, 'critic_2')
     critic_2 = NetworkKeras(
         state_shapes=state_shapes,
         action_size=action_size,
-        **critic_2_params,
+        **critic_params,
         scope="critic_2_" + scope_postfix
     )
 
-    return TD3(
+    return AlgoClass(
         state_shapes=state_shapes,
         action_size=action_size,
         actor=actor,
         critic1=critic_1,
         critic2=critic_2,
-
-        actor_optimizer = get_optimizer_class(actor_optim_info)(
+        actor_optimizer=get_optimizer_class(actor_optim_info)(
             learning_rate=actor_lr),
-        critic_optimizer = get_optimizer_class(critic_optim_info)(
+        critic1_optimizer=get_optimizer_class(critic_optim_info)(
             learning_rate=critic_lr),
-        critic_optimizer = get_optimizer_class(critic_optim_info)(
-            learning_rate=critic_lr),
-
-        actor_optimizer=tf.train.AdamOptimizer(
-            learning_rate=actor_lr),
-        critic1_optimizer=tf.train.AdamOptimizer(
-            learning_rate=critic_lr),
-        critic2_optimizer=tf.train.AdamOptimizer(
+        critic2_optimizer=get_optimizer_class(critic_optim_info)(
             learning_rate=critic_lr),
         **algo_config.as_obj()["algorithm"],
         scope=algo_scope,
         placeholders=placeholders,
-        actor_optim_schedule=algo_config.as_obj()["actor_optim"],
-        critic_optim_schedule=algo_config.as_obj()["critic_optim"],
-        training_schedule=algo_config.as_obj()["training"])
+        actor_optim_schedule=actor_optim_info,
+        critic_optim_schedule=critic_optim_info,
+        training_schedule=algo_config.as_obj()["training"]
+    )
 
 
 class TD3(BaseAlgo):
