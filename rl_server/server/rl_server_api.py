@@ -48,13 +48,20 @@ def req_to_obs(req):
 def weights_to_string(weights):
     for nn_name in weights:
         nn_weights = weights[nn_name]
-        for i in range(len(nn_weights)):
-            np_array = nn_weights[i]
-            nn_weights[i] = {
+        if not isinstance(nn_weights, list) and not isinstance(nn_weights, dict):
+            raise RuntimeError('model weights must be list or dict')
+
+        if isinstance(nn_weights, list):
+            w_names = range(len(nn_weights))
+        else:
+            w_names = nn_weights.keys()
+
+        for w_name in w_names:
+            np_array = nn_weights[w_name]
+            nn_weights[w_name] = {
                 'data': np_array.reshape(-1).tostring(),
                 'shape': np_array.shape
             }
-
 
 #def np_arrays_to_string(np_arrays):
 #    output = []

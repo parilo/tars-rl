@@ -40,3 +40,6 @@ def create_algorithm(
 
     elif algo_config.framework == 'torch':
         return algo_create_funcs[algo_config.framework][name](algo_config)
+
+    else:
+        raise RuntimeError('Unknown framework {}. Please choose torch or tensorflow'.format(algo_config.framework))

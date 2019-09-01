@@ -1,19 +1,15 @@
 import os
 
 import torch as t
+import torch.distributions as dist
 
-# from .base_algo import BaseAlgo, network_update, target_network_update
-# from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
 from rl_server.algo.algo_fabric import get_network_params, get_optimizer_class
-# from rl_server.tensorflow.networks.network_keras import NetworkKeras
-# from rl_server.tensorflow.algo.base_algo import create_placeholders
-
 from rl_server.algo.base_algo import BaseAlgo as BaseAlgoAllFrameworks
 from rl_server.torch.networks.network_torch import NetworkTorch
 
 
 def create_algo(algo_config):
-    # _, _, state_shapes, action_size = algo_config.get_env_shapes()
+    _, _, state_shapes, action_size = algo_config.get_env_shapes()
 
     actor_params = get_network_params(algo_config, 'actor')
     actor = NetworkTorch(
@@ -28,100 +24,39 @@ def create_algo(algo_config):
 
     return CEM(
         # state_shapes=state_shapes,
-        # action_size=action_size,
+        action_size=action_size,
         actor=actor,
         optimizer=optimizer,
         optim_schedule=actor_optim_info,
-        training_schedule=algo_config.as_obj()["training"]
+        training_schedule=algo_config.as_obj()["training"],
+        device=algo_config.device
     )
-
-
-# def ddpg_create_algo(AlgoClass, algo_config, placeholders, scope_postfix):
-#
-#     _, _, state_shapes, action_size = algo_config.get_env_shapes()
-#     if placeholders is None:
-#         placeholders = create_placeholders(state_shapes, action_size)
-#     algo_scope = 'ddpg' + scope_postfix
-#     actor_lr = placeholders[0]
-#     critic_lr = placeholders[1]
-#
-#     actor_params = get_network_params(algo_config, 'actor')
-#     actor = NetworkKeras(
-#         state_shapes=state_shapes,
-#         action_size=action_size,
-#         **actor_params,
-#         scope="actor_" + scope_postfix
-#     )
-#
-#     critic_params = get_network_params(algo_config, 'critic')
-#     critic = NetworkKeras(
-#         state_shapes=state_shapes,
-#         action_size=action_size,
-#         **critic_params,
-#         scope="critic_" + scope_postfix
-#     )
-#
-#     actor_optim_info = algo_config.as_obj()['actor_optim']
-#     critic_optim_info = algo_config.as_obj()['critic_optim']
-#
-#     return DDPG(
-#         state_shapes=state_shapes,
-#         action_size=action_size,
-#         actor=actor,
-#         critic=critic,
-#         actor_optimizer=get_optimizer_class(actor_optim_info)(
-#             learning_rate=actor_lr),
-#         critic_optimizer=get_optimizer_class(critic_optim_info)(
-#             learning_rate=critic_lr),
-#         **algo_config.as_obj()["algorithm"],
-#         scope=algo_scope,
-#         placeholders=placeholders,
-#         actor_optim_schedule=actor_optim_info,
-#         critic_optim_schedule=critic_optim_info,
-#         training_schedule=algo_config.as_obj()["training"]
-#     )
 
 
 class CEM(BaseAlgoAllFrameworks):
     def __init__(
         self,
         # state_shapes,
-        # action_size,
+        action_size,
         actor,
         optimizer,
         # actor_grad_val_clip=1.0,
         # actor_grad_norm_clip=None,
         optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
-        training_schedule={'schedule': [{'limit': 0, 'batch_size_mult': 1}]}
+        training_schedule={'schedule': [{'limit': 0, 'batch_size_mult': 1}]},
+        device='cpu'
     ):
 
         super().__init__(
             # state_shapes,
-            # action_size,
+            action_size=action_size,
             actor_optim_schedule=optim_schedule,
             training_schedule=training_schedule
         )
 
         self._actor = actor
-        # self._critic = critic
-        # self._target_actor = actor.copy(scope=scope + "/target_actor")
-        # self._target_critic = critic.copy(scope=scope + "/target_critic")
-        # self._actor_weights_tool = ModelWeightsTool(actor)
-        # self._critic_weights_tool = ModelWeightsTool(critic)
         self._optimizer = optimizer
-        # self._critic_optimizer = critic_optimizer
-        # self._n_step = n_step
-        # self._actor_grad_val_clip = actor_grad_val_clip
-        # self._actor_grad_norm_clip = actor_grad_norm_clip
-        # self._critic_grad_val_clip = critic_grad_val_clip
-        # self._critic_grad_norm_clip = critic_grad_norm_clip
-        # self._gamma = gamma
-        # self._target_actor_update_rate = target_actor_update_rate
-        # self._target_critic_update_rate = target_critic_update_rate
-        #
-        # with tf.name_scope(scope):
-        #     self.build_graph()
-        pass
+        self.device = device
 
     # def _get_gradients_wrt_actions(self):
     #     q_values = self._critic(self.states_ph + [self.actions_ph])
@@ -190,17 +125,29 @@ class CEM(BaseAlgoAllFrameworks):
     #         self._target_actor_update_op = self._get_target_actor_update()
     #         self._target_critic_update_op = self._get_target_critic_update()
 
+    def _postprocess_actions(self, actions):
+        print('--- asd', self.action_size, actions[:, :self.action_size], actions[:, self.action_size:], t.eye(self.action_size))
+        distribution = dist.multivariate_normal.MultivariateNormal(
+            actions[:, self.action_size],
+            covariance_matrix=t.abs(actions[:, self.action_size:]) * t.eye(self.action_size)
+        )
+        return distribution.sample()
+
     def target_network_init(self):
-        # sess.run(self._targets_init_op)
         pass
 
     def act_batch(self, states):
-        # feed_dict = dict(zip(self.states_ph, states))
-        # actions = sess.run(self._actions, feed_dict=feed_dict)
-        # return actions.tolist()
-        pass
+        with t.no_grad():
+            model_input = []
+            for state_part in states:
+                model_input.append(t.tensor(state_part).to(self.device))
+                print('--- input shape:', model_input[-1].shape)
+            return self._postprocess_actions(
+                self._actor(model_input)
+            ).cpu().numpy().tolist()
 
     def act_batch_with_gradients(self, states):
+        print('--- act_batch_with_gradients')
         # feed_dict = dict(zip(self.states_ph, states))
         # actions = sess.run(self._actions, feed_dict=feed_dict)
         # feed_dict = {**feed_dict, **{self.actions_ph: actions}}
@@ -209,6 +156,7 @@ class CEM(BaseAlgoAllFrameworks):
         pass
 
     def train(self, step_index, batch, actor_update=True, critic_update=True):
+        print('--- train')
         # actor_lr = self.get_actor_lr(step_index)
         # critic_lr = self.get_critic_lr(step_index)
         # feed_dict = {
@@ -234,35 +182,39 @@ class CEM(BaseAlgoAllFrameworks):
         pass
 
     def target_actor_update(self):
-        # sess.run(self._target_actor_update_op)
         pass
 
     def target_critic_update(self):
-        # sess.run(self._target_critic_update_op)
         pass
 
     def get_weights(self, index=0):
-        # return {
-        #     'actor': self._actor_weights_tool.get_weights(sess),
-        #     'critic': self._critic_weights_tool.get_weights(sess)
-        # }
-        pass
+        weights = {}
+        for name, value in self._actor.state_dict().items():
+            print('--- {}: {}'.format(name, value.shape))
+            weights[name] = value.cpu().detach().numpy()
+        return {
+            'actor': weights
+        }
 
     def set_weights(self, weights):
-        # self._actor_weights_tool.set_weights(sess, weights['actor'])
-        # self._critic_weights_tool.set_weights(sess, weights['critic'])
-        pass
+        state_dict = {}
+        for name, value in weights['actor'].items():
+            state_dict[name] = t.tensor(value).to(self.device)
+        self._actor.load_state_dict(state_dict)
 
     def reset_states(self):
+        self._actor.reset_states()
         pass
 
     def _get_model_path(self, dir, index):
         return os.path.join(dir, "actor-{}.pt".format(index))
 
     def load(self, dir, index):
+        print('--- load')
         path = self._get_model_path(dir, index)
         self._actor.load_state_dict(t.load(path))
 
     def save(self, dir, index):
+        print('--- save')
         path = self._get_model_path(dir, index)
         t.save(self._actor.state_dict(), path)

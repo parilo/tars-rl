@@ -1,46 +1,35 @@
 import importlib
-# import copy
 
-import torch as t
 import torch.nn as nn
 import numpy as np
 
 
-# def process_layer_args(layer_args):
-#     layer_args_copy = copy.deepcopy(layer_args)
-#     for arg_name, arg_val in layer_args_copy.items():
-#         if isinstance(arg_val, dict) and 'class' in arg_val:
-#             ArgClass = getattr(
-#                 importlib.import_module(arg_val['module']),
-#                 arg_val['class']
-#             )
-#             if 'args' in arg_val:
-#                 arg_instance = ArgClass(**arg_val['args'])
-#             else:
-#                 arg_instance = ArgClass()
-#
-#             layer_args[arg_name] = arg_instance
-
-
 def _calc_branch(branch, branch_input_values):
     x = branch_input_values
+    print('--- _calc_branch', x)
     for layer in branch['layers']:
         x = layer(x)
     return x
 
 
 def _calc_branch_with_dependencies(branches, branch_name, x):
+    print('--- _calc_branch_with_dependencies', branch_name)
+
     branch_input = branches[branch_name]['input']
     if not isinstance(branch_input, list):
         branch_input = [branch_input]
 
     branch_input_values = []
     for branch_input_name in branch_input:
-        if isinstance(branch_input, int):
+        if isinstance(branch_input_name, int):
+            print('--- input branch is int')
             branch_input_values.append(x[branch_input_name])
         else:
-            branch_input_values.append(_calc_branch_with_dependencies(branches, branch_name, x))
+            print('--- input branch is not int')
+            branch_input_values.append(_calc_branch_with_dependencies(branches, branch_input_name, x))
 
+    if len(branch_input_values) == 1:
+        branch_input_values = branch_input_values[0]
     return _calc_branch(branches[branch_name], branch_input_values)
 
 
@@ -83,8 +72,6 @@ class NetworkTorch(nn.Module):
 
     def __init__(
         self,
-        # state_shapes,
-        # action_size,
         nn_arch,
         have_action_input=False,
         use_next_state_input=False,
@@ -93,8 +80,6 @@ class NetworkTorch(nn.Module):
         # scope=None
     ):
         super().__init__()
-        # self.state_shapes = state_shapes
-        # self.action_size = action_size
         self.nn_arch = nn_arch
         self.has_action_input = have_action_input
         self.use_next_state_input = use_next_state_input
@@ -102,8 +87,6 @@ class NetworkTorch(nn.Module):
         # self.v = v
         # self.scope = scope or "CriticNetwork"
         self._branches = self.build_model()
-        # print('--- model for', self.scope)
-        # self.model.summary()
 
     def process_layers(self, layers_info):
 
@@ -115,7 +98,6 @@ class NetworkTorch(nn.Module):
         # nn.Linear
         # nn.ReLU
 
-        # out_layer = layers_input
         for layer_i, layer_data in enumerate(layers_info):
 
             layer = process_special_layers(layer_data)
@@ -131,63 +113,21 @@ class NetworkTorch(nn.Module):
 
             layers.append(layer)
 
-            # print(out_layer)
         return layers
 
-    # def create_state_input(self, prefix='state_input'):
-    #     if 'fixed_batch_size' in self.nn_arch:
-    #         input_state = [keras.layers.Input(
-    #             batch_shape=[self.nn_arch['fixed_batch_size']] + list(state_part),
-    #             name=prefix + "_" + str(i)
-    #         ) for i, state_part in enumerate(self.state_shapes)]
-    #     else:
-    #         input_state = [
-    #             keras.layers.Input(
-    #                 shape=state_part,
-    #                 name=prefix + "_" + str(i)
-    #             )
-    #             for i, state_part in enumerate(self.state_shapes)
-    #         ]
-    #     return input_state
-
     def build_model(self):
-
-        # model_inputs = input_state
-        # input_state = self.create_state_input()
-
-        # if self.use_next_state_input:
-        #     input_state.extend(self.create_state_input('next_state_input'))
-
-        # model_inputs = []
-        # model_inputs.extend(input_state)
-        # if self.has_action_input:
-        #     model_inputs.append(
-        #         keras.layers.Input(shape=(self.action_size,), name="action_input")
-        #     )
 
         branches = {}
 
         if isinstance(self.nn_arch, list):
 
-            # branches_inputs = dict(zip(list(range(len(input_state))), input_state))
-
-            # if self.has_action_input:
-            #     branches_inputs['action'] = model_inputs[-1]
-
             for branch in self.nn_arch:
-                # branch_input = branch['input']
-                # if isinstance(branch_input, list):
-                #     branch_input = [branches_inputs[branch_input_part] for branch_input_part in branch_input]
-                # else:
-                #     branch_input = branches_inputs[branch_input]
 
                 branch_layers = self.process_layers(branch['layers'])
                 branches[branch['name']] = {
                     'layers': branch_layers,
                     'input': branch['input']
                 }
-
-            # out_layer = branches_inputs['output']
 
         else:
             layers = self.process_layers(self.nn_arch['layers'], input_state[0])
@@ -196,7 +136,6 @@ class NetworkTorch(nn.Module):
                 'input': 0
             }
 
-        # model = keras.models.Model(inputs=model_inputs, outputs=out_layer)
         for name, branch_info in branches.items():
             for i, layer in enumerate(branch_info['layers']):
                 self.add_module('{}_layer_{}'.format(name, i), layer.get_module())
@@ -217,8 +156,8 @@ class NetworkTorch(nn.Module):
 
         return _calc_branch_with_dependencies(self._branches, 'output', x)
 
-    # def reset_states(self):
-    #     self.model.reset_states()
+    def reset_states(self):
+        pass
 
     # def get_input_size(self, shape):
     #     if len(shape) == 1:

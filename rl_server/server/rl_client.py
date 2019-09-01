@@ -48,9 +48,18 @@ def episode_to_req(episode, method="store_episode"):
 def string_to_weights(weights):
     for nn_name in weights:
         nn_weights = weights[nn_name]
-        for i in range(len(nn_weights)):
-            data = nn_weights[i]
-            nn_weights[i] = np.frombuffer(
+
+        if not isinstance(nn_weights, list) and not isinstance(nn_weights, dict):
+            raise RuntimeError('model weights must be list or dict')
+
+        if isinstance(nn_weights, list):
+            w_names = range(len(nn_weights))
+        else:
+            w_names = nn_weights.keys()
+
+        for w_name in w_names:
+            data = nn_weights[w_name]
+            nn_weights[w_name] = np.frombuffer(
                 data['data'],
                 dtype=np.float32
             ).reshape(data['shape'])
@@ -102,8 +111,8 @@ class RLClient:
         with self._tcp_lock:
             self._tcp_client.write_and_read_with_retries(req)
 
-    def get_weights(self, index=0):
-        req = serialize({"method": "get_weights", "index": index})
+    def get_weights(self, algo_index=0):
+        req = serialize({"method": "get_weights", "index": algo_index})
         with self._tcp_lock:
             data = self._tcp_client.write_and_read_with_retries(req)
             data = deserialize(data)

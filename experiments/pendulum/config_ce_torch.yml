@@ -1,4 +1,5 @@
 framework: torch
+device: cpu
 
 env:
   name: Pendulum-v0
@@ -108,17 +109,17 @@ agents:
       - agents_count: 1
         visualize: True
 
-      - agents_count: 1
-        visualize: False
-
-      - agents_count: 1
-        visualize: True
-        exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.2
-
-      - agents_count: 4
-        visualize: False
-        exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.2
+#      - agents_count: 1
+#        visualize: False
+#
+#      - agents_count: 1
+#        visualize: True
+#        exploration:
+#          normal_noise: 0.5
+#          random_action_prob: 0.2
+#
+#      - agents_count: 4
+#        visualize: False
+#        exploration:
+#          normal_noise: 0.5
+#          random_action_prob: 0.2
