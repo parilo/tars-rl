@@ -90,7 +90,7 @@ class TFRLTrainer(RLTrainer):
 
     def save(self):
         if self._step_index % self._save_model_period == 0:
-            save_path = self._saver.save(
+            save_path = self._saver._save(
                 self._sess, os.path.join(self._logdir, "model-{}.ckpt".format(
                     self._step_index)))
             print("Model saved in file: %s" % save_path)

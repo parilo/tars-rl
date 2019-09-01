@@ -60,7 +60,8 @@ class ExperimentConfig(BaseConfig):
     def _sort_dict(self):
         if "actor_optim" in self._config_as_obj:
             self._config_as_obj["actor_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
-        self._config_as_obj["critic_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
+        if "critic_optim" in self._config_as_obj:
+            self._config_as_obj["critic_optim"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
         self._config_as_obj["training"]["schedule"].sort(key=itemgetter('limit'), reverse=True)
         self._config_as_obj['agents'].sort(key=itemgetter('algorithm_id'), reverse=False)
 

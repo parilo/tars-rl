@@ -66,7 +66,7 @@ def weights_to_string(weights):
 #    return output
 
 
-class RLServerAPI:
+class   RLServerAPI:
 
     def __init__(
         self,

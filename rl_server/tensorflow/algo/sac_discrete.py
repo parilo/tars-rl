@@ -3,7 +3,7 @@ import tensorflow as tf
 from .base_algo_discrete import BaseAlgoDiscrete
 from .base_algo import network_update, target_network_update
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
-from rl_server.tensorflow.algo.algo_fabric import get_network_params, get_optimizer_class
+from rl_server.algo.algo_fabric import get_network_params, get_optimizer_class
 from rl_server.tensorflow.networks.network_keras import NetworkKeras
 from rl_server.tensorflow.algo.base_algo_discrete import create_placeholders
 

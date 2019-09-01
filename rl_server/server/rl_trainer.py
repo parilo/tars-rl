@@ -89,3 +89,20 @@ class RLTrainer:
 
     def get_weights(self):
         return None
+
+    def get_batch(self):
+        batch_size = self._algo.get_batch_size(self._step_index)
+        if self._use_prioritized_buffer:
+            return self.server_buffer.get_prioritized_batch(
+                batch_size,
+                history_len=self._hist_len,
+                n_step=self._n_step,
+                beta=self._beta,
+                gamma=self._gamma)
+        else:
+            return self.server_buffer.get_batch(
+                batch_size,
+                history_len=self._hist_len,
+                n_step=self._n_step,
+                gamma=self._gamma)
+

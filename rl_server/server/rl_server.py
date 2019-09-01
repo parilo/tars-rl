@@ -1,10 +1,9 @@
 from rl_server.server.rl_server_api import RLServerAPI
-from rl_server.server.rl_trainer_tf import TFRLTrainer as RLTrainer
 
 
 class RLServer:
 
-    def __init__(self, exp_config, agent_algorithm):
+    def __init__(self, exp_config, agent_algorithm, framework):
         (
             observation_shapes,
             observation_dtypes,
@@ -26,6 +25,13 @@ class RLServer:
         discrete_actions = False
         if exp_config.env.isset('discrete_actions'):
             discrete_actions = exp_config.env.discrete_actions
+
+        if framework == 'tensorflow':
+            from rl_server.tensorflow.rl_trainer_tf import TFRLTrainer as RLTrainer
+        elif framework == 'torch':
+            from rl_server.torch.rl_trainer_torch import TorchRLTrainer as RLTrainer
+        else:
+            raise RuntimeError('framework {} is not supported. Try: tensorflow or pytorch'.format(framework))
 
         self._train_loop = RLTrainer(
             observation_shapes=observation_shapes,
@@ -53,8 +59,8 @@ class RLServer:
 
         exp_config.store(exp_config.server.logdir)
         
-    def load_weights(self, path):
-        self._train_loop.load_checkpoint(path)
+    def load_weights(self, load_info):
+        self._train_loop.load_checkpoint(load_info)
 
     def start(self):
         print("--- starting rl server")
