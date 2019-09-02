@@ -2,6 +2,7 @@ import os
 
 import torch as t
 import torch.distributions as dist
+import numpy as np
 
 from rl_server.algo.algo_fabric import get_network_params, get_optimizer_class
 from rl_server.algo.base_algo import BaseAlgo as BaseAlgoAllFrameworks
@@ -155,31 +156,22 @@ class CEM(BaseAlgoAllFrameworks):
         # return actions.tolist(), gradients.tolist()
         pass
 
-    def train(self, step_index, batch, actor_update=True, critic_update=True):
+    def train(self, step_index, batch_of_episodes):
         print('--- train')
-        # actor_lr = self.get_actor_lr(step_index)
-        # critic_lr = self.get_critic_lr(step_index)
-        # feed_dict = {
-        #     self.actor_lr_ph: actor_lr,
-        #     self.critic_lr_ph: critic_lr,
-        #     **dict(zip(self.states_ph, batch.s)),
-        #     **{self.actions_ph: batch.a},
-        #     **{self.rewards_ph: batch.r},
-        #     **dict(zip(self.next_states_ph, batch.s_)),
-        #     **{self.dones_ph: batch.done}}
-        # ops = [self._value_loss, self._policy_loss]
-        # if critic_update:
-        #     ops.append(self._critic_update)
-        # if actor_update:
-        #     ops.append(self._actor_update)
-        # ops_ = sess.run(ops, feed_dict=feed_dict)
-        # return {
-        #     'critic lr':  critic_lr,
-        #     'actor lr': actor_lr,
-        #     'q loss': ops_[0],
-        #     'pi loss': ops_[1]
-        # }
-        pass
+
+        # episode = [observations, actions, rewards, dones]
+
+        ep_rewards = []
+        for episode in batch_of_episodes:
+            ep_rewards.append(np.sum(episode[2]))
+        ep_rewards = np.array(ep_rewards)
+
+        ep_sorted_by_rewards = reversed(np.argsort(ep_rewards).tolist())
+
+        return {
+            'elite r', np.mean(ep_rewards[ep_sorted_by_rewards[:4]]),
+            'mean  r', np.mean(ep_rewards)
+        }
 
     def target_actor_update(self):
         pass
@@ -218,3 +210,9 @@ class CEM(BaseAlgoAllFrameworks):
         print('--- save')
         path = self._get_model_path(dir, index)
         t.save(self._actor.state_dict(), path)
+
+    def is_trains_on_episodes(self):
+        return True
+
+    def is_on_policy(self):
+        return True

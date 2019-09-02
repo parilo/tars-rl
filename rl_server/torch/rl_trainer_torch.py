@@ -1,19 +1,14 @@
-# import torch
 from rl_server.server.rl_trainer import RLTrainer
 
 
 class TorchRLTrainer(RLTrainer):
     def init(self):
-        # self._algo.init()
         self._algo.target_network_init()
 
     def load_checkpoint(self, load_info):
         self._algo.load(load_info.dir, load_info.index)
 
-    def train_step(self):
-        queue_size = self.server_buffer.get_stored_in_buffer()
-        self._logger.log_buffer_size(queue_size, self._step_index)
-
+    def _train_on_batch(self):
         batch = self.get_batch()
 
         if self._use_prioritized_buffer:
@@ -23,9 +18,29 @@ class TorchRLTrainer(RLTrainer):
             td_errors = self._algo.get_td_errors(batch).ravel()
             self.server_buffer.update_td_errors(indices, td_errors)
             self._beta = min(1.0, self._beta + 1e-6)
+
         else:
 
             train_info = self._algo.train(self._step_index, batch)
+
+        return train_info
+
+    def _train_on_episodes(self):
+        batch_size = self._algo.get_batch_size(self._step_index)
+        batch_of_episodes = self.server_buffer.get_batch(batch_size)
+        return self._algo.train(self._step_index, batch_of_episodes)
+
+    def train_step(self):
+        queue_size = self.server_buffer.get_stored_in_buffer()
+        self._logger.log_buffer_size(queue_size, self._step_index)
+
+        if self._algo.is_trains_on_episodes():
+            train_info = self._train_on_episodes()
+        else:
+            train_info = self._train_on_batch()
+
+        if self._algo.is_on_policy():
+
 
         self._logger.log_train(train_info, self._step_index)
 

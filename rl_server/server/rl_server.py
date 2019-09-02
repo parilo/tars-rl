@@ -49,10 +49,11 @@ class RLServer:
             show_stats_period=exp_config.server.show_stats_period,
             save_model_period=exp_config.server.save_model_period,
             discrete_actions=discrete_actions,
-            logdir=exp_config.server.logdir
+            logdir=exp_config.server.logdir,
+            algorithm=agent_algorithm
         )
 
-        self._train_loop.set_algorithm(agent_algorithm)
+        # self._train_loop.set_algorithm(agent_algorithm)
         self._train_loop.init()
         self._server_api.set_store_episode_callback(self._train_loop.store_episode)
         self._server_api.set_get_weights_callback(self._train_loop.get_weights)

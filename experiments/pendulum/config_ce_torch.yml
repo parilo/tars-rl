@@ -24,8 +24,8 @@ server:
   num_clients: 16
   experience_replay_buffer_size: 5000000
   use_prioritized_buffer: false
-  train_every_nth: 512
-  start_learning_after: 5000
+  train_every_nth: 1
+  start_learning_after: 16
   target_critic_update_period: 1
   target_actor_update_period: 1
   show_stats_period: 100
@@ -101,7 +101,7 @@ actor_optim:
 training:
   schedule:
     - limit: 0  # of train ops
-      batch_size: 2560
+      batch_size: 16  # batch of episodes
 
 agents:
   - algorithm_id: 0
