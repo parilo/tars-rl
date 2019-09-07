@@ -190,8 +190,7 @@ class TD_DQN(BaseAlgoDiscrete):
         return {
             'critic lr':  critic_lr,
             'q1 loss': ops_[0],
-            'q2 loss': ops_[1],
-            'q loss': 0.5 * (ops_[0] + ops_[1])
+            'q2 loss': ops_[1]
         }
 
     def target_critic_update(self, sess):

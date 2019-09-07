@@ -9,7 +9,7 @@ env:
   obs_is_image: False
   action_size: 2
   action_postprocess:
-    type: "argmax of softmax"
+    type: softmax
   frame_skip: 1
   step_limit: 0
   agent_buffer_size: 5001
@@ -18,32 +18,30 @@ env:
   log_every_n_steps: 1000
   max_episode_length: 5000
   discrete_actions: True
-#  reward_clip:
-#    max: 1.
 
 server:
   seed: 42
   num_clients: 16
   experience_replay_buffer_size: 4000000
   use_prioritized_buffer: false
-  train_every_nth: 1.
+  train_every_nth: 1
   start_learning_after: 5000
   target_critic_update_period: 1
   show_stats_period: 100
   save_model_period: 50000
   ip_address: "0.0.0.0"
   client_start_port: 12977
-  logdir: "logs/cartpole_sac_0.0001"
+  logdir: "logs/cartpole_sac_asd"
 #  load_checkpoint: "logs/otc_31/model-1000000.ckpt"
 
-algo_name: "dqn_sac"
+algo_name: sac_discrete
 
 algorithm:
   n_step: 1
   gamma: 0.99
 #  critic_grad_val_clip: 1.
   target_critic_update_rate: 0.001
-#  target_critic_update_rate: 1.
+  h_reward_scale: 0.0000001
 
 nn_engine: "keras"
 
@@ -53,10 +51,6 @@ base_network:
     - input: 0
       name: "base_output"
       layers:
-
-#      - type: "Scale"
-#        mult: 0.0039  # 1. / 255
-#        bias: 0.
 
       - type: "Flatten"
       - type: "Dense"
@@ -80,22 +74,22 @@ critic_v:
       name: "output"
       layers:
 
-      - type: "Dense"
-        args:
-          units: 1  # number of actions
-          activation: "linear"
-          kernel_initializer:
-            class: "RandomUniform"
-            module: "tensorflow.python.keras.initializers"
-            args:
-              minval: -0.003
-              maxval: 0.003
-          bias_initializer:
-            class: "RandomUniform"
-            module: "tensorflow.python.keras.initializers"
-            args:
-              minval: -0.003
-              maxval: 0.003
+        - type: "Dense"
+          args:
+            units: 1  # number of actions
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
 
 critic_q:
   base_network: "base_network"
@@ -105,24 +99,24 @@ critic_q:
       name: "output"
       layers:
 
-      - type: "Dense"
-        args:
-          units: 2  # number of actions
-          activation: "linear"
-          kernel_initializer:
-            class: "RandomUniform"
-            module: "tensorflow.python.keras.initializers"
-            args:
-              minval: -0.003
-              maxval: 0.003
-          bias_initializer:
-            class: "RandomUniform"
-            module: "tensorflow.python.keras.initializers"
-            args:
-              minval: -0.003
-              maxval: 0.003
+        - type: "Dense"
+          args:
+            units: 2  # number of actions
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
 
-policy:
+actor:
   base_network: "base_network"
   nn_arch:
 
@@ -130,24 +124,33 @@ policy:
       name: "output"
       layers:
 
-      - type: "Dense"
-        args:
-          units: 2  # number of actions
-          activation: "linear"
-          kernel_initializer:
-            class: "RandomUniform"
-            module: "tensorflow.python.keras.initializers"
-            args:
-              minval: -0.003
-              maxval: 0.003
-          bias_initializer:
-            class: "RandomUniform"
-            module: "tensorflow.python.keras.initializers"
-            args:
-              minval: -0.003
-              maxval: 0.003
+        - type: "Dense"
+          args:
+            units: 2  # number of actions
+            activation: "linear"
+            kernel_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
+            bias_initializer:
+              class: "RandomUniform"
+              module: "tensorflow.python.keras.initializers"
+              args:
+                minval: -0.003
+                maxval: 0.003
 
 critic_optim:
+  module: tensorflow.train
+  class: AdamOptimizer
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.0001
+
+actor_optim:
+  module: tensorflow.train
+  class: AdamOptimizer
   schedule:
     - limit: 0  # of train ops
       lr: 0.0001
@@ -165,12 +168,6 @@ agents:
         visualize: True
 
       - agents_count: 1
-        visualize: True
-        exploration:
-          type: "boltzmann"
-          temp: 0.00001
-
-      - agents_count: 1
         exploration:
           type: "boltzmann"
           temp: 0.0001
@@ -181,6 +178,12 @@ agents:
           temp: 0.001
 
       - agents_count: 1
+        visualize: True
+        exploration:
+          type: "boltzmann"
+          temp: 0.01
+
+      - agents_count: 1
         exploration:
           type: "boltzmann"
           temp: 0.01
@@ -189,8 +192,3 @@ agents:
         exploration:
           type: "boltzmann"
           temp: 0.1
-
-      - agents_count: 1
-        exploration:
-          type: "boltzmann"
-          temp: 1.

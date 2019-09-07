@@ -88,7 +88,7 @@ class SAC(BaseAlgo):
         critic_q1_optimizer,
         critic_q2_optimizer,
         critic_v_optimizer,
-        action_squash_func=None,
+        action_squash_func,
         n_step=1,
         actor_grad_val_clip=None,
         actor_grad_norm_clip=None,
@@ -127,7 +127,7 @@ class SAC(BaseAlgo):
         self._critic_q1_optimizer = critic_q1_optimizer
         self._critic_q2_optimizer = critic_q2_optimizer
         self._critic_v_optimizer = critic_v_optimizer
-        self._squash_func = action_squash_func or self._actor.out_activation
+        self._squash_func = action_squash_func
         self._n_step = n_step
         self._actor_grad_val_clip = actor_grad_val_clip
         self._actor_grad_norm_clip = actor_grad_norm_clip
