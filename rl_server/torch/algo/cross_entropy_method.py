@@ -129,7 +129,7 @@ class CEM(BaseAlgoAllFrameworks):
     def _postprocess_actions(self, actions):
         print('--- asd', self.action_size, actions[:, :self.action_size], actions[:, self.action_size:], t.eye(self.action_size))
         distribution = dist.multivariate_normal.MultivariateNormal(
-            actions[:, self.action_size],
+            actions[:, :self.action_size],
             covariance_matrix=t.abs(actions[:, self.action_size:]) * t.eye(self.action_size)
         )
         return distribution.sample()
@@ -196,7 +196,6 @@ class CEM(BaseAlgoAllFrameworks):
 
     def reset_states(self):
         self._actor.reset_states()
-        pass
 
     def _get_model_path(self, dir, index):
         return os.path.join(dir, "actor-{}.pt".format(index))

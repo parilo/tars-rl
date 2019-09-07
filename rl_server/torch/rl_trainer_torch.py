@@ -40,7 +40,7 @@ class TorchRLTrainer(RLTrainer):
             train_info = self._train_on_batch()
 
         if self._algo.is_on_policy():
-
+            self.server_buffer.clear()
 
         self._logger.log_train(train_info, self._step_index)
 

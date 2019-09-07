@@ -19,16 +19,24 @@ class ServerBuffer:
         discrete_actions=False
     ):
         self.size = capacity
-        self.num_in_buffer = 0
-        self.stored_in_buffer = 0
         self.num_parts = len(observation_shapes)
         self.obs_shapes = observation_shapes
         self.obs_dtypes = observation_dtypes
+        self.discrete_actions = discrete_actions
+        self.action_size = action_size
 
-        if discrete_actions:
+        self._store_lock = RLock()
+
+        self.clear()
+
+    def clear(self):
+        self.num_in_buffer = 0
+        self.stored_in_buffer = 0
+
+        if self.discrete_actions:
             self.act_shape = (1,)
         else:
-            self.act_shape = (action_size,)
+            self.act_shape = (self.action_size,)
 
         # initialize all np.arrays which store necessary data
         self.observations = []
@@ -41,7 +49,7 @@ class ServerBuffer:
             print('created obs array', obs.nbytes / 1024 / 1024, obs.shape, obs.dtype)
             self.observations.append(obs)
 
-        if discrete_actions:
+        if self.discrete_actions:
             self.actions = np.empty((self.size, ), dtype=np.int32)
         else:
             self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
@@ -51,7 +59,6 @@ class ServerBuffer:
         self.td_errors = np.empty((self.size, ), dtype=np.float32)
 
         self.pointer = 0
-        self._store_lock = RLock()
 
     def push_episode(self, episode):
         """ episode = [observations, actions, rewards, dones]

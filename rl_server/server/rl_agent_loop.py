@@ -309,7 +309,7 @@ class RLAgent:
                     action = self._agent_model.act_batch(prepare_state(state))[0]
                     # action_target = self._agent_model.act_batch_target(prepare_state(state))[0]
                     action = np.array(action)
-                    print('--- agent action', action)
+                    print('--- agent action', action, action.shape)
                     # action_target = np.array(action_target)
                     # if self._id ==  2: print('--- action before expl', action)
 
@@ -355,7 +355,8 @@ class RLAgent:
             # if self._id == 2:
             #     print('--- action', env_action_remapped)
 
-            next_obs, reward, done, info = self._env.step([env_action_remapped])
+            next_obs, reward, done, info = self._env.step(env_action_remapped)
+            # next_obs, reward, done, info = self._env.step([env_action_remapped])
 
             if self._reward_clip_max:
                 reward = min(reward, self._reward_clip_max)

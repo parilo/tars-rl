@@ -1,19 +1,20 @@
 import importlib
 
+import torch as t
 import torch.nn as nn
 import numpy as np
 
 
 def _calc_branch(branch, branch_input_values):
     x = branch_input_values
-    print('--- _calc_branch', x)
+    # print('--- _calc_branch', x)
     for layer in branch['layers']:
         x = layer(x)
     return x
 
 
 def _calc_branch_with_dependencies(branches, branch_name, x):
-    print('--- _calc_branch_with_dependencies', branch_name)
+    # print('--- _calc_branch_with_dependencies', branch_name)
 
     branch_input = branches[branch_name]['input']
     if not isinstance(branch_input, list):
@@ -22,10 +23,12 @@ def _calc_branch_with_dependencies(branches, branch_name, x):
     branch_input_values = []
     for branch_input_name in branch_input:
         if isinstance(branch_input_name, int):
-            print('--- input branch is int')
+            # print('--- input branch is int')
             branch_input_values.append(x[branch_input_name])
+        elif branch_input_name == 'action':
+            branch_input_values.append(x[-1])
         else:
-            print('--- input branch is not int')
+            # print('--- input branch is not int')
             branch_input_values.append(_calc_branch_with_dependencies(branches, branch_input_name, x))
 
     if len(branch_input_values) == 1:
@@ -41,21 +44,31 @@ class LayerBase:
 
 class TorchLayer(LayerBase):
 
-    def __init__(self, layer):
+    def __init__(self, layer, args=None):
         self._layer = layer
+        self._args = args
 
     def __call__(self, x):
-        return self._layer(x)
+        if self._args is None:
+            return self._layer(x)
+        else:
+            return self._layer(x, **self._args)
 
     def get_module(self):
         return self._layer
+
+
+class TorchFunc(TorchLayer):
+
+    def get_module(self):
+        return None
 
 
 class FlattenLayer(LayerBase):
 
     def __call__(self, x):
         if len(x.shape) > 1:
-            return x.view(x.shape[0], np.product(x.shape[1:]))
+            return x.view((x.shape[0], np.product(x.shape[1:])))
         else:
             return x
 
@@ -76,6 +89,7 @@ class NetworkTorch(nn.Module):
         have_action_input=False,
         use_next_state_input=False,
         num_atoms=1,
+        device='cpu'
         # v=(-10., 10.),
         # scope=None
     ):
@@ -84,6 +98,7 @@ class NetworkTorch(nn.Module):
         self.has_action_input = have_action_input
         self.use_next_state_input = use_next_state_input
         self.num_atoms = num_atoms
+        self.device = device
         # self.v = v
         # self.scope = scope or "CriticNetwork"
         self._branches = self.build_model()
@@ -95,21 +110,34 @@ class NetworkTorch(nn.Module):
 
         layers = []
 
-        # nn.Linear
-        # nn.ReLU
-
         for layer_i, layer_data in enumerate(layers_info):
 
             layer = process_special_layers(layer_data)
 
             if layer is None:
-                LayerClass = getattr(nn_module, layer_data['type'])
-                if 'args' in layer_data:
-                    # process_layer_args(layer_data['args'])
-                    torch_layer_class_instance = LayerClass(**layer_data['args'])
+
+                # module which contains layer
+                if 'module' in layer_data:
+                    layer_module = importlib.import_module(layer_data['module'])
                 else:
-                    torch_layer_class_instance = LayerClass()
-                layer = TorchLayer(torch_layer_class_instance)
+                    layer_module = nn_module
+
+                layer_is_func = layer_data.get('is_func', False)
+                if layer_is_func:
+                    # layer is function
+                    layer_func = getattr(layer_module, layer_data['type'])
+                    layer_args = layer_data.get('args', None)
+                    layer = TorchFunc(layer_func, layer_args)
+
+                else:
+                    # layer is class
+                    LayerClass = getattr(layer_module, layer_data['type'])
+                    if 'args' in layer_data:
+                        # process_layer_args(layer_data['args'])
+                        torch_layer_class_instance = LayerClass(**layer_data['args'])
+                    else:
+                        torch_layer_class_instance = LayerClass()
+                    layer = TorchLayer(torch_layer_class_instance)
 
             layers.append(layer)
 
@@ -138,7 +166,10 @@ class NetworkTorch(nn.Module):
 
         for name, branch_info in branches.items():
             for i, layer in enumerate(branch_info['layers']):
-                self.add_module('{}_layer_{}'.format(name, i), layer.get_module())
+                layer_torch_module = layer.get_module()
+                if layer_torch_module is not None:
+                    self.add_module('{}_layer_{}'.format(name, i), layer_torch_module)
+                    # print('--- add_module', '{}_layer_{}'.format(name, i))
 
         return branches
 
@@ -172,16 +203,27 @@ class NetworkTorch(nn.Module):
     # def variables(self):
     #     return self.model.trainable_weights
 
-    # def copy(self, scope=None):
-    #     """copy network architecture"""
-    #     scope = scope or self.scope + "_copy"
-    #     with tf.variable_scope(scope):
-    #         return NetworkKeras(
-    #             state_shapes=self.state_shapes,
-    #             action_size=self.action_size,
-    #             nn_arch=self.nn_arch,
-    #             num_atoms=self.num_atoms,
-    #             v=self.v,
-    #             have_action_input=self.has_action_input,
-    #             use_next_state_input=self.use_next_state_input,
-    #             scope=scope)
+    def get_weights(self):
+        weights = {}
+        for name, value in self.state_dict().items():
+            weights[name] = value.cpu().detach().numpy()
+        return weights
+
+    def set_weights(self, weights):
+        state_dict = {}
+        for name, value in weights.items():
+            state_dict[name] = t.tensor(value).to(self.device)
+        self.load_state_dict(state_dict)
+
+    def copy(self):
+        """copy network"""
+        new_model = NetworkTorch(
+            nn_arch=self.nn_arch,
+            have_action_input=self.has_action_input,
+            use_next_state_input=self.use_next_state_input,
+            num_atoms=self.num_atoms,
+            device=self.device
+        )
+
+        new_model.load_state_dict(self.state_dict())
+        return new_model

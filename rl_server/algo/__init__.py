@@ -15,7 +15,8 @@ algo_names = {
     ],
 
     'torch': [
-        'cross_entropy_method'
+        'cross_entropy_method',
+        'ddpg'
     ]
 }
 
