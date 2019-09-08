@@ -10,7 +10,7 @@ from misc.common import dict_to_prop_tree
 
 def load_yaml(path):
     with open(path, 'rt') as f:
-        return yaml.load(f.read())
+        return yaml.load(f.read(), Loader=yaml.FullLoader)
 
 
 class BaseConfig:

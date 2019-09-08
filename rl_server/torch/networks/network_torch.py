@@ -105,7 +105,7 @@ class NetworkTorch(nn.Module):
 
     def process_layers(self, layers_info):
 
-        print('--- branch')
+        # print('--- branch')
         nn_module = importlib.import_module('torch.nn')
 
         layers = []

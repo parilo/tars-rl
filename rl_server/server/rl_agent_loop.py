@@ -162,7 +162,7 @@ class RLAgent:
             self._action_size
         ) = self._exp_config.get_env_shapes()
 
-        set_global_seeds(self._seed)
+        set_global_seeds(self._seed, self._exp_config.framework)
         self._logger = RLLogger(
             self._logdir,
             self._id,
@@ -309,7 +309,7 @@ class RLAgent:
                     action = self._agent_model.act_batch(prepare_state(state))[0]
                     # action_target = self._agent_model.act_batch_target(prepare_state(state))[0]
                     action = np.array(action)
-                    print('--- agent action', action, action.shape)
+                    # print('--- agent action', action, action.shape)
                     # action_target = np.array(action_target)
                     # if self._id ==  2: print('--- action before expl', action)
 

@@ -10,7 +10,7 @@ from misc.config import load_config
 
 args = parse_server_args()
 exp_config = load_config(args.config)
-set_global_seeds(exp_config.server.seed)
+set_global_seeds(exp_config.server.seed, exp_config.framework)
 create_if_need(exp_config.server.logdir)
 
 if exp_config.is_ensemble():

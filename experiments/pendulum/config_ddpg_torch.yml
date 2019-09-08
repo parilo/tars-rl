@@ -24,11 +24,11 @@ server:
   num_clients: 16
   experience_replay_buffer_size: 5000000
   use_prioritized_buffer: false
-  train_every_nth: 1  #512
-  start_learning_after: 300
+  train_every_nth: 512
+  start_learning_after: 5000
   target_critic_update_period: 1
   target_actor_update_period: 1
-  show_stats_period: 1
+  show_stats_period: 100
   save_model_period: 5000
   client_start_port: 10977
   logdir: "logs/pendulum_ddpg_torch"
@@ -175,17 +175,17 @@ agents:
       - agents_count: 1
         visualize: True
 
-#      - agents_count: 1
-#        visualize: False
-#
-#      - agents_count: 1
-#        visualize: True
-#        exploration:
-#          normal_noise: 0.5
-#          random_action_prob: 0.2
-#
-#      - agents_count: 4
-#        visualize: False
-#        exploration:
-#          normal_noise: 0.5
-#          random_action_prob: 0.2
+      - agents_count: 1
+        visualize: False
+
+      - agents_count: 1
+        visualize: True
+        exploration:
+          normal_noise: 0.5
+          random_action_prob: 0.2
+
+      - agents_count: 4
+        visualize: False
+        exploration:
+          normal_noise: 0.5
+          random_action_prob: 0.2
