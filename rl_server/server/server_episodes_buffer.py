@@ -15,10 +15,11 @@ class ServerEpisodesBuffer:
         self.clear()
 
     def clear(self):
-        self.stored_in_buffer = 0
-        self.episodes = [None] * self.size
-        # self.rewards = np.empty((self.size, ), dtype=np.float32)
-        self.pointer = 0
+        with self._store_lock:
+            self.stored_in_buffer = 0
+            self.episodes = [None] * self.size
+            # self.rewards = np.empty((self.size, ), dtype=np.float32)
+            self.pointer = 0
 
     def push_episode(self, episode):
         """ episode = [observations, actions, rewards, dones]

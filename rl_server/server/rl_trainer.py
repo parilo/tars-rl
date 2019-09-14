@@ -80,7 +80,7 @@ class RLTrainer:
         while True:
             buffer_size = self.server_buffer.get_stored_in_buffer()
             if buffer_size > self._start_learning_after:
-                if buffer_size > self._step_index * self._train_every:
+                if buffer_size > self._step_index * self._train_every or self._algo.is_on_policy():
                     self.train_step()
                     self._step_index += 1
                 else:

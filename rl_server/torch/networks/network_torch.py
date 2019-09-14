@@ -103,6 +103,15 @@ class NetworkTorch(nn.Module):
         # self.scope = scope or "CriticNetwork"
         self._branches = self.build_model()
 
+    def _apply_initializer(self, initializer_data, torch_layer_class_instance):
+        tensor = getattr(torch_layer_class_instance, initializer_data['tensor'])
+        init_module = importlib.import_module(initializer_data['module'])
+        init_func = getattr(init_module, initializer_data['func'])
+        if 'args' in initializer_data:
+            init_func(tensor, **initializer_data['args'])
+        else:
+            init_func(tensor)
+
     def process_layers(self, layers_info):
 
         # print('--- branch')
@@ -137,6 +146,11 @@ class NetworkTorch(nn.Module):
                         torch_layer_class_instance = LayerClass(**layer_data['args'])
                     else:
                         torch_layer_class_instance = LayerClass()
+
+                    if 'initializers' in layer_data:
+                        for initializer_data in layer_data['initializers']:
+                            self._apply_initializer(initializer_data, torch_layer_class_instance)
+
                     layer = TorchLayer(torch_layer_class_instance)
 
             layers.append(layer)

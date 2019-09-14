@@ -30,35 +30,36 @@ class ServerBuffer:
         self.clear()
 
     def clear(self):
-        self.num_in_buffer = 0
-        self.stored_in_buffer = 0
+        with self._store_lock:
+            self.num_in_buffer = 0
+            self.stored_in_buffer = 0
 
-        if self.discrete_actions:
-            self.act_shape = (1,)
-        else:
-            self.act_shape = (self.action_size,)
+            if self.discrete_actions:
+                self.act_shape = (1,)
+            else:
+                self.act_shape = (self.action_size,)
 
-        # initialize all np.arrays which store necessary data
-        self.observations = []
-        for part_id in range(self.num_parts):
-            print(part_id, (self.size, ), self.obs_shapes[part_id], self.obs_dtypes[part_id])
-            obs = np.empty(
-                (self.size, ) + tuple(self.obs_shapes[part_id]),
-                dtype=self.obs_dtypes[part_id]
-            )
-            print('created obs array', obs.nbytes / 1024 / 1024, obs.shape, obs.dtype)
-            self.observations.append(obs)
+            # initialize all np.arrays which store necessary data
+            self.observations = []
+            for part_id in range(self.num_parts):
+                print(part_id, (self.size, ), self.obs_shapes[part_id], self.obs_dtypes[part_id])
+                obs = np.empty(
+                    (self.size, ) + tuple(self.obs_shapes[part_id]),
+                    dtype=self.obs_dtypes[part_id]
+                )
+                # print('created obs array', obs.nbytes / 1024 / 1024, obs.shape, obs.dtype)
+                self.observations.append(obs)
 
-        if self.discrete_actions:
-            self.actions = np.empty((self.size, ), dtype=np.int32)
-        else:
-            self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
+            if self.discrete_actions:
+                self.actions = np.empty((self.size, ), dtype=np.int32)
+            else:
+                self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
 
-        self.rewards = np.empty((self.size, ), dtype=np.float32)
-        self.dones = np.empty((self.size, ), dtype=np.bool)
-        self.td_errors = np.empty((self.size, ), dtype=np.float32)
+            self.rewards = np.empty((self.size, ), dtype=np.float32)
+            self.dones = np.empty((self.size, ), dtype=np.bool)
+            self.td_errors = np.empty((self.size, ), dtype=np.float32)
 
-        self.pointer = 0
+            self.pointer = 0
 
     def push_episode(self, episode):
         """ episode = [observations, actions, rewards, dones]
