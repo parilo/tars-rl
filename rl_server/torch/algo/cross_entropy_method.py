@@ -67,7 +67,7 @@ class CEM(BaseAlgoAllFrameworks):
             self._tanh_limit_min = t.tensor(tanh_limit['min']).float()
             self._tanh_limit_delta = t.tensor(tanh_limit['max'] - tanh_limit['min']).float()
 
-        self._actor = actor.to(device)
+        self.actor = actor.to(device)
         self._optimizer = optimizer
 
         self._sigma = t.tensor(sigma).float().to(device)
@@ -80,7 +80,7 @@ class CEM(BaseAlgoAllFrameworks):
         )
 
     def _calc_actor_action(self, model_input):
-        actor_output = self._actor(model_input)
+        actor_output = self.actor(model_input)
         if self.tanh_limit:
             actor_output = (t.tanh(actor_output) * 0.5 + 0.5) * self._tanh_limit_delta + self._tanh_limit_min
         return actor_output
@@ -182,7 +182,7 @@ class CEM(BaseAlgoAllFrameworks):
 
     def get_weights(self, index=0):
         weights = {}
-        for name, value in self._actor.state_dict().items():
+        for name, value in self.actor.state_dict().items():
             weights[name] = value.cpu().detach().numpy()
         return {
             'actor': weights
@@ -192,21 +192,21 @@ class CEM(BaseAlgoAllFrameworks):
         state_dict = {}
         for name, value in weights['actor'].items():
             state_dict[name] = t.tensor(value).to(self.device)
-        self._actor.load_state_dict(state_dict)
+        self.actor.load_state_dict(state_dict)
 
     def reset_states(self):
-        self._actor.reset_states()
+        self.actor.reset_states()
 
     def _get_model_path(self, dir, index):
         return os.path.join(dir, "actor-{}.pt".format(index))
 
     def load(self, dir, index):
         path = self._get_model_path(dir, index)
-        self._actor.load_state_dict(t.load(path))
+        self.actor.load_state_dict(t.load(path))
 
     def save(self, dir, index):
         path = self._get_model_path(dir, index)
-        t.save(self._actor.state_dict(), path)
+        t.save(self.actor.state_dict(), path)
 
     def is_trains_on_episodes(self):
         return True
