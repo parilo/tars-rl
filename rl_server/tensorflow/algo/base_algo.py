@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+from rl_server.algo.base_algo import BaseAlgo as BaseAlgoAllFrameworks
 
 def create_placeholders(state_shapes, action_size, scope="placeholders"):
     with tf.name_scope(scope):
@@ -166,7 +167,7 @@ def network_update(
     return update_op
 
 
-class BaseAlgo:
+class BaseAlgo(BaseAlgoAllFrameworks):
 
     def __init__(
         self,
@@ -177,13 +178,16 @@ class BaseAlgo:
         critic_optim_schedule,
         training_schedule
     ):
+        super().__init__(
+            state_shapes,
+            action_size,
+            actor_optim_schedule,
+            critic_optim_schedule,
+            training_schedule
+        )
+
         # public properties
-        self.state_shapes = state_shapes
-        self.action_size = action_size
         self.placeholders = placeholders
-        self.actor_optim_schedule = actor_optim_schedule
-        self.critic_optim_schedule = critic_optim_schedule
-        self.training_schedule = training_schedule
 
     def create_placeholders(self):
         if self.placeholders is None:
@@ -199,18 +203,3 @@ class BaseAlgo:
 
     def init(self, sess):
         sess.run(tf.global_variables_initializer())
-
-    def get_schedule_params(self, schedule, step_index):
-        for training_params in schedule['schedule']:
-            if step_index >= training_params['limit']:
-                return training_params
-        return schedule['schedule'][0]
-
-    def get_batch_size(self, step_index):
-        return self.get_schedule_params(self.training_schedule, step_index)['batch_size']
-
-    def get_actor_lr(self, step_index):
-        return self.get_schedule_params(self.actor_optim_schedule, step_index)['lr']
-
-    def get_critic_lr(self, step_index):
-        return self.get_schedule_params(self.critic_optim_schedule, step_index)['lr']

@@ -4,22 +4,18 @@ import numpy as np
 import argparse
 
 
-def set_global_seeds(i):
-    # try:
-    #     import torch
-    # except ImportError:
-    #     pass
-    # else:
-    #     torch.manual_seed(i)
-    #     torch.cuda.manual_seed_all(i)
-    try:
+def set_global_seeds(seed, framework):
+    if framework == 'tensorflow':
         import tensorflow as tf
-    except ImportError:
-        pass
+        tf.set_random_seed(seed)
+    elif framework == 'torch':
+        import torch
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
     else:
-        tf.set_random_seed(i)
-    random.seed(i)
-    np.random.seed(i)
+        raise NotImplementedError('framework {} is not supported'.format(framework))
+    random.seed(seed)
+    np.random.seed(seed)
 
 
 def create_if_need(path):

@@ -1,10 +1,9 @@
 from rl_server.server.rl_server_api import RLServerAPI
-from rl_server.server.rl_trainer_tf import TFRLTrainer as RLTrainer
 
 
 class RLServer:
 
-    def __init__(self, exp_config, agent_algorithm):
+    def __init__(self, exp_config, agent_algorithm, framework):
         (
             observation_shapes,
             observation_dtypes,
@@ -27,14 +26,21 @@ class RLServer:
         if exp_config.env.isset('discrete_actions'):
             discrete_actions = exp_config.env.discrete_actions
 
+        if framework == 'tensorflow':
+            from rl_server.tensorflow.rl_trainer_tf import TFRLTrainer as RLTrainer
+        elif framework == 'torch':
+            from rl_server.torch.rl_trainer_torch import TorchRLTrainer as RLTrainer
+        else:
+            raise RuntimeError('framework {} is not supported. Try: tensorflow or pytorch'.format(framework))
+
         self._train_loop = RLTrainer(
             observation_shapes=observation_shapes,
             observation_dtypes=observation_dtypes,
             action_size=action_size,
             experience_replay_buffer_size=exp_config.server.experience_replay_buffer_size,
             use_prioritized_buffer=exp_config.server.use_prioritized_buffer,
-            n_step=exp_config.algorithm.n_step,
-            gamma=exp_config.algorithm.gamma,
+            n_step=exp_config.algorithm.n_step if exp_config.algorithm.isset('n_step') else 1,
+            gamma=exp_config.algorithm.gamma if exp_config.algorithm.isset('gamma') else 1,
             train_every_nth=exp_config.server.train_every_nth,
             history_length=exp_config.env.history_length,
             start_learning_after=exp_config.server.start_learning_after,
@@ -43,18 +49,19 @@ class RLServer:
             show_stats_period=exp_config.server.show_stats_period,
             save_model_period=exp_config.server.save_model_period,
             discrete_actions=discrete_actions,
-            logdir=exp_config.server.logdir
+            logdir=exp_config.server.logdir,
+            algorithm=agent_algorithm
         )
 
-        self._train_loop.set_algorithm(agent_algorithm)
+        # self._train_loop.set_algorithm(agent_algorithm)
         self._train_loop.init()
         self._server_api.set_store_episode_callback(self._train_loop.store_episode)
         self._server_api.set_get_weights_callback(self._train_loop.get_weights)
 
         exp_config.store(exp_config.server.logdir)
         
-    def load_weights(self, path):
-        self._train_loop.load_checkpoint(path)
+    def load_weights(self, load_info):
+        self._train_loop.load_checkpoint(load_info)
 
     def start(self):
         print("--- starting rl server")

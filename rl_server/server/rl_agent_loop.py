@@ -33,7 +33,7 @@ class RLAgent:
         self._seed = agent_config.seed
         self._history_len = exp_config.env.history_length
         self._algorithm_id = agent_config.algorithm_id
-        self._checkpoint_path = checkpoint_path
+        self._checkpoint_info = checkpoint_path
         self._repeat_action = agent_config.repeat_action
         self._random_repeat_action = agent_config.random_repeat_action
 
@@ -162,7 +162,7 @@ class RLAgent:
             self._action_size
         ) = self._exp_config.get_env_shapes()
 
-        set_global_seeds(self._seed)
+        set_global_seeds(self._seed, self._exp_config.framework)
         self._logger = RLLogger(
             self._logdir,
             self._id,
@@ -172,25 +172,36 @@ class RLAgent:
         )
 
         self._rl_client = None
-        if self._checkpoint_path is None:
+        if self._checkpoint_info is None:
             self._rl_client = RLClient(
                 port=self._exp_config.server.client_start_port + self._id
             )
 
         if self._exp_config.framework == 'tensorflow':
-            from rl_server.tensorflow.agent_model_tf import AgentModel
-            self._agent_model = AgentModel(
-                self._exp_config,
-                self._rl_client
-            )
+            from rl_server.tensorflow.agent_model import AgentModel
+        elif self._exp_config.framework == 'torch':
+            from rl_server.torch.agent_model import AgentModel
+        else:
+            raise RuntimeError('Unknown framework {}. Please choose torch or tensorflow'.format(
+                self._exp_config.framework
+            ))
 
-            if self._checkpoint_path is None:
-                self.fetch_model()
-            else:
-                self._agent_model.load_checkpoint(self._checkpoint_path)
+        self._init_agent_model(AgentModel)
+
+    def _init_agent_model(self, agent_model_class):
+
+        self._agent_model = agent_model_class(
+            self._exp_config,
+            self._rl_client
+        )
+
+        if self._checkpoint_info is None:
+            self.fetch_model()
+        else:
+            self._agent_model.load_checkpoint(self._checkpoint_info)
 
     def fetch_model(self):
-        if self._checkpoint_path is None:
+        if self._checkpoint_info is None:
             self._agent_model.fetch(self._algorithm_id)
 
     def init_agent_buffers(self):
@@ -298,6 +309,7 @@ class RLAgent:
                     action = self._agent_model.act_batch(prepare_state(state))[0]
                     # action_target = self._agent_model.act_batch_target(prepare_state(state))[0]
                     action = np.array(action)
+                    # print('--- agent action', action, action.shape)
                     # action_target = np.array(action_target)
                     # if self._id ==  2: print('--- action before expl', action)
 
@@ -344,6 +356,7 @@ class RLAgent:
             #     print('--- action', env_action_remapped)
 
             next_obs, reward, done, info = self._env.step(env_action_remapped)
+            # next_obs, reward, done, info = self._env.step([env_action_remapped])
 
             if self._reward_clip_max:
                 reward = min(reward, self._reward_clip_max)
@@ -395,7 +408,7 @@ class RLAgent:
                 self._logger.log_dict(self._env.get_logs(), episode_index)
                 self._logger.log(episode_index, n_steps)
                 episode = self._agent_buffer.get_complete_episode()
-                if self._checkpoint_path is None:
+                if self._checkpoint_info is None:
                     self._rl_client.store_episode(episode)
 
                 self.fetch_model()

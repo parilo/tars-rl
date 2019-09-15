@@ -3,7 +3,7 @@ from tensorflow.contrib.distributions import MultivariateNormalDiag as Normal
 
 from .base_algo import BaseAlgo, network_update, target_network_update
 from rl_server.tensorflow.algo.model_weights_tool import ModelWeightsTool
-from rl_server.tensorflow.algo.algo_fabric import get_network_params, get_optimizer_class
+from rl_server.algo.algo_fabric import get_network_params, get_optimizer_class
 from rl_server.tensorflow.networks.network_keras import NetworkKeras
 from rl_server.tensorflow.algo.base_algo import create_placeholders
 

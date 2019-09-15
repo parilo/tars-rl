@@ -1,0 +1,125 @@
+framework: torch
+device: 'cuda:0'
+
+env:
+  name: BipedalWalker-v2
+  is_gym: True
+
+  obs_shapes: [[24]]  # list of lists
+  obs_dtypes: ["float32"]
+  history_length: [3]
+  obs_is_image: False
+
+  action_size: 4
+  frame_skip: 4
+  step_limit: 0
+  agent_buffer_size: 2010
+  reward_scale: 1
+  reinit_random_action_every: 5
+  log_every_n_steps: 1000
+  max_episode_length: 10000
+
+server:
+  seed: 42
+  num_clients: 16
+  experience_replay_buffer_size: 50000
+  use_prioritized_buffer: false
+  train_every_nth: 1
+  start_learning_after: 100
+  target_critic_update_period: 1
+  target_actor_update_period: 1
+  show_stats_period: 1
+  save_model_period: 100
+  client_start_port: 10977
+  logdir: "logs/bipedal_walker_ce_torch"
+  #load_checkpoint: ""
+
+algo_name: "cross_entropy_method"
+
+algorithm:
+  number_elite_episodes: 5
+  transitions_buffer_size: 110000
+  sigma: 0.2
+  tanh_limit:
+    min: -1
+    max: 1
+
+actor:
+  nn_arch:
+
+    - input: 0
+      name: "output"
+      layers:
+        - type: "Flatten"
+
+        - type: "Linear"
+          args:
+            in_features: 72
+            out_features: 128
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 128
+            out_features: 128
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 128
+            out_features: 128
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 128
+            out_features: 4
+#          initializers:
+#            - tensor: weight
+#              func: "uniform_"
+#              module: "torch.nn.init"
+#              args:
+#                a: -0.003
+#                b: 0.003
+#            - tensor: bias
+#              func: "uniform_"
+#              module: "torch.nn.init"
+#              args:
+#                a: -0.003
+#                b: 0.003
+
+actor_optim:
+  module: torch.optim
+  class: Adam
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.0001
+
+training:
+  schedule:
+    - limit: 0  # of train ops
+      batch_size: 100  # batch of episodes
+
+agents:
+  - algorithm_id: 0
+    agents:
+      - agents_count: 1
+        visualize: True
+        exploration:
+          built_in_algo: True
+          validation: False
+
+      - agents_count: 1
+        visualize: True
+        exploration:
+          built_in_algo: True
+          validation: True
+
+      - agents_count: 5
+        visualize: False
+        exploration:
+          built_in_algo: True
+          validation: False

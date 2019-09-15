@@ -1,7 +1,7 @@
 import copy
 import importlib
 
-from rl_server.tensorflow.algo import algo_create_funcs
+from rl_server.algo import algo_create_funcs
 
 
 def combine_with_base_network(base_network_params, network_params):
@@ -33,5 +33,13 @@ def create_algorithm(
 ):
     name = algo_config.algo_name
     print('--- creating {}'.format(name))
-    scope_postfix = str(scope_postfix)
-    return algo_create_funcs[name](algo_config, placeholders, scope_postfix)
+
+    if algo_config.framework == 'tensorflow':
+        scope_postfix = str(scope_postfix)
+        return algo_create_funcs[algo_config.framework][name](algo_config, placeholders, scope_postfix)
+
+    elif algo_config.framework == 'torch':
+        return algo_create_funcs[algo_config.framework][name](algo_config)
+
+    else:
+        raise RuntimeError('Unknown framework {}. Please choose torch or tensorflow'.format(algo_config.framework))

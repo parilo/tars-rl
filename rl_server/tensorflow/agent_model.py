@@ -30,7 +30,7 @@ class AgentModel:
         return self._agent_algorithm.act_batch_target(self._sess, states)
 
     def fetch(self, index=0):
-        self.set_weights(self._rl_client.get_weights(index=index))
+        self.set_weights(self._rl_client.get_weights(algo_index=index))
 
     def load_checkpoint(self, path):
 
