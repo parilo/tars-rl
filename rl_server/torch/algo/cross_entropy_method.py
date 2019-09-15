@@ -26,6 +26,7 @@ def create_algo(algo_config):
         observation_shapes=observation_shapes,
         observation_dtypes=observation_dtypes,
         action_size=action_size,
+        history_len=algo_config.as_obj()['env']['history_length'],
         actor=actor,
         optimizer=optimizer,
         optim_schedule=actor_optim_info,
@@ -41,9 +42,9 @@ class CEM(BaseAlgoAllFrameworks):
         observation_shapes,
         observation_dtypes,
         action_size,
+        history_len,
         actor,
         number_elite_episodes,
-        transitions_batch_size,
         transitions_buffer_size,
         sigma,
         optimizer,
@@ -61,16 +62,16 @@ class CEM(BaseAlgoAllFrameworks):
 
         self.device = device
         self.tanh_limit = tanh_limit
+        self.history_len = history_len
         if tanh_limit:
             self._tanh_limit_min = t.tensor(tanh_limit['min']).float()
             self._tanh_limit_delta = t.tensor(tanh_limit['max'] - tanh_limit['min']).float()
 
-        self._actor = actor
+        self._actor = actor.to(device)
         self._optimizer = optimizer
 
-        self._sigma = t.tensor(sigma).float()
+        self._sigma = t.tensor(sigma).float().to(device)
         self._num_elite_eps = number_elite_episodes
-        self._transitions_batch_size = transitions_batch_size
         self._transitions_buffer = TransitionsBuffer(
             transitions_buffer_size,
             observation_shapes,
@@ -87,7 +88,7 @@ class CEM(BaseAlgoAllFrameworks):
     def _sample_actions(self, action_means):
         distribution = dist.multivariate_normal.MultivariateNormal(
             action_means,
-            covariance_matrix=self._sigma * t.eye(self.action_size)
+            covariance_matrix=self._sigma * t.eye(self.action_size).to(self.device)
         )
 
         action = distribution.sample()
@@ -105,6 +106,8 @@ class CEM(BaseAlgoAllFrameworks):
     def _get_elite_episodes_ids(self, ep_rewards):
         # get episodes indexes with respect its episodic rewards
         ep_sorted_by_rewards = list(reversed(np.argsort(ep_rewards).tolist()))
+        np.set_printoptions(suppress=True)
+        print('--- eps', ep_rewards[ep_sorted_by_rewards])
 
         # get top num_elite_eps episodes and put it into replay buffer
         return ep_sorted_by_rewards[:self._num_elite_eps]
@@ -116,7 +119,10 @@ class CEM(BaseAlgoAllFrameworks):
             self._transitions_buffer.push_episode(batch_of_episodes[ep_id])
 
         # get batch of elite episodes transitions to learn on
-        return self._transitions_buffer.get_batch(self._transitions_batch_size, history_len=[2] * len(batch_of_episodes[0][0]))
+        return self._transitions_buffer.get_batch(
+            self._transitions_buffer.get_stored_in_buffer(),
+            history_len=self.history_len * len(batch_of_episodes[0][0])
+        )
 
     def _get_model_input(self, state):
         model_input = []
@@ -143,6 +149,7 @@ class CEM(BaseAlgoAllFrameworks):
         self._optimizer.step()
 
         return {
+            'batch': self._transitions_buffer.get_stored_in_buffer(),
             'elite mean r': np.mean(ep_rewards[elite_eps_ids]),
             'elite std r': np.std(ep_rewards[elite_eps_ids]),
             'mean r': np.mean(ep_rewards),
@@ -156,7 +163,7 @@ class CEM(BaseAlgoAllFrameworks):
     def act_batch(self, states):
         with t.no_grad():
             model_input = self._get_model_input(states)
-            return self._sample_actions(self._calc_actor_action(model_input))
+            return self._sample_actions(self._calc_actor_action(model_input)).cpu().numpy().tolist()
 
     def act_batch_deterministic(self, states):
         with t.no_grad():
