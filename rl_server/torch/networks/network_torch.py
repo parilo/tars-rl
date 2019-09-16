@@ -73,10 +73,21 @@ class FlattenLayer(LayerBase):
             return x
 
 
+class ReshapeLayer(LayerBase):
+
+    def __init__(self, shape):
+        self.shape = shape
+
+    def __call__(self, x):
+        return x.view(-1, self.shape)
+
+
 def process_special_layers(layer_data):
     layer_type = layer_data['type']
     if layer_type == 'Flatten':
         return FlattenLayer()
+    elif layer_type == 'Reshape':
+        return ReshapeLayer(**layer_data['args'])
     else:
         return None
 
@@ -203,19 +214,6 @@ class NetworkTorch(nn.Module):
 
     def reset_states(self):
         pass
-
-    # def get_input_size(self, shape):
-    #     if len(shape) == 1:
-    #         return shape[0]
-    #     elif len(shape) == 2:
-    #         return shape[0] * shape[1]
-
-    # def __call__(self, inputs):
-    #     # print('--- ', __file__, ' inputs', inputs)
-    #     return self.model(inputs)
-
-    # def variables(self):
-    #     return self.model.trainable_weights
 
     def get_weights(self):
         weights = {}

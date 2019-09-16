@@ -89,6 +89,10 @@ env_model:
             in_features: 128
             out_features: 6
 
+        - type: 'Reshape'
+          args:
+            shape: [2, 3]
+
 actor:
   nn_arch:
 

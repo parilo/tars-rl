@@ -73,6 +73,8 @@ class RLTrainer:
 
     def store_episode(self, episode):
         self.server_buffer.push_episode(episode)
+        if hasattr(self._algo, 'process_episode'):
+            self._algo.process_episode(episode)
 
     # for asynchronous acts and trains
     def start_training(self):
