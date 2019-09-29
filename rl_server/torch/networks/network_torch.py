@@ -79,7 +79,7 @@ class ReshapeLayer(LayerBase):
         self.shape = shape
 
     def __call__(self, x):
-        return x.view(-1, self.shape)
+        return x.view(-1, *list(self.shape))
 
 
 def process_special_layers(layer_data):

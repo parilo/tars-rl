@@ -207,6 +207,7 @@ class RLAgent:
     def init_agent_buffers(self):
         buf_capacity = self._exp_config.env.agent_buffer_size
         first_obs = self._env.reset()
+        # first_obs = np.ones((3,), dtype=np.float32) * 0.5
 
         self._agent_buffer = AgentBuffer(
             buf_capacity,
@@ -384,6 +385,9 @@ class RLAgent:
 
             # reward += dv2
             # print('r', reward)
+            # next_obs = [np.zeros((3,), dtype=np.float32)]
+            # next_obs = np.array([action_to_save, action_to_save, action_to_save])
+            # print('--- next obs', next_obs)
             transition = [next_obs, action_to_save, reward, done]
             self._agent_buffer.push_transition(transition)
 

@@ -2,22 +2,22 @@ framework: torch
 device: 'cuda:0'
 
 env:
-  name: Pendulum-v0
+  name: LunarLanderContinuous-v2
   is_gym: True
 
-  obs_shapes: [[3]]
+  obs_shapes: [[8]]  # list of lists
   obs_dtypes: ["float32"]
-  obs_is_image: False
   history_length: [1]
+  obs_is_image: False
 
-  action_size: 1
+  action_size: 2
   frame_skip: 2
   step_limit: 0
-  agent_buffer_size: 110
+  agent_buffer_size: 510
   reward_scale: 1
   reinit_random_action_every: 5
   log_every_n_steps: 1000
-  max_episode_length: 110
+  max_episode_length: 10000
 
 server:
   seed: 42
@@ -33,7 +33,7 @@ server:
   show_stats_period: 1
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/pendulum_el_torch"
+  logdir: "logs/lunar_lander_el_torch"
   #load_checkpoint: ""
 
 algo_name: "env_learning"
@@ -47,14 +47,13 @@ eml_algorithm:
   is_done_func: pendulum_is_done
   calc_reward_func: pendulum_calc_reward
 
-# inner algorithm
 algorithm:
   number_elite_episodes: 10
   transitions_buffer_size: 10000
   sigma: 0.1
   tanh_limit:
-    min: -2
-    max: 2
+    min: -1
+    max: 1
 
 env_model:
   have_action_input: true
@@ -77,11 +76,10 @@ env_model:
 
         - type: "Linear"
           args:
-            in_features: 4
+            in_features: 10
             out_features: 128
 
         - type: "ReLU"
-#        - type: "Tanh"
 
         - type: "Linear"
           args:
@@ -89,24 +87,22 @@ env_model:
             out_features: 128
 
         - type: "ReLU"
-#        - type: "Tanh"
-#
-#        - type: "Linear"
-#          args:
-#            in_features: 128
-#            out_features: 128
-
-#        - type: "ReLU"
-##        - type: "Tanh"
 
         - type: "Linear"
           args:
             in_features: 128
-            out_features: 3
+            out_features: 128
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 128
+            out_features: 8
 
         - type: 'Reshape'
           args:
-            shape: [1, 3]
+            shape: [1, 8]
 
 actor:
   nn_arch:
@@ -118,7 +114,7 @@ actor:
 
         - type: "Linear"
           args:
-            in_features: 3
+            in_features: 8
             out_features: 128
 
         - type: "ReLU"
@@ -140,7 +136,7 @@ actor:
         - type: "Linear"
           args:
             in_features: 128
-            out_features: 1
+            out_features: 2
 
 optim:
   module: torch.optim

@@ -1,91 +1,18 @@
 import os
+import importlib
 
 import torch as t
 import torch.nn.functional as F
 import torch.optim as optim
+import numpy as np
 
 from rl_server.algo.algo_fabric import get_network_params, get_optimizer_class
 from rl_server.algo.base_algo import BaseAlgo as BaseAlgoAllFrameworks
 from rl_server.torch.networks.network_torch import NetworkTorch
 from rl_server.server.server_replay_buffer import Transition
 from rl_server.torch.algo.cross_entropy_method import create_algo as create_algo_cem
-
-
-import random
-from threading import RLock
-
-import numpy as np
-
-
-class StartStatesBuffer:
-
-    def __init__(
-            self,
-            capacity,
-            observation_shapes,
-            observation_dtypes,
-            history_len
-    ):
-        self.size = capacity
-        self.num_parts = len(observation_shapes)
-        self.obs_shapes = observation_shapes
-        self.obs_dtypes = observation_dtypes
-        self.history_len = history_len
-
-        self._store_lock = RLock()
-
-        self.clear()
-
-    def clear(self):
-        with self._store_lock:
-            self.num_in_buffer = 0
-            self.stored_in_buffer = 0
-
-            # initialize all np.arrays which store necessary data
-            self.observations = []
-            for part_id in range(self.num_parts):
-                # print(part_id, (self.size,), self.obs_shapes[part_id], self.obs_dtypes[part_id])
-                obs = np.empty(
-                    (self.size,) + (self.history_len,) + tuple(self.obs_shapes[part_id]),
-                    dtype=self.obs_dtypes[part_id]
-                )
-                print('--- reserved for start states', obs.shape, obs.dtype)
-                self.observations.append(obs)
-
-            self.pointer = 0
-
-    def push_episode(self, episode):
-        """ episode = [observations, actions, rewards, dones]
-            observations = [obs_part_1, ..., obs_part_n]
-        """
-        if len(episode[1]) == 0:
-            print('--- warning: received zero length episode')
-            return
-
-        with self._store_lock:
-            observations, actions, rewards, dones = episode
-
-            for part_id in range(self.num_parts):
-                self.observations[part_id][self.pointer] = np.array(observations[part_id][:self.history_len])
-
-            self.stored_in_buffer += 1
-            self.num_in_buffer = min(self.size, self.num_in_buffer + 1)
-            self.pointer = (self.pointer + 1) % self.size
-
-    def get_num_in_buffer(self):
-        return self.num_in_buffer
-
-    def get_batch(self, batch_size):
-
-        with self._store_lock:
-
-            indices = random.sample(range(self.num_in_buffer), k=batch_size)
-            states = []
-            for part_id in range(self.num_parts):
-                state = [self.observations[part_id][indices[i]] for i in range(batch_size)]
-                states.append(state)
-
-            return states
+from rl_server.server.start_states_buffer import StartStatesBuffer
+from rl_server.server.agent_replay_buffer import AgentBuffer
 
 
 def create_algo(algo_config):
@@ -111,7 +38,8 @@ def create_algo(algo_config):
         optim_schedule=optim_info,
         training_schedule=algo_config.as_obj()["training"],
         device=algo_config.device,
-        inner_algo=create_algo_cem(algo_config)
+        inner_algo=create_algo_cem(algo_config),
+        **algo_config.as_obj()['eml_algorithm']
     )
 
 
@@ -129,6 +57,13 @@ class EnvLearning(BaseAlgoAllFrameworks):
         history_len,
         env_model,
         inner_algo,
+        update_inner_algo_every,
+        num_gen_episodes,
+        num_env_steps,
+        env_train_start_step_count,
+        env_funcs_module,
+        is_done_func,
+        calc_reward_func,
         optimizer,
         optim_schedule={'schedule': [{'limit': 0, 'lr': 1e-4}]},
         training_schedule={'schedule': [{'limit': 0, 'batch_size_mult': 1}]},
@@ -160,38 +95,132 @@ class EnvLearning(BaseAlgoAllFrameworks):
             history_len
         )
 
+        self._update_inner_algo_every = update_inner_algo_every
+        self._num_gen_episodes = num_gen_episodes
+        self._num_env_steps = num_env_steps
+        self._env_train_start_step_count = env_train_start_step_count
+
+        env_funcs_module = importlib.import_module(env_funcs_module)
+        self._is_done_func = getattr(env_funcs_module, is_done_func)
+        self._calc_reward_func = getattr(env_funcs_module, calc_reward_func)
+
+        self._env_agent_buffers = [AgentBuffer(
+            self._num_env_steps + 1,
+            self.observation_shapes,
+            self.observation_dtypes,
+            action_size
+        ) for _ in range(self._num_gen_episodes)]
+
     def _env_model_update(self, batch):
-        predicted_next_s = self._env_model(batch.s + [batch.a])
-        self._env_model_loss = F.smooth_l1_loss(predicted_next_s, batch.s_[0])
+        rollout_len = batch.s[0].shape[1]
+
+        start_state = [s[:, 0] for s in batch.s]
+        state = start_state
+        rollout_states = []
+        for i in range(rollout_len):
+            action = batch.a[:, i]
+            state = [self._env_model(state + [action])[:, 0]]
+            rollout_states.append(state)
+
+        rollout_states = [s[0] for s in rollout_states]
+        rollout_states_tensor = t.stack(rollout_states, dim=1)
+        done = batch.done.unsqueeze(-1).unsqueeze(-1)
+        dstate = rollout_states_tensor * (1 - done) - batch.s_[0] * (1 - done)
+        dstate2 = dstate * dstate
+        dstate3 = dstate2.mean(dim=-1)
+        print('--- dstate', dstate3.mean(dim=0))
+        self._env_model_loss = dstate2.mean()
 
         self._optimizer.zero_grad()
         self._env_model_loss.backward()
         self._optimizer.step()
 
-    def _inner_algo_update(self):
+        return {
+            'lr':  self._lr_scheduler.get_lr()[0],
+            'env model loss': self._env_model_loss.item(),
+            'loss sqrt': self._env_model_loss.sqrt().item()
+        }
 
-        num_gen_episodes = 1000
+    def _get_obs_from_states(self, states):
+        return [s[:, -1] for s in states]
 
-        if self._start_states_buffer.get_num_in_buffer() >= num_gen_episodes:
-            print('--- updating inner algo')
-            states = self._start_states_buffer.get_batch(num_gen_episodes)
-            while True:
-                actions = self._inner_algo.act_batch(states)
-                states = self._env_model([states] + [actions])
-                # store to episodes
-                # check ended episodes
-                # calc rewards for episodes
-                # store ended episodes
-                # start new episodes
-                # if have enough ended episodes train inner algo on it
+    def _get_agent_obs(self, agent_index, obs):
+        return [o[agent_index] for o in obs]
+
+    def _get_start_states_and_obs(self, batch_size):
+        states = self._start_states_buffer.get_batch(batch_size)
+        states = [np.array(s) for s in states]
+        obs = self._get_obs_from_states(states)
+        return states, obs
+
+    def _inner_algo_update(self, step_index):
+
+        complete_episodes = []
+
+        with t.no_grad():
+            if self._start_states_buffer.get_num_in_buffer() >= self._num_gen_episodes:
+                print('--- updating inner algo')
+
+                # initializing agents buffers
+                states, obs = self._get_start_states_and_obs(self._num_gen_episodes)
+                for i, agent_buf in enumerate(self._env_agent_buffers):
+                    agent_buf.clear()
+                    agent_buf.push_init_observation(self._get_agent_obs(i, obs))
+
+                state_tensors = [t.tensor(s).to(self.device) for s in states]
+                for i in range(self._num_env_steps):
+                    action = self._inner_algo.act_batch_tensor(state_tensors)
+                    state_tensors = [self._env_model(state_tensors + [action])]  # states must be list of modalities
+
+                    action_arr = action.cpu().numpy()
+                    states_arrs = [s.cpu().numpy() for s in state_tensors]
+
+                    # check ended episodes
+                    is_done = self._is_done_func(self._env_agent_buffers, action_arr, states_arrs)
+
+                    # calc rewards for episodes
+                    rewards = self._calc_reward_func(self._env_agent_buffers, action_arr, states_arrs)
+
+                    # store to episodes
+                    obs = self._get_obs_from_states(states_arrs)
+                    for i, agent_buf in enumerate(self._env_agent_buffers):
+                        # next_obs, action, reward, done = transition
+                        agent_buf.push_transition([
+                            self._get_agent_obs(i, obs),
+                            action_arr[i],
+                            rewards[i],
+                            is_done[i]
+                        ])
+
+                    # store ended episodes
+                    # and start new episodes
+                    for i in np.argwhere(is_done > 0).tolist():
+                        i = i[0]
+                        agent_buf = self._env_agent_buffers[i]
+                        complete_episodes.append(agent_buf.get_complete_episode())
+                        agent_buf.clear()
+                        start_states_arr, start_obs = self._get_start_states_and_obs(1)
+                        agent_buf.push_init_observation(start_obs[0])
+                        for part_id in range(len(start_states_arr)):
+                            state_tensors[part_id][i] = t.tensor(start_states_arr[0]).to(self.device)
+
+                print(f'--- end generation of {self._num_env_steps} steps')
+
+        print('--- complete episodes', len(complete_episodes))
+        if len(complete_episodes) >= self._num_gen_episodes:
+            return self._inner_algo.train(step_index, complete_episodes)
+        else:
+            return {}
 
     def target_network_init(self):
         pass
 
     def act_batch(self, states):
+        # return np.zeros((1, 1)) + 0.5
         return self._inner_algo.act_batch(states)
 
     def act_batch_deterministic(self, states):
+        # return np.zeros((1, 1)) + 0.5
         return self._inner_algo.act_batch_deterministic(states)
 
     def act_batch_with_gradients(self, states):
@@ -203,15 +232,18 @@ class EnvLearning(BaseAlgoAllFrameworks):
             t.tensor(batch.a).to(self.device),
             t.tensor(batch.r).to(self.device),
             [t.tensor(s_).to(self.device) for s_ in batch.s_],
-            t.tensor(batch.done).float().to(self.device)
+            t.tensor(batch.done).float().to(self.device),
+            [t.tensor(mask).to(self.device) for mask in batch.valid_mask],
+            [t.tensor(mask).to(self.device) for mask in batch.next_valid_mask],
         )
 
-        self._env_model_update(batch_tensors)
+        train_info = self._env_model_update(batch_tensors)
+        if step_index > self._env_train_start_step_count and  step_index % self._update_inner_algo_every == 0:
+            train_info.update(
+                self._inner_algo_update(step_index)
+            )
 
-        return {
-            'lr':  self._lr_scheduler.get_lr()[0],
-            'env model loss': self._env_model_loss.item(),
-        }
+        return train_info
 
     def target_actor_update(self):
         pass
@@ -248,4 +280,16 @@ class EnvLearning(BaseAlgoAllFrameworks):
         t.save(self._env_model.state_dict(), self._get_model_path(dir, index, 'env_model'))
 
     def process_episode(self, episode):
+        # print('--- process_episode', episode[0][0].shape, episode[1].shape, episode[2].shape, episode[3].shape)
+        # ep_rewards = self._inner_algo._calc_episodic_rewards([episode])
+        # print('--- real reward', ep_rewards)
+        # from envs.pendulum import calc_reward
+        # reward2 = 0.
+        # obs = episode[0][0]
+        # actions = episode[1]
+        # for i in range(len(obs)):
+        #     state = np.zeros((1, 2, 3))
+        #     state[:, -1] = obs[i]
+        #     reward2 += calc_reward(None, np.array([actions[i-1]]), [state])
+        # print('--- imagine reward', 2 * reward2, '\n')
         self._start_states_buffer.push_episode(episode)

@@ -8,13 +8,13 @@ env:
   obs_shapes: [[3]]
   obs_dtypes: ["float32"]
   obs_is_image: False
-  history_length: [2]
+  history_length: [1]
 
   action_size: 1
   frame_skip: 2
   step_limit: 0
   agent_buffer_size: 110
-  reward_scale: 0.1
+  reward_scale: 1
   reinit_random_action_every: 5
   log_every_n_steps: 1000
   max_episode_length: 110
@@ -25,7 +25,7 @@ server:
   experience_replay_buffer_size: 50000
   use_prioritized_buffer: false
   train_every_nth: 1
-  start_learning_after: 50
+  start_learning_after: 100
   target_critic_update_period: 1
   target_actor_update_period: 1
   show_stats_period: 1
@@ -37,9 +37,9 @@ server:
 algo_name: "cross_entropy_method"
 
 algorithm:
-  number_elite_episodes: 10
+  number_elite_episodes: 25
   transitions_buffer_size: 10000
-  sigma: 1
+  sigma: 0.2
   tanh_limit:
     min: -2
     max: 2
@@ -54,7 +54,7 @@ actor:
 
         - type: "Linear"
           args:
-            in_features: 6
+            in_features: 3
             out_features: 128
 
         - type: "ReLU"
@@ -101,7 +101,7 @@ actor_optim:
 training:
   schedule:
     - limit: 0  # of train ops
-      batch_size: 50  # batch of episodes
+      batch_size: 100  # batch of episodes
 
 agents:
   - algorithm_id: 0

@@ -15,26 +15,30 @@ class AgentBuffer:
         self.num_parts = len(observation_shapes)
         self.obs_shapes = observation_shapes
         self.obs_dtypes = observation_dtypes
+        self.discrete_actions = discrete_actions
 
         if discrete_actions:
             self.act_shape = (1,)
         else:
             self.act_shape = (action_size,)
 
+        self.clear()
+
+    def clear(self):
         self.observations = []
         for part_id in range(self.num_parts):
-            self.observations.append(np.empty(
+            self.observations.append(np.zeros(
                 (self.size, ) + tuple(self.obs_shapes[part_id]),
                 dtype=self.obs_dtypes[part_id]
             ))
 
-        if discrete_actions:
-            self.actions = np.empty((self.size, ), dtype=np.int32)
+        if self.discrete_actions:
+            self.actions = np.zeros((self.size, ), dtype=np.int32)
         else:
-            self.actions = np.empty((self.size, ) + self.act_shape, dtype=np.float32)
+            self.actions = np.zeros((self.size, ) + self.act_shape, dtype=np.float32)
 
-        self.rewards = np.empty((self.size, ), dtype=np.float32)
-        self.dones = np.empty((self.size, ), dtype=np.bool)
+        self.rewards = np.zeros((self.size, ), dtype=np.float32)
+        self.dones = np.zeros((self.size, ), dtype=np.bool)
         self.inited = False
 
     def is_inited(self):
@@ -45,6 +49,12 @@ class AgentBuffer:
             self.observations[part_id][0] = obs[part_id]
         self.pointer = 0
         self.inited = True
+
+    def get_last_obs(self):
+        obs = []
+        for part_id in range(self.num_parts):
+            obs.append(self.observations[part_id][-1])
+        return obs
 
     def get_current_state(self, history_len=1):
         state = []
@@ -68,11 +78,14 @@ class AgentBuffer:
         self.pointer += 1
 
     def get_complete_episode(self):
-        indices = np.arange(self.pointer)
+        # indices = np.arange(self.pointer)
         observations = []
         for part_id in range(self.num_parts):
-            observations.append(self.observations[part_id][indices])
-        actions = self.actions[indices]
-        rewards = self.rewards[indices]
-        dones = self.dones[indices]
+            observations.append(self.observations[part_id][:self.pointer])
+        actions = self.actions[:self.pointer]
+        rewards = self.rewards[:self.pointer]
+        dones = self.dones[:self.pointer]
         return [observations, actions, rewards, dones]
+
+    def get_episode_len(self):
+        return self.pointer

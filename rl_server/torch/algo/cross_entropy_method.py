@@ -119,8 +119,9 @@ class CEM(BaseAlgoAllFrameworks):
             self._transitions_buffer.push_episode(batch_of_episodes[ep_id])
 
         # get batch of elite episodes transitions to learn on
+        print('--- self._transitions_buffer.get_stored_in_buffer()', self._transitions_buffer.get_stored_in_buffer())
         return self._transitions_buffer.get_batch(
-            self._transitions_buffer.get_stored_in_buffer(),
+            self._transitions_buffer.get_stored_in_buffer() - max(self.history_len),
             history_len=self.history_len * len(batch_of_episodes[0][0])
         )
 
@@ -164,6 +165,10 @@ class CEM(BaseAlgoAllFrameworks):
         with t.no_grad():
             model_input = self._get_model_input(states)
             return self._sample_actions(self._calc_actor_action(model_input)).cpu().numpy().tolist()
+
+    def act_batch_tensor(self, state_tensors):
+        with t.no_grad():
+            return self._sample_actions(self._calc_actor_action(state_tensors))
 
     def act_batch_deterministic(self, states):
         with t.no_grad():

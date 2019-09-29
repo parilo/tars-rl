@@ -33,6 +33,11 @@ class RLServer:
         else:
             raise RuntimeError('framework {} is not supported. Try: tensorflow or pytorch'.format(framework))
 
+        if exp_config.server.isset('train_history_len'):
+            history_len = exp_config.server.train_history_len
+        else:
+            history_len = exp_config.env.history_length
+
         self._train_loop = RLTrainer(
             observation_shapes=observation_shapes,
             observation_dtypes=observation_dtypes,
@@ -42,7 +47,8 @@ class RLServer:
             n_step=exp_config.algorithm.n_step if exp_config.algorithm.isset('n_step') else 1,
             gamma=exp_config.algorithm.gamma if exp_config.algorithm.isset('gamma') else 1,
             train_every_nth=exp_config.server.train_every_nth,
-            history_length=exp_config.env.history_length,
+            history_length=history_len,
+            action_history=exp_config.as_obj()['server'].get('action_history', False),
             start_learning_after=exp_config.server.start_learning_after,
             target_critic_update_period=exp_config.server.target_critic_update_period,
             target_actor_update_period=target_actor_update_period,
