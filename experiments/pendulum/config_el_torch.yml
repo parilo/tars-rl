@@ -40,16 +40,16 @@ algo_name: "env_learning"
 
 eml_algorithm:
   update_inner_algo_every: 2
-  num_gen_episodes: 100
+  num_gen_episodes: 200
   num_env_steps: 101
   env_train_start_step_count: 200
-  env_funcs_module: envs.gym_envs_funcs
-  is_done_func: pendulum_is_done
-  calc_reward_func: pendulum_calc_reward
+  env_funcs_module: envs.funcs.pendulum
+  is_done_func: is_done
+  calc_reward_func: calc_reward
 
 # inner algorithm
 algorithm:
-  number_elite_episodes: 10
+  number_elite_episodes: 20
   transitions_buffer_size: 10000
   sigma: 0.1
   tanh_limit:
@@ -81,7 +81,6 @@ env_model:
             out_features: 128
 
         - type: "ReLU"
-#        - type: "Tanh"
 
         - type: "Linear"
           args:
@@ -89,7 +88,6 @@ env_model:
             out_features: 128
 
         - type: "ReLU"
-#        - type: "Tanh"
 #
 #        - type: "Linear"
 #          args:
@@ -97,7 +95,6 @@ env_model:
 #            out_features: 128
 
 #        - type: "ReLU"
-##        - type: "Tanh"
 
         - type: "Linear"
           args:

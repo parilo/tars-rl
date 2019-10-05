@@ -2,18 +2,18 @@ framework: torch
 device: 'cuda:0'
 
 env:
-  name: LunarLanderContinuous-v2
+  name: BipedalWalker-v2
   is_gym: True
 
-  obs_shapes: [[8]]  # list of lists
+  obs_shapes: [[24]]  # list of lists
   obs_dtypes: ["float32"]
   history_length: [1]
   obs_is_image: False
 
-  action_size: 2
-  frame_skip: 2
+  action_size: 4
+  frame_skip: 4
   step_limit: 0
-  agent_buffer_size: 510
+  agent_buffer_size: 2010
   reward_scale: 1
   reinit_random_action_every: 5
   log_every_n_steps: 1000
@@ -24,32 +24,33 @@ server:
   num_clients: 16
   experience_replay_buffer_size: 5000000
   use_prioritized_buffer: false
-  train_history_len: [8]
+  train_history_len: [1]
   action_history: True
   train_every_nth: 1
-  start_learning_after: 5000
+  start_learning_after: 20000
   target_critic_update_period: 1
   target_actor_update_period: 1
   show_stats_period: 1
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/lunar_lander_el_torch"
+  logdir: "logs/bipedal_walker/bipedal_walker_el_torch-2"
   #load_checkpoint: ""
 
 algo_name: "env_learning"
 
 eml_algorithm:
-  update_inner_algo_every: 2
-  num_gen_episodes: 100
-  num_env_steps: 101
-  env_train_start_step_count: 200
-  env_funcs_module: envs.gym_envs_funcs
-  is_done_func: lunar_lander_is_done
-  calc_reward_func: lunar_lander_calc_reward
+  update_inner_algo_every: 10
+  num_gen_episodes: 400
+  num_env_steps: 201
+  env_train_start_step_count: 500
+  env_funcs_module: envs.funcs.bipedal_walker
+  is_done_func: is_done
+  calc_reward_func: calc_reward
 
+# inner algorithm
 algorithm:
-  number_elite_episodes: 10
-  transitions_buffer_size: 10000
+  number_elite_episodes: 20
+  transitions_buffer_size: 100000
   sigma: 0.1
   tanh_limit:
     min: -1
@@ -76,33 +77,26 @@ env_model:
 
         - type: "Linear"
           args:
-            in_features: 10
-            out_features: 128
+            in_features: 28
+            out_features: 512
 
         - type: "ReLU"
 
         - type: "Linear"
           args:
-            in_features: 128
-            out_features: 128
+            in_features: 512
+            out_features: 512
 
         - type: "ReLU"
 
         - type: "Linear"
           args:
-            in_features: 128
-            out_features: 128
-
-        - type: "ReLU"
-
-        - type: "Linear"
-          args:
-            in_features: 128
-            out_features: 8
+            in_features: 512
+            out_features: 24
 
         - type: 'Reshape'
           args:
-            shape: [1, 8]
+            shape: [1, 24]
 
 actor:
   nn_arch:
@@ -114,7 +108,7 @@ actor:
 
         - type: "Linear"
           args:
-            in_features: 8
+            in_features: 24
             out_features: 128
 
         - type: "ReLU"
@@ -136,14 +130,14 @@ actor:
         - type: "Linear"
           args:
             in_features: 128
-            out_features: 2
+            out_features: 4
 
 optim:
   module: torch.optim
   class: Adam
   schedule:
     - limit: 0  # of train ops
-      lr: 0.0001
+      lr: 0.001
 
 actor_optim:
   module: torch.optim
@@ -165,6 +159,12 @@ agents:
         exploration:
           built_in_algo: True
           validation: True
+
+      - agents_count: 1
+        visualize: True
+        exploration:
+          built_in_algo: True
+          validation: False
 
       - agents_count: 1
         visualize: False

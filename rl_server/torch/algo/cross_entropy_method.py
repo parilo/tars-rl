@@ -64,6 +64,8 @@ class CEM(BaseAlgoAllFrameworks):
         self.tanh_limit = tanh_limit
         self.history_len = history_len
         if tanh_limit:
+            self._tanh_limit_min_f = self.tanh_limit['min']
+            self._tanh_limit_max_f = self.tanh_limit['max']
             self._tanh_limit_min = t.tensor(tanh_limit['min']).float()
             self._tanh_limit_delta = t.tensor(tanh_limit['max'] - tanh_limit['min']).float()
 
@@ -93,7 +95,7 @@ class CEM(BaseAlgoAllFrameworks):
 
         action = distribution.sample()
         if self.tanh_limit:
-            action = t.clamp(action, -2, 2)
+            action = t.clamp(action, self._tanh_limit_min_f, self._tanh_limit_max_f)
 
         return action
 

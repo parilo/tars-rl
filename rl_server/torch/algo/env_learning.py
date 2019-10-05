@@ -2,6 +2,7 @@ import os
 import importlib
 
 import torch as t
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
@@ -15,14 +16,57 @@ from rl_server.server.start_states_buffer import StartStatesBuffer
 from rl_server.server.agent_replay_buffer import AgentBuffer
 
 
+class NetworkEnsemble(nn.Module):
+
+    def __init__(self, count, env_model_params, device):
+        super().__init__()
+        self.count = count
+        self._models = [
+            NetworkTorch(
+                **env_model_params,
+                device=device
+            ).to(device)
+            for _ in range(count)
+        ]
+        for i, model in enumerate(self._models):
+            self.add_module('model_' + str(i), model)
+
+    def forward_train(self, x):
+        batch_size = x[0].shape[0]
+        model_batch_size = int(batch_size / self.count)
+        model_ret = []
+        for i, model in enumerate(self._models):
+            model_x = []
+            for x_part in x:
+                model_x.append(x_part[model_batch_size * i: model_batch_size * (i + 1)])
+            model_ret.append(model(model_x))
+        return t.cat(model_ret, dim=0)
+
+    def forward_eval(self, x):
+        model_ret = []
+        for i, model in enumerate(self._models):
+            model_ret.append(model(x))
+        return t.stack(model_ret, dim=0).mean(dim=0)
+
+    def forward(self, x, train):
+        if train:
+            return self.forward_train(x)
+        else:
+            return self.forward_eval(x)
+
+    def reset_states(self):
+        pass
+
+
 def create_algo(algo_config):
     observation_shapes, observation_dtypes, state_shapes, action_size = algo_config.get_env_shapes()
 
     env_model_params = get_network_params(algo_config, 'env_model')
-    env_model = NetworkTorch(
-        **env_model_params,
-        device=algo_config.device
-    ).to(algo_config.device)
+    # env_model = NetworkTorch(
+    #     **env_model_params,
+    #     device=algo_config.device
+    # ).to(algo_config.device)
+    env_model = NetworkEnsemble(5, env_model_params, algo_config.device)
 
     optim_info = algo_config.as_obj()['optim']
     # true value of lr will come from lr_scheduler as multiplicative factor
@@ -119,17 +163,40 @@ class EnvLearning(BaseAlgoAllFrameworks):
         rollout_states = []
         for i in range(rollout_len):
             action = batch.a[:, i]
-            state = [self._env_model(state + [action])[:, 0]]
-            rollout_states.append(state)
+            predicted_state = [self._env_model(state + [action], train=True)[:, 0]]
+            # recurrency
+            state = predicted_state
+            # no recurrency
+            # state = [predicted_state[0].clone().detach()]
+            rollout_states.append(predicted_state)
 
         rollout_states = [s[0] for s in rollout_states]
         rollout_states_tensor = t.stack(rollout_states, dim=1)
         done = batch.done.unsqueeze(-1).unsqueeze(-1)
-        dstate = rollout_states_tensor * (1 - done) - batch.s_[0] * (1 - done)
+        dstate = (rollout_states_tensor - batch.s_[0]) * (1 - done)
         dstate2 = dstate * dstate
+        # dstate2 = t.abs(dstate)
         dstate3 = dstate2.mean(dim=-1)
+        # print('--- dstate prev', start_state[0][0], 'action', batch.a[0, 0])
+        # print('--- dstate next', rollout_states_tensor[0, 0])
         print('--- dstate', dstate3.mean(dim=0))
         self._env_model_loss = dstate2.mean()
+
+        # start_state = [s[:, :2] for s in batch.s]
+        # state = start_state
+        # rollout_states = []
+        # for i in range(rollout_len - 2):
+        #     action = batch.a[:, i]
+        #     next_obs = self._env_model(state + [action])
+        #     state = [t.cat([state[0][:, 1:], next_obs], dim=1)]
+        #     rollout_states.append(next_obs)
+        #
+        # # rollout_states = [s[0] for s in rollout_states]
+        # # rollout_states_tensor = t.stack(rollout_states, dim=1)
+        # rollout_states_tensor = t.cat(rollout_states, dim=1)
+        # done = batch.done.unsqueeze(-1).unsqueeze(-1)
+        # print('--- shapes', rollout_states_tensor.shape, batch.s_[0][:, 2:].shape)
+        # dstate = rollout_states_tensor * (1 - done) - batch.s_[0][:, 2:] * (1 - done)
 
         self._optimizer.zero_grad()
         self._env_model_loss.backward()
@@ -138,7 +205,9 @@ class EnvLearning(BaseAlgoAllFrameworks):
         return {
             'lr':  self._lr_scheduler.get_lr()[0],
             'env model loss': self._env_model_loss.item(),
-            'loss sqrt': self._env_model_loss.sqrt().item()
+            'loss sqrt': self._env_model_loss.sqrt().item(),
+            'rmse': (dstate * dstate).mean().sqrt().item(),
+            'mae': t.abs(dstate).mean().item()
         }
 
     def _get_obs_from_states(self, states):
@@ -170,7 +239,9 @@ class EnvLearning(BaseAlgoAllFrameworks):
                 state_tensors = [t.tensor(s).to(self.device) for s in states]
                 for i in range(self._num_env_steps):
                     action = self._inner_algo.act_batch_tensor(state_tensors)
-                    state_tensors = [self._env_model(state_tensors + [action])]  # states must be list of modalities
+                    # print('--- state prev', state_tensors[0][0], 'action', action[0])
+                    state_tensors = [self._env_model(state_tensors + [action], train=False)]  # states must be list of modalities
+                    # print('--- state next', state_tensors[0][0])
 
                     action_arr = action.cpu().numpy()
                     states_arrs = [s.cpu().numpy() for s in state_tensors]
@@ -183,28 +254,31 @@ class EnvLearning(BaseAlgoAllFrameworks):
 
                     # store to episodes
                     obs = self._get_obs_from_states(states_arrs)
-                    for i, agent_buf in enumerate(self._env_agent_buffers):
+                    for buf_i, agent_buf in enumerate(self._env_agent_buffers):
                         # next_obs, action, reward, done = transition
                         agent_buf.push_transition([
-                            self._get_agent_obs(i, obs),
-                            action_arr[i],
-                            rewards[i],
-                            is_done[i]
+                            self._get_agent_obs(buf_i, obs),
+                            action_arr[buf_i],
+                            rewards[buf_i],
+                            is_done[buf_i]
                         ])
 
                     # store ended episodes
                     # and start new episodes
-                    for i in np.argwhere(is_done > 0).tolist():
-                        i = i[0]
-                        agent_buf = self._env_agent_buffers[i]
+                    for buf_i in np.argwhere(is_done > 0).tolist():
+                        buf_i = buf_i[0]
+                        agent_buf = self._env_agent_buffers[buf_i]
                         complete_episodes.append(agent_buf.get_complete_episode())
                         agent_buf.clear()
                         start_states_arr, start_obs = self._get_start_states_and_obs(1)
                         agent_buf.push_init_observation(start_obs[0])
                         for part_id in range(len(start_states_arr)):
-                            state_tensors[part_id][i] = t.tensor(start_states_arr[0]).to(self.device)
+                            state_tensors[part_id][buf_i] = t.tensor(start_states_arr[0]).to(self.device)
 
-                print(f'--- end generation of {self._num_env_steps} steps')
+                    if len(complete_episodes) > self._num_gen_episodes:
+                        break
+
+                print(f'--- end generation of {i} steps')
 
         print('--- complete episodes', len(complete_episodes))
         if len(complete_episodes) >= self._num_gen_episodes:
@@ -253,12 +327,12 @@ class EnvLearning(BaseAlgoAllFrameworks):
 
     def get_weights(self, index=0):
         return {
-            'env_model': self._env_model.get_weights(),
+            # 'env_model': self._env_model.get_weights(),
             'actor': self._inner_algo.actor.get_weights()
         }
 
     def set_weights(self, weights):
-        self._env_model.set_weights(weights['env_model'])
+        # self._env_model.set_weights(weights['env_model'])
         self._inner_algo.actor.set_weights(weights['actor'])
 
     def reset_states(self):
@@ -275,9 +349,11 @@ class EnvLearning(BaseAlgoAllFrameworks):
 
     def load(self, dir, index):
         self._env_model.load_state_dict(t.load(self._get_model_path(dir, index, 'env_model')))
+        self._inner_algo.load(dir, index)
 
     def save(self, dir, index):
         t.save(self._env_model.state_dict(), self._get_model_path(dir, index, 'env_model'))
+        self._inner_algo.save(dir, index)
 
     def process_episode(self, episode):
         # print('--- process_episode', episode[0][0].shape, episode[1].shape, episode[2].shape, episode[3].shape)

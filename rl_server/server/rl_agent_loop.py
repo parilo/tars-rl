@@ -359,6 +359,9 @@ class RLAgent:
             next_obs, reward, done, info = self._env.step(env_action_remapped)
             # next_obs, reward, done, info = self._env.step([env_action_remapped])
 
+            # if self._id == 2:
+            #     print('--- state', next_obs)
+
             if self._reward_clip_max:
                 reward = min(reward, self._reward_clip_max)
 
@@ -387,7 +390,7 @@ class RLAgent:
             # print('r', reward)
             # next_obs = [np.zeros((3,), dtype=np.float32)]
             # next_obs = np.array([action_to_save, action_to_save, action_to_save])
-            # print('--- next obs', next_obs)
+            # print('--- next obs', next_obs[0][14:])
             transition = [next_obs, action_to_save, reward, done]
             self._agent_buffer.push_transition(transition)
 
