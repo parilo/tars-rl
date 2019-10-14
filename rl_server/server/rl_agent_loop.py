@@ -353,11 +353,11 @@ class RLAgent:
             else:
                 env_action_remapped = env_action
 
-            # if self._id == 2:
-            #     print('--- action', env_action_remapped)
-
             next_obs, reward, done, info = self._env.step(env_action_remapped)
             # next_obs, reward, done, info = self._env.step([env_action_remapped])
+
+            # if self._id == 0:
+            #     print('--- action', env_action_remapped, 'r', next_obs[8], 1e-3 * np.square(action).sum(), 0.1 * np.abs(action).sum())
 
             # if self._id == 2:
             #     print('--- state', next_obs)

@@ -88,4 +88,7 @@ class AgentBuffer:
         return [observations, actions, rewards, dones]
 
     def get_episode_len(self):
-        return self.pointer
+        if hasattr(self, 'pointer'):
+            return self.pointer
+        else:
+            return 0

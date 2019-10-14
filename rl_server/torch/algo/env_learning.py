@@ -155,6 +155,8 @@ class EnvLearning(BaseAlgoAllFrameworks):
             action_size
         ) for _ in range(self._num_gen_episodes)]
 
+        self._sigma = t.tensor(0.05).float().to(device)
+
     def _env_model_update(self, batch):
         rollout_len = batch.s[0].shape[1]
 
@@ -239,6 +241,7 @@ class EnvLearning(BaseAlgoAllFrameworks):
                 state_tensors = [t.tensor(s).to(self.device) for s in states]
                 for i in range(self._num_env_steps):
                     action = self._inner_algo.act_batch_tensor(state_tensors)
+                    # print('--- action', action[0])
                     # print('--- state prev', state_tensors[0][0], 'action', action[0])
                     state_tensors = [self._env_model(state_tensors + [action], train=False)]  # states must be list of modalities
                     # print('--- state next', state_tensors[0][0])
@@ -267,6 +270,8 @@ class EnvLearning(BaseAlgoAllFrameworks):
                     # and start new episodes
                     for buf_i in np.argwhere(is_done > 0).tolist():
                         buf_i = buf_i[0]
+                        # if buf_i == 0:
+                        #     print('--- end episode', buf_i)
                         agent_buf = self._env_agent_buffers[buf_i]
                         complete_episodes.append(agent_buf.get_complete_episode())
                         agent_buf.clear()
@@ -275,13 +280,17 @@ class EnvLearning(BaseAlgoAllFrameworks):
                         for part_id in range(len(start_states_arr)):
                             state_tensors[part_id][buf_i] = t.tensor(start_states_arr[0]).to(self.device)
 
-                    if len(complete_episodes) > self._num_gen_episodes:
-                        break
+                    # if len(complete_episodes) > self._num_gen_episodes:
+                    #     break
 
                 print(f'--- end generation of {i} steps')
 
+        for buf in self._env_agent_buffers:
+            if buf.get_episode_len() > 0:
+                complete_episodes.append(buf.get_complete_episode())
+
         print('--- complete episodes', len(complete_episodes))
-        if len(complete_episodes) >= self._num_gen_episodes:
+        if len(complete_episodes) > 0:
             return self._inner_algo.train(step_index, complete_episodes)
         else:
             return {}
@@ -312,10 +321,11 @@ class EnvLearning(BaseAlgoAllFrameworks):
         )
 
         train_info = self._env_model_update(batch_tensors)
-        if step_index > self._env_train_start_step_count and  step_index % self._update_inner_algo_every == 0:
-            train_info.update(
-                self._inner_algo_update(step_index)
-            )
+        if step_index > self._env_train_start_step_count and step_index % self._update_inner_algo_every == 0:
+            for _ in range(100):
+                train_info.update(
+                    self._inner_algo_update(step_index)
+                )
 
         return train_info
 

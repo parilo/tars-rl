@@ -1,0 +1,208 @@
+framework: torch
+device: 'cuda:0'
+
+env:
+  name: Walker2d-v2
+  is_gym: True
+
+  obs_shapes: [[17]]  # list of lists
+  obs_dtypes: ["float32"]
+  history_length: [1]
+  obs_is_image: False
+
+  action_size: 6
+  frame_skip: 4
+  step_limit: 0
+  agent_buffer_size: 2010
+  reward_scale: 1
+  reinit_random_action_every: 5
+  log_every_n_steps: 1000
+  max_episode_length: 10000
+
+server:
+  seed: 42
+  num_clients: 16
+  experience_replay_buffer_size: 5000000
+  use_prioritized_buffer: false
+  train_history_len: [1]
+  action_history: True
+  train_every_nth: 1
+  start_learning_after: 5000
+  target_critic_update_period: 1
+  target_actor_update_period: 1
+  show_stats_period: 1
+  save_model_period: 5000
+  client_start_port: 10977
+  logdir: "logs/walker2d/walker2d_el_torch-14"
+  #load_checkpoint: ""
+
+algo_name: "env_learning"
+
+eml_algorithm:
+  update_inner_algo_every: 500
+  num_gen_episodes: 200
+  num_env_steps: 75
+  env_train_start_step_count: 200
+  env_funcs_module: envs.funcs.walker2d
+  is_done_func: is_done
+  calc_reward_func: calc_reward
+
+# inner algorithm
+algorithm:
+  number_elite_episodes: 10
+  transitions_buffer_size: 100000
+  sigma: 0.1
+  tanh_limit:
+    min: -1
+    max: 1
+
+env_model:
+  have_action_input: true
+  nn_arch:
+
+    - input: 0
+      name: "flatten-obs"
+      layers:
+        - type: "Flatten"
+
+    - input: ["flatten-obs", "action"]
+      name: "output"
+      layers:
+
+        - type: cat
+          module: torch
+          is_func: True
+          args:
+            dim: 1
+
+        - type: "Linear"
+          args:
+            in_features: 23
+            out_features: 512
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 512
+            out_features: 512
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 512
+            out_features: 17
+
+        - type: 'Reshape'
+          args:
+            shape: [1, 17]
+
+actor:
+  nn_arch:
+
+    - input: 0
+      name: "output"
+      layers:
+        - type: "Flatten"
+
+        - type: "Linear"
+          args:
+            in_features: 17
+            out_features: 256
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 256
+            out_features: 256
+
+        - type: 'ReLU'
+
+        - type: "Linear"
+          args:
+            in_features: 256
+            out_features: 6
+
+#    - input: 0
+#      name: 'hier-noise'
+#      layers:
+#        - type: 'SparseRandomNormal'
+#          args:
+#            size: 16
+#            sigma: 0.01
+#            period: 10
+#
+#    - input: ['hl-output', 'hier-noise']
+#      name: 'output'
+#      layers:
+#
+###        - type: add
+###          module: torch
+###          is_func: True
+###          expand_input_list: True
+#
+#        - type: cat
+#          module: torch
+#          is_func: True
+#          args:
+#            dim: 1
+#
+#        - type: "Linear"
+#          args:
+#            in_features: 528
+#            out_features: 6
+
+#        - type: "ReLU"
+#
+#        - type: "Linear"
+#          args:
+#            in_features: 128
+#            out_features: 6
+
+optim:
+  module: torch.optim
+  class: Adam
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.001
+
+actor_optim:
+  module: torch.optim
+  class: Adam
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.001
+
+training:
+  schedule:
+    - limit: 0  # of train ops
+      batch_size: 1280
+
+agents:
+  - algorithm_id: 0
+    agents:
+      - agents_count: 1
+        visualize: True
+        exploration:
+          built_in_algo: True
+          validation: True
+
+      - agents_count: 1
+        visualize: True
+        exploration:
+          built_in_algo: True
+          validation: False
+
+#      - agents_count: 1
+#        visualize: False
+#        exploration:
+#          built_in_algo: True
+#          validation: True
+
+      - agents_count: 2
+        visualize: False
+        exploration:
+          built_in_algo: True
+          validation: False
