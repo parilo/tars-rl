@@ -91,7 +91,7 @@ class CEM(BaseAlgoAllFrameworks):
         sigma = self._sigma if sigma is None else sigma
         distribution = dist.multivariate_normal.MultivariateNormal(
             action_means,
-            covariance_matrix=self._sigma * t.eye(self.action_size).to(self.device)
+            covariance_matrix=sigma * t.eye(self.action_size).to(self.device)
         )
 
         action = distribution.sample()
@@ -144,6 +144,8 @@ class CEM(BaseAlgoAllFrameworks):
         ep_rewards = self._calc_episodic_rewards(batch_of_episodes)
         elite_eps_ids = self._get_elite_episodes_ids(ep_rewards)
         transitions_batch = self._get_transitions_batch_from_elite_episodes(elite_eps_ids, batch_of_episodes)
+
+        self.top_1_episode = batch_of_episodes[elite_eps_ids[0]]
 
         if transitions_batch is None:
             return {}

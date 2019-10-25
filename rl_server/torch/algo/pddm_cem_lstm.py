@@ -16,63 +16,20 @@ from rl_server.server.start_states_buffer import StartStatesBuffer
 from rl_server.server.agent_replay_buffer import AgentBuffer
 
 
-class NetworkEnsemble(nn.Module):
-
-    def __init__(self, count, env_model_params, device):
-        super().__init__()
-        self.count = count
-        self._models = [
-            NetworkTorch(
-                **env_model_params,
-                device=device
-            ).to(device)
-            for _ in range(count)
-        ]
-        for i, model in enumerate(self._models):
-            self.add_module('model_' + str(i), model)
-
-    def forward_train(self, x):
-        batch_size = x[0].shape[0]
-        model_batch_size = int(batch_size / self.count)
-        model_ret = []
-        for i, model in enumerate(self._models):
-            model_x = []
-            for x_part in x:
-                model_x.append(x_part[model_batch_size * i: model_batch_size * (i + 1)])
-            model_ret.append(model(model_x))
-        return t.cat(model_ret, dim=0)
-
-    def forward_eval(self, x):
-        model_ret = []
-        for i, model in enumerate(self._models):
-            model_ret.append(model(x))
-        return t.stack(model_ret, dim=0).mean(dim=0)
-
-    def forward(self, x, train):
-        if train:
-            return self.forward_train(x)
-        else:
-            return self.forward_eval(x)
-
-    def reset_states(self):
-        pass
-
-
 def create_algo(algo_config):
     observation_shapes, observation_dtypes, state_shapes, action_size = algo_config.get_env_shapes()
 
     env_model_params = get_network_params(algo_config, 'env_model')
-    # env_model = NetworkTorch(
-    #     **env_model_params,
-    #     device=algo_config.device
-    # ).to(algo_config.device)
-    env_model = NetworkEnsemble(5, env_model_params, algo_config.device)
+    env_model = NetworkTorch(
+        **env_model_params,
+        device=algo_config.device
+    ).to(algo_config.device)
 
     optim_info = algo_config.as_obj()['optim']
     # true value of lr will come from lr_scheduler as multiplicative factor
     optimizer = get_optimizer_class(optim_info)(env_model.parameters(), lr=1)
 
-    return EnvLearning(
+    return PDDM_CEM_LSTM(
         observation_shapes=observation_shapes,
         observation_dtypes=observation_dtypes,
         action_size=action_size,
@@ -87,12 +44,88 @@ def create_algo(algo_config):
     )
 
 
-def target_network_update(target_network, source_network, tau):
-    for target_param, local_param in zip(target_network.parameters(), source_network.parameters()):
-        target_param.data.copy_(tau * local_param.data + (1.0 - tau) * target_param.data)
+class EpisodeBatchTransitions:
+    def __init__(self, ep_batch):
+
+        # eps_len = [len(ep[3]) for ep in ep_batch]
+        # print('--- eps_len', eps_len)
+
+        self._ep_batch = ep_batch
+        self._batch_size = len(ep_batch)
+
+        self._obs_ind = 0
+        self._action_ind = 1
+        self._done_ind = 3
+
+        self._ep_is_not_ended = np.ones((self._batch_size,), dtype=np.uint8)
+        self._step_i = 0
+
+    def get_ongoing_ep_indices(self):
+        return np.array(np.argwhere(self._ep_is_not_ended == 1), dtype=np.int32).reshape((-1,))
+
+    @staticmethod
+    def _get_not_ended_eps_indices(ep_is_not_ended):
+        return np.argwhere(ep_is_not_ended == 1)
+
+    @staticmethod
+    def _collect_step_values_from_eps(ep_batch, ep_component_ind, step_i, ep_is_not_ended, comp_is_list=False):
+        if comp_is_list:
+            comp_list_size = len(ep_batch[0][0])
+
+        ep_indices = []
+        step_vals = [[] * comp_list_size] if comp_is_list else []
+        for ep_i in np.argwhere(ep_is_not_ended == 1).tolist():
+            ep_i = ep_i[0]
+            ep_indices.append(ep_i)
+            # print(f'--- ep_i {ep_i} ep_component_ind {ep_component_ind} step_i {step_i}')
+            if comp_is_list:
+                # print('--- comp', ep_batch[ep_i][ep_component_ind])
+                for comp_list_i in range(comp_list_size):
+                    step_vals[comp_list_i].append(ep_batch[ep_i][ep_component_ind][comp_list_i][step_i])
+            else:
+                step_vals.append(ep_batch[ep_i][ep_component_ind][step_i])
+
+        if comp_is_list:
+            step_vals = [np.array(step_vals_part) for step_vals_part in step_vals]
+        else:
+            step_vals = np.array(step_vals)
+
+        return step_vals, np.array(ep_indices, dtype=np.uint32)
+
+    def get_next_step(self):
+        ep_not_ended_count = len(EpisodeBatchTransitions._get_not_ended_eps_indices(self._ep_is_not_ended))
+
+        obs, _ = EpisodeBatchTransitions._collect_step_values_from_eps(
+            self._ep_batch,
+            self._obs_ind,
+            self._step_i,
+            self._ep_is_not_ended,
+            comp_is_list=True
+        )
+
+        actions, _ = EpisodeBatchTransitions._collect_step_values_from_eps(
+            self._ep_batch,
+            self._action_ind,
+            self._step_i,
+            self._ep_is_not_ended
+        )
+
+        # update ongoing episodes indices
+        step_done, ep_indices = EpisodeBatchTransitions._collect_step_values_from_eps(
+            self._ep_batch,
+            self._done_ind,
+            self._step_i,
+            self._ep_is_not_ended
+        )
+        step_done = step_done.astype(np.uint8)
+        self._ep_is_not_ended[ep_indices] *= (1 - step_done)
+
+        self._step_i += 1
+
+        return obs, actions, ep_not_ended_count, step_done
 
 
-class EnvLearning(BaseAlgoAllFrameworks):
+class PDDM_CEM_LSTM(BaseAlgoAllFrameworks):
     def __init__(
         self,
         observation_shapes,
@@ -143,6 +176,7 @@ class EnvLearning(BaseAlgoAllFrameworks):
         self._num_gen_episodes = num_gen_episodes
         self._num_env_steps = num_env_steps
         self._env_train_start_step_count = env_train_start_step_count
+        self._lstm_hidden_size = 256
 
         env_funcs_module = importlib.import_module(env_funcs_module)
         self._is_done_func = getattr(env_funcs_module, is_done_func)
@@ -155,62 +189,81 @@ class EnvLearning(BaseAlgoAllFrameworks):
             action_size
         ) for _ in range(self._num_gen_episodes)]
 
-        self._sigma = t.tensor(0.05).float().to(device)
+        from envs.funcs.walker2d import EpisodeVisualizer
+        self._ep_vis = EpisodeVisualizer()
 
-    def _env_model_update(self, batch):
-        rollout_len = batch.s[0].shape[1]
+    def _env_model_update(self, ep_batch):
 
-        start_state = [s[:, 0] for s in batch.s]
-        state = start_state
-        rollout_states = []
-        for i in range(rollout_len):
-            action = batch.a[:, i]
-            predicted_state = [self._env_model(state + [action], train=True)[:, 0]]
-            # recurrency
-            state = predicted_state
-            # no recurrency
-            # state = [predicted_state[0].clone().detach()]
-            rollout_states.append(predicted_state)
+        batch_size = len(ep_batch)
+        ep_transitions = EpisodeBatchTransitions(ep_batch)
 
-        rollout_states = [s[0] for s in rollout_states]
-        rollout_states_tensor = t.stack(rollout_states, dim=1)
-        done = batch.done.unsqueeze(-1).unsqueeze(-1)
-        dstate = (rollout_states_tensor - batch.s_[0]) * (1 - done)
-        dstate2 = dstate * dstate
-        # dstate2 = t.abs(dstate)
-        dstate3 = dstate2.mean(dim=-1)
-        # print('--- dstate prev', start_state[0][0], 'action', batch.a[0, 0])
-        # print('--- dstate next', rollout_states_tensor[0, 0])
-        print('--- dstate', dstate3.mean(dim=0))
-        self._env_model_loss = dstate2.mean()
+        obs_predicted = []
+        d_obs_predicted = []
+        obs_gt = []
+        prev_obs_gt = []
 
-        # start_state = [s[:, :2] for s in batch.s]
-        # state = start_state
-        # rollout_states = []
-        # for i in range(rollout_len - 2):
-        #     action = batch.a[:, i]
-        #     next_obs = self._env_model(state + [action])
-        #     state = [t.cat([state[0][:, 1:], next_obs], dim=1)]
-        #     rollout_states.append(next_obs)
-        #
-        # # rollout_states = [s[0] for s in rollout_states]
-        # # rollout_states_tensor = t.stack(rollout_states, dim=1)
-        # rollout_states_tensor = t.cat(rollout_states, dim=1)
-        # done = batch.done.unsqueeze(-1).unsqueeze(-1)
-        # print('--- shapes', rollout_states_tensor.shape, batch.s_[0][:, 2:].shape)
-        # dstate = rollout_states_tensor * (1 - done) - batch.s_[0][:, 2:] * (1 - done)
+        lstm_hidden = (
+            t.zeros(2, batch_size, self._lstm_hidden_size).to(self.device),  # two stacked lstms
+            t.zeros(2, batch_size, self._lstm_hidden_size).to(self.device)
+        )
+
+        # if 0
+        step_done = np.zeros((batch_size,), dtype=np.uint8)
+        done_indices = np.argwhere(step_done == 0).reshape((-1,))
+
+        while True:
+            # ongoing_ep_indices = ep_transitions.get_ongoing_ep_indices()
+            lstm_hidden = (
+                lstm_hidden[0][:, done_indices],
+                lstm_hidden[1][:, done_indices]
+            )
+
+            obs, actions, ep_not_ended_count, step_done = ep_transitions.get_next_step()
+            done_indices = np.argwhere(step_done == 0).reshape((-1,))
+            # print('--- step done', step_done.shape, lstm_hidden[0].shape, lstm_hidden[1].shape)
+            obs[0] = t.tensor(obs[0]).unsqueeze(dim=1).to(self.device)
+            # print('--- obs gt', obs[0].shape)
+            obs_gt.append(obs[0])
+
+            if ep_not_ended_count < batch_size / 2:
+                break
+
+            actions = t.tensor(actions).unsqueeze(dim=1).to(self.device)
+
+            # print('--- step', obs[0].shape, actions.shape, ep_not_ended_count)
+            input_obs = obs if len(obs_predicted) == 0 else [obs_predicted[-1]]
+            # obs_pred, lstm_hidden = self._env_model(input_obs + [actions], hidden_state=lstm_hidden)
+            d_obs_pred, lstm_hidden = self._env_model(input_obs + [actions], hidden_state=lstm_hidden)
+            obs_pred = input_obs[0] + d_obs_pred
+            lstm_hidden = lstm_hidden[0]
+
+            # print('--- next_obs_pred', next_obs_pred.shape, lstm_hidden[0].shape, lstm_hidden[1].shape)
+            prev_obs_gt.append(input_obs[0][done_indices])
+            obs_predicted.append(obs_pred[done_indices])
+            d_obs_predicted.append(d_obs_pred[done_indices])
+
+        # print('--- train obs', len(obs_gt), len(obs_predicted))
+        diff = []
+        diff_sqr = []
+        for obs_prev_gt_item, obs_gt_item, d_obs_predicted_item in zip(prev_obs_gt, obs_gt[1:], d_obs_predicted):
+            # print('--- diff', obs_gt_item.shape, obs_predicted_item.shape)
+            diff_step = (obs_gt_item - obs_prev_gt_item) - d_obs_predicted_item
+            diff.append(t.abs(diff_step).mean().item())
+            diff_sqr.append(diff_step * diff_step)
+
+        # print('--- step diff', diff)
+        self._env_model_loss = t.mean(t.cat(diff_sqr, dim=0))
 
         self._optimizer.zero_grad()
         self._env_model_loss.backward()
         self._optimizer.step()
 
-        return {
+        train_info = {
             'lr':  self._lr_scheduler.get_lr()[0],
-            'env model loss': self._env_model_loss.item(),
-            'loss sqrt': self._env_model_loss.sqrt().item(),
-            'rmse': (dstate * dstate).mean().sqrt().item(),
-            'mae': t.abs(dstate).mean().item()
+            'env model loss': self._env_model_loss.item()
         }
+        train_info.update({f'step_{i}': diff_val for i, diff_val in enumerate(diff)})
+        return train_info
 
     def _get_obs_from_states(self, states):
         return [s[:, -1] for s in states]
@@ -239,11 +292,17 @@ class EnvLearning(BaseAlgoAllFrameworks):
                     agent_buf.push_init_observation(self._get_agent_obs(i, obs))
 
                 state_tensors = [t.tensor(s).to(self.device) for s in states]
+                lstm_hidden = (
+                    t.zeros(2, self._num_gen_episodes, self._lstm_hidden_size).to(self.device),  # two stacked lstms
+                    t.zeros(2, self._num_gen_episodes, self._lstm_hidden_size).to(self.device)
+                )
                 for i in range(self._num_env_steps):
                     action = self._inner_algo.act_batch_tensor(state_tensors)
-                    # print('--- action', action[0])
-                    # print('--- state prev', state_tensors[0][0], 'action', action[0])
-                    state_tensors = [self._env_model(state_tensors + [action], train=False)]  # states must be list of modalities
+                    # state_tensors, lstm_hidden = self._env_model(state_tensors + [action.unsqueeze(1)], hidden_state=lstm_hidden)  # states must be list of modalities
+                    dstate_tensors, lstm_hidden = self._env_model(state_tensors + [action.unsqueeze(1)], hidden_state=lstm_hidden)  # states must be list of modalities
+                    state_tensors = [state_tensors[0] + dstate_tensors]
+                    lstm_hidden = lstm_hidden[0]
+                    # state_tensors = [state_tensors]
                     # print('--- state next', state_tensors[0][0])
 
                     action_arr = action.cpu().numpy()
@@ -279,6 +338,8 @@ class EnvLearning(BaseAlgoAllFrameworks):
                         agent_buf.push_init_observation(start_obs[0])
                         for part_id in range(len(start_states_arr)):
                             state_tensors[part_id][buf_i] = t.tensor(start_states_arr[0]).to(self.device)
+                        lstm_hidden[0][:, buf_i] = t.zeros((2, self._lstm_hidden_size))
+                        lstm_hidden[1][:, buf_i] = t.zeros((2, self._lstm_hidden_size))
 
                     # if len(complete_episodes) > self._num_gen_episodes:
                     #     break
@@ -291,7 +352,9 @@ class EnvLearning(BaseAlgoAllFrameworks):
 
         print('--- complete episodes', len(complete_episodes))
         if len(complete_episodes) > 0:
-            return self._inner_algo.train(step_index, complete_episodes)
+            train_info = self._inner_algo.train(step_index, complete_episodes)
+            self._ep_vis.show(self._inner_algo.top_1_episode)
+            return train_info
         else:
             return {}
 
@@ -310,19 +373,19 @@ class EnvLearning(BaseAlgoAllFrameworks):
         raise NotImplemented()
 
     def train(self, step_index, batch, actor_update=True, critic_update=True):
-        batch_tensors = Transition(
-            [t.tensor(s).to(self.device) for s in batch.s],
-            t.tensor(batch.a).to(self.device),
-            t.tensor(batch.r).to(self.device),
-            [t.tensor(s_).to(self.device) for s_ in batch.s_],
-            t.tensor(batch.done).float().to(self.device),
-            [t.tensor(mask).to(self.device) for mask in batch.valid_mask],
-            [t.tensor(mask).to(self.device) for mask in batch.next_valid_mask],
-        )
+        # batch_tensors = Transition(
+        #     [t.tensor(s).to(self.device) for s in batch.s],
+        #     t.tensor(batch.a).to(self.device),
+        #     t.tensor(batch.r).to(self.device),
+        #     [t.tensor(s_).to(self.device) for s_ in batch.s_],
+        #     t.tensor(batch.done).float().to(self.device),
+        #     [t.tensor(mask).to(self.device) for mask in batch.valid_mask],
+        #     [t.tensor(mask).to(self.device) for mask in batch.next_valid_mask],
+        # )
 
-        train_info = self._env_model_update(batch_tensors)
+        train_info = self._env_model_update(batch)
         if step_index > self._env_train_start_step_count and step_index % self._update_inner_algo_every == 0:
-            for _ in range(100):
+            for _ in range(2):
                 train_info.update(
                     self._inner_algo_update(step_index)
                 )
@@ -349,7 +412,7 @@ class EnvLearning(BaseAlgoAllFrameworks):
         self._env_model.reset_states()
 
     def is_trains_on_episodes(self):
-        return False
+        return True
 
     def is_on_policy(self):
         return False
@@ -366,16 +429,4 @@ class EnvLearning(BaseAlgoAllFrameworks):
         self._inner_algo.save(dir, index)
 
     def process_episode(self, episode):
-        # print('--- process_episode', episode[0][0].shape, episode[1].shape, episode[2].shape, episode[3].shape)
-        # ep_rewards = self._inner_algo._calc_episodic_rewards([episode])
-        # print('--- real reward', ep_rewards)
-        # from envs.pendulum import calc_reward
-        # reward2 = 0.
-        # obs = episode[0][0]
-        # actions = episode[1]
-        # for i in range(len(obs)):
-        #     state = np.zeros((1, 2, 3))
-        #     state[:, -1] = obs[i]
-        #     reward2 += calc_reward(None, np.array([actions[i-1]]), [state])
-        # print('--- imagine reward', 2 * reward2, '\n')
         self._start_states_buffer.push_episode(episode)

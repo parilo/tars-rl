@@ -6,19 +6,28 @@ import torch.distributions as dist
 import numpy as np
 
 
-def _calc_branch(branch, branch_input_values, random=True):
+def _calc_branch(branch, branch_input_values, random=True, hidden_state=None, hidden_state_output=None):
     x = branch_input_values
-    # print('--- _calc_branch', x)
     for layer in branch['layers']:
+        layer_args = {'x': x}
         if hasattr(layer, 'support_train_eval'):
-            x = layer(x, random=random)
-        else:
-            x = layer(x)
+            layer_args['random'] = random
+
+        use_hidden_state = hasattr(layer, 'use_hidden_state') and layer.use_hidden_state is True
+        if use_hidden_state:
+            layer_args['hidden_state'] = hidden_state
+
+        x = layer(**layer_args)
+
+        if use_hidden_state:
+            if hidden_state_output is not None:
+                hidden_state_output.append(x[1])
+            x = x[0]
+
     return x
 
 
-def _calc_branch_with_dependencies(branches, branch_name, x, random=True):
-    # print('--- _calc_branch_with_dependencies', branch_name)
+def _calc_branch_with_dependencies(branches, branch_name, x, random=True, hidden_state=None, hidden_state_output=None):
 
     branch_input = branches[branch_name]['input']
     if not isinstance(branch_input, list):
@@ -33,11 +42,23 @@ def _calc_branch_with_dependencies(branches, branch_name, x, random=True):
             branch_input_values.append(x[-1])
         else:
             # print('--- input branch is not int')
-            branch_input_values.append(_calc_branch_with_dependencies(branches, branch_input_name, x, random))
+            branch_input_values.append(_calc_branch_with_dependencies(
+                branches,
+                branch_input_name,
+                x,
+                random,
+                hidden_state)
+            )
 
     if len(branch_input_values) == 1:
         branch_input_values = branch_input_values[0]
-    return _calc_branch(branches[branch_name], branch_input_values, random=random)
+    return _calc_branch(
+        branches[branch_name],
+        branch_input_values,
+        random=random,
+        hidden_state=hidden_state,
+        hidden_state_output=hidden_state_output
+    )
 
 
 class LayerBase:
@@ -48,22 +69,35 @@ class LayerBase:
 
 class TorchLayer(LayerBase):
 
-    def __init__(self, layer, args=None, expand_input_list=False):
+    def __init__(self, layer, args=None, expand_input_list=False, use_hidden_state=False):
         self._layer = layer
         self._args = args
         self._expand_input_list = expand_input_list
+        self.use_hidden_state = use_hidden_state
 
-    def __call__(self, x):
+    def __call__(self, x, hidden_state=None):
         if self._args is None:
             if self._expand_input_list:
                 return self._layer(*x)
             else:
-                return self._layer(x)
+
+                if self.use_hidden_state:
+                    output = self._layer(x, hidden_state)
+                else:
+                    output = self._layer(x)
+
+                return output
         else:
             if self._expand_input_list:
                 return self._layer(*x, **self._args)
             else:
-                return self._layer(x, **self._args)
+
+                if self.use_hidden_state:
+                    output = self._layer(x, hidden_state, **self._args)
+                else:
+                    output = self._layer(x, **self._args)
+
+                return output
 
     def get_module(self):
         return self._layer
@@ -233,7 +267,8 @@ class NetworkTorch(nn.Module):
                         for initializer_data in layer_data['initializers']:
                             self._apply_initializer(initializer_data, torch_layer_class_instance)
 
-                    layer = TorchLayer(torch_layer_class_instance)
+                    use_hidden_state = layer_data.get('use_hidden_state', False)
+                    layer = TorchLayer(torch_layer_class_instance, use_hidden_state=use_hidden_state)
 
             layers.append(layer)
 
@@ -270,7 +305,7 @@ class NetworkTorch(nn.Module):
 
         return branches
 
-    def forward(self, x, random=True):
+    def forward(self, x, random=True, hidden_state=None):
         """
         :param x: list
         :return:
@@ -282,7 +317,21 @@ class NetworkTorch(nn.Module):
                 'or not to use branches'
             )
 
-        return _calc_branch_with_dependencies(self._branches, 'output', x, random=random)
+        hidden_state_output = []
+
+        model_output = _calc_branch_with_dependencies(
+            self._branches,
+            'output',
+            x,
+            random=random,
+            hidden_state=hidden_state,
+            hidden_state_output=hidden_state_output
+        )
+
+        if hidden_state is None:
+            return model_output
+        else:
+            return model_output, hidden_state_output
 
     def reset_states(self):
         pass

@@ -391,6 +391,9 @@ class RLAgent:
             # next_obs = [np.zeros((3,), dtype=np.float32)]
             # next_obs = np.array([action_to_save, action_to_save, action_to_save])
             # print('--- next obs', next_obs[0][14:])
+            # if self._id == 0:
+            #     print('--- action diff', env_action_remapped - action_to_save)
+
             transition = [next_obs, action_to_save, reward, done]
             self._agent_buffer.push_transition(transition)
 
