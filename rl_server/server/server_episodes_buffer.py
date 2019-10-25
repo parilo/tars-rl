@@ -38,12 +38,10 @@ class ServerEpisodesBuffer:
 
     def get_batch(self, batch_size, indices=None):
 
-        print('--- get_batch stored:', self.get_stored_in_buffer())
-
         with self._store_lock:
 
             if indices is None:
-                indices = random.sample(range(self.stored_in_buffer % self.size), k=batch_size)
+                indices = random.sample(range(min(self.stored_in_buffer, self.size)), k=batch_size)
 
             batch_of_episodes = []
             for i in indices:

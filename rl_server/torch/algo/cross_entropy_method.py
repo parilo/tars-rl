@@ -64,10 +64,12 @@ class CEM(BaseAlgoAllFrameworks):
         self.tanh_limit = tanh_limit
         self.history_len = history_len
         if tanh_limit:
+            self._tanh_limit_min_f = self.tanh_limit['min']
+            self._tanh_limit_max_f = self.tanh_limit['max']
             self._tanh_limit_min = t.tensor(tanh_limit['min']).float()
             self._tanh_limit_delta = t.tensor(tanh_limit['max'] - tanh_limit['min']).float()
 
-        self._actor = actor.to(device)
+        self.actor = actor.to(device)
         self._optimizer = optimizer
 
         self._sigma = t.tensor(sigma).float().to(device)
@@ -79,21 +81,22 @@ class CEM(BaseAlgoAllFrameworks):
             action_size,
         )
 
-    def _calc_actor_action(self, model_input):
-        actor_output = self._actor(model_input)
+    def _calc_actor_action(self, model_input, random=True):
+        actor_output = self.actor(model_input, random=random)
         if self.tanh_limit:
             actor_output = (t.tanh(actor_output) * 0.5 + 0.5) * self._tanh_limit_delta + self._tanh_limit_min
         return actor_output
 
-    def _sample_actions(self, action_means):
+    def _sample_actions(self, action_means, sigma=None):
+        sigma = self._sigma if sigma is None else sigma
         distribution = dist.multivariate_normal.MultivariateNormal(
             action_means,
-            covariance_matrix=self._sigma * t.eye(self.action_size).to(self.device)
+            covariance_matrix=sigma * t.eye(self.action_size).to(self.device)
         )
 
         action = distribution.sample()
         if self.tanh_limit:
-            action = t.clamp(action, -2, 2)
+            action = t.clamp(action, self._tanh_limit_min_f, self._tanh_limit_max_f)
 
         return action
 
@@ -119,10 +122,16 @@ class CEM(BaseAlgoAllFrameworks):
             self._transitions_buffer.push_episode(batch_of_episodes[ep_id])
 
         # get batch of elite episodes transitions to learn on
+        num_transitions = self._transitions_buffer.get_stored_in_buffer()
+        print('--- self._transitions_buffer.get_stored_in_buffer()', num_transitions)
+        # if num_transitions > 256:
         return self._transitions_buffer.get_batch(
-            self._transitions_buffer.get_stored_in_buffer(),
+            # self._transitions_buffer.get_stored_in_buffer() - max(self.history_len),
+            min(256, num_transitions - max(self.history_len)),
             history_len=self.history_len * len(batch_of_episodes[0][0])
         )
+        # else:
+        #     return None
 
     def _get_model_input(self, state):
         model_input = []
@@ -136,10 +145,15 @@ class CEM(BaseAlgoAllFrameworks):
         elite_eps_ids = self._get_elite_episodes_ids(ep_rewards)
         transitions_batch = self._get_transitions_batch_from_elite_episodes(elite_eps_ids, batch_of_episodes)
 
+        self.top_1_episode = batch_of_episodes[elite_eps_ids[0]]
+
+        if transitions_batch is None:
+            return {}
+
         # learn using transitions batch
         model_input = self._get_model_input(transitions_batch.s)
 
-        predicted_action_means = self._calc_actor_action(model_input)
+        predicted_action_means = self._calc_actor_action(model_input, random=False)
         taken_actions = t.tensor(transitions_batch.a).to(self.device)
 
         cem_loss = F.mse_loss(predicted_action_means, taken_actions)
@@ -165,10 +179,14 @@ class CEM(BaseAlgoAllFrameworks):
             model_input = self._get_model_input(states)
             return self._sample_actions(self._calc_actor_action(model_input)).cpu().numpy().tolist()
 
+    def act_batch_tensor(self, state_tensors, sigma=None):
+        with t.no_grad():
+            return self._sample_actions(self._calc_actor_action(state_tensors), sigma=sigma)
+
     def act_batch_deterministic(self, states):
         with t.no_grad():
             model_input = self._get_model_input(states)
-            means = self._calc_actor_action(model_input)
+            means = self._calc_actor_action(model_input, random=False)
             return means.cpu().numpy().tolist()
 
     def act_batch_with_gradients(self, states):
@@ -182,7 +200,7 @@ class CEM(BaseAlgoAllFrameworks):
 
     def get_weights(self, index=0):
         weights = {}
-        for name, value in self._actor.state_dict().items():
+        for name, value in self.actor.state_dict().items():
             weights[name] = value.cpu().detach().numpy()
         return {
             'actor': weights
@@ -192,21 +210,21 @@ class CEM(BaseAlgoAllFrameworks):
         state_dict = {}
         for name, value in weights['actor'].items():
             state_dict[name] = t.tensor(value).to(self.device)
-        self._actor.load_state_dict(state_dict)
+        self.actor.load_state_dict(state_dict)
 
     def reset_states(self):
-        self._actor.reset_states()
+        self.actor.reset_states()
 
     def _get_model_path(self, dir, index):
         return os.path.join(dir, "actor-{}.pt".format(index))
 
     def load(self, dir, index):
         path = self._get_model_path(dir, index)
-        self._actor.load_state_dict(t.load(path))
+        self.actor.load_state_dict(t.load(path))
 
     def save(self, dir, index):
         path = self._get_model_path(dir, index)
-        t.save(self._actor.state_dict(), path)
+        t.save(self.actor.state_dict(), path)
 
     def is_trains_on_episodes(self):
         return True

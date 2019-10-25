@@ -2,19 +2,32 @@ import importlib
 
 import torch as t
 import torch.nn as nn
+import torch.distributions as dist
 import numpy as np
 
 
-def _calc_branch(branch, branch_input_values):
+def _calc_branch(branch, branch_input_values, random=True, hidden_state=None, hidden_state_output=None):
     x = branch_input_values
-    # print('--- _calc_branch', x)
     for layer in branch['layers']:
-        x = layer(x)
+        layer_args = {'x': x}
+        if hasattr(layer, 'support_train_eval'):
+            layer_args['random'] = random
+
+        use_hidden_state = hasattr(layer, 'use_hidden_state') and layer.use_hidden_state is True
+        if use_hidden_state:
+            layer_args['hidden_state'] = hidden_state
+
+        x = layer(**layer_args)
+
+        if use_hidden_state:
+            if hidden_state_output is not None:
+                hidden_state_output.append(x[1])
+            x = x[0]
+
     return x
 
 
-def _calc_branch_with_dependencies(branches, branch_name, x):
-    # print('--- _calc_branch_with_dependencies', branch_name)
+def _calc_branch_with_dependencies(branches, branch_name, x, random=True, hidden_state=None, hidden_state_output=None):
 
     branch_input = branches[branch_name]['input']
     if not isinstance(branch_input, list):
@@ -29,11 +42,23 @@ def _calc_branch_with_dependencies(branches, branch_name, x):
             branch_input_values.append(x[-1])
         else:
             # print('--- input branch is not int')
-            branch_input_values.append(_calc_branch_with_dependencies(branches, branch_input_name, x))
+            branch_input_values.append(_calc_branch_with_dependencies(
+                branches,
+                branch_input_name,
+                x,
+                random,
+                hidden_state)
+            )
 
     if len(branch_input_values) == 1:
         branch_input_values = branch_input_values[0]
-    return _calc_branch(branches[branch_name], branch_input_values)
+    return _calc_branch(
+        branches[branch_name],
+        branch_input_values,
+        random=random,
+        hidden_state=hidden_state,
+        hidden_state_output=hidden_state_output
+    )
 
 
 class LayerBase:
@@ -44,15 +69,35 @@ class LayerBase:
 
 class TorchLayer(LayerBase):
 
-    def __init__(self, layer, args=None):
+    def __init__(self, layer, args=None, expand_input_list=False, use_hidden_state=False):
         self._layer = layer
         self._args = args
+        self._expand_input_list = expand_input_list
+        self.use_hidden_state = use_hidden_state
 
-    def __call__(self, x):
+    def __call__(self, x, hidden_state=None):
         if self._args is None:
-            return self._layer(x)
+            if self._expand_input_list:
+                return self._layer(*x)
+            else:
+
+                if self.use_hidden_state:
+                    output = self._layer(x, hidden_state)
+                else:
+                    output = self._layer(x)
+
+                return output
         else:
-            return self._layer(x, **self._args)
+            if self._expand_input_list:
+                return self._layer(*x, **self._args)
+            else:
+
+                if self.use_hidden_state:
+                    output = self._layer(x, hidden_state, **self._args)
+                else:
+                    output = self._layer(x, **self._args)
+
+                return output
 
     def get_module(self):
         return self._layer
@@ -73,10 +118,81 @@ class FlattenLayer(LayerBase):
             return x
 
 
+class ReshapeLayer(LayerBase):
+
+    def __init__(self, shape):
+        self.shape = shape
+
+    def __call__(self, x):
+        return x.view(-1, *list(self.shape))
+
+
+class SparseRandomNormal(LayerBase):
+
+    def __init__(self, size, sigma, period):
+        self.size = size
+        self.sigma = sigma
+        self.period = period
+        self._call_index = 0
+        self.support_train_eval = True
+        # self._sin_t = 0
+
+    # def __call__(self, x, train=True):
+    #
+    #     batch_size = x.shape[0]
+    #     device = x.device
+    #
+    #     if train:
+    #
+    #         if self._call_index % self.period == 0 or x.shape[0] != self._phases.shape[0]:
+    #             # redefine phases
+    #             self._phases = 100 * t.rand((batch_size, self.size)).to(device)
+    #             self._call_index = 0
+    #
+    #         sinarg = self._phases + t.tensor(self._sin_t / 100.0).to(device)
+    #         ampl = t.tensor(self.sigma).to(device)
+    #         output = ampl * t.sin(t.ones((batch_size, self.size)).to(device) * sinarg)
+    #
+    #         self._sin_t += 1
+    #         self._call_index += 1
+    #
+    #     else:
+    #         output = t.zeros((batch_size, self.size)).to(device)
+    #
+    #     return output
+
+    def __call__(self, x, random=True):
+
+        batch_size = x.shape[0]
+        device = x.device
+
+        if random:
+            if self._call_index == 0 or x.shape != self.output.shape:
+
+                distribution = dist.multivariate_normal.MultivariateNormal(
+                    t.zeros((batch_size, self.size)).to(device),
+                    covariance_matrix=self.sigma * t.eye(self.size).to(device)
+                )
+
+                self.output = distribution.sample()
+
+            self._call_index += 1
+            if self._call_index % self.period == 0:
+                self._call_index = 0
+        else:
+            self.output = t.zeros((batch_size, self.size)).to(device)
+
+        return self.output
+
+
 def process_special_layers(layer_data):
     layer_type = layer_data['type']
     if layer_type == 'Flatten':
         return FlattenLayer()
+    elif layer_type == 'Reshape':
+        return ReshapeLayer(**layer_data['args'])
+    elif layer_type == 'SparseRandomNormal':
+        return SparseRandomNormal(**layer_data['args'])
     else:
         return None
 
@@ -136,7 +252,7 @@ class NetworkTorch(nn.Module):
                     # layer is function
                     layer_func = getattr(layer_module, layer_data['type'])
                     layer_args = layer_data.get('args', None)
-                    layer = TorchFunc(layer_func, layer_args)
+                    layer = TorchFunc(layer_func, layer_args, layer_data.get('expand_input_list', False))
 
                 else:
                     # layer is class
@@ -151,7 +267,8 @@ class NetworkTorch(nn.Module):
                         for initializer_data in layer_data['initializers']:
                             self._apply_initializer(initializer_data, torch_layer_class_instance)
 
-                    layer = TorchLayer(torch_layer_class_instance)
+                    use_hidden_state = layer_data.get('use_hidden_state', False)
+                    layer = TorchLayer(torch_layer_class_instance, use_hidden_state=use_hidden_state)
 
             layers.append(layer)
 
@@ -161,22 +278,23 @@ class NetworkTorch(nn.Module):
 
         branches = {}
 
-        if isinstance(self.nn_arch, list):
+        # if isinstance(self.nn_arch, list):
+        assert isinstance(self.nn_arch, list), 'nn_arch must be list'
 
-            for branch in self.nn_arch:
+        for branch in self.nn_arch:
 
-                branch_layers = self.process_layers(branch['layers'])
-                branches[branch['name']] = {
-                    'layers': branch_layers,
-                    'input': branch['input']
-                }
-
-        else:
-            layers = self.process_layers(self.nn_arch['layers'], input_state[0])
-            branches['output'] = {
-                'layers': layers,
-                'input': 0
+            branch_layers = self.process_layers(branch['layers'])
+            branches[branch['name']] = {
+                'layers': branch_layers,
+                'input': branch['input']
             }
+
+        # else:
+        #     layers = self.process_layers(self.nn_arch['layers'], input_state[0])
+        #     branches['output'] = {
+        #         'layers': layers,
+        #         'input': 0
+        #     }
 
         for name, branch_info in branches.items():
             for i, layer in enumerate(branch_info['layers']):
@@ -187,7 +305,7 @@ class NetworkTorch(nn.Module):
 
         return branches
 
-    def forward(self, x):
+    def forward(self, x, random=True, hidden_state=None):
         """
         :param x: list
         :return:
@@ -199,23 +317,24 @@ class NetworkTorch(nn.Module):
                 'or not to use branches'
             )
 
-        return _calc_branch_with_dependencies(self._branches, 'output', x)
+        hidden_state_output = []
+
+        model_output = _calc_branch_with_dependencies(
+            self._branches,
+            'output',
+            x,
+            random=random,
+            hidden_state=hidden_state,
+            hidden_state_output=hidden_state_output
+        )
+
+        if hidden_state is None:
+            return model_output
+        else:
+            return model_output, hidden_state_output
 
     def reset_states(self):
         pass
-
-    # def get_input_size(self, shape):
-    #     if len(shape) == 1:
-    #         return shape[0]
-    #     elif len(shape) == 2:
-    #         return shape[0] * shape[1]
-
-    # def __call__(self, inputs):
-    #     # print('--- ', __file__, ' inputs', inputs)
-    #     return self.model(inputs)
-
-    # def variables(self):
-    #     return self.model.trainable_weights
 
     def get_weights(self):
         weights = {}

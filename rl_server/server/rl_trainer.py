@@ -19,6 +19,7 @@ class RLTrainer:
             gamma=0.99,
             train_every_nth=4,
             history_length=3,
+            action_history=False,
             initial_beta=0.4,
             target_critic_update_period=500,
             target_actor_update_period=500,
@@ -46,6 +47,7 @@ class RLTrainer:
         self._logdir = logdir
         self._logger = RLServerLogger(logdir)
         self._algo = algorithm
+        self._action_history = action_history
 
         if self._algo.is_trains_on_episodes():
             self.server_buffer = ServerEpisodesBuffer(self._buffer_size)
@@ -73,6 +75,8 @@ class RLTrainer:
 
     def store_episode(self, episode):
         self.server_buffer.push_episode(episode)
+        if hasattr(self._algo, 'process_episode'):
+            self._algo.process_episode(episode)
 
     # for asynchronous acts and trains
     def start_training(self):
@@ -110,5 +114,7 @@ class RLTrainer:
                 batch_size,
                 history_len=self._hist_len,
                 n_step=self._n_step,
-                gamma=self._gamma)
+                gamma=self._gamma,
+                action_history=self._action_history
+            )
 
