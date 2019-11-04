@@ -89,6 +89,12 @@ class RLAgent:
                     return np.clip(action, -1., 1.)
                 self._clipping_function = tanh_clipping
 
+        if exp_config.algorithm.isset('output_scale'):
+            output_scale_arr = np.array(exp_config.algorithm.output_scale)
+            def tanh_clipping(action):
+                return np.clip(action, -output_scale_arr, output_scale_arr)
+            self._clipping_function = tanh_clipping
+
         # action postprocess
         def trivial_action_proctprocess(action):
             return action

@@ -1,0 +1,178 @@
+framework: torch
+device: 'cuda:0'
+
+env:
+  name: Walker2d-v2
+  is_gym: True
+
+  obs_shapes: [[17]]  # list of lists
+  obs_dtypes: ["float32"]
+  history_length: [1]
+  obs_is_image: False
+
+  action_size: 6
+  frame_skip: 4
+  step_limit: 0
+  agent_buffer_size: 2010
+  reward_scale: 0.1
+  reinit_random_action_every: 5
+  log_every_n_steps: 1000
+  max_episode_length: 10000
+
+server:
+  seed: 42
+  num_clients: 16
+  experience_replay_buffer_size: 5000000
+  use_prioritized_buffer: false
+  train_every_nth: 1
+  start_learning_after: 5000
+  target_critic_update_period: 1
+  target_actor_update_period: 1
+  show_stats_period: 1
+  save_model_period: 5000
+  client_start_port: 10977
+  logdir: "logs/walker2d/walker2d_td3_torch"
+  #load_checkpoint: ""
+
+algo_name: "td3"
+
+algorithm:
+  gamma: 0.99
+  action_noise_std: 0.02
+  target_actor_update_rate: 0.005
+  target_critic_update_rate: 0.005
+
+actor:
+  nn_arch:
+
+    - input: 0
+      name: "output"
+      layers:
+        - type: "Flatten"
+
+        - type: "Linear"
+          args:
+            in_features: 17
+            out_features: 128
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 128
+            out_features: 128
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 128
+            out_features: 128
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 128
+            out_features: 6  # number of actions
+
+        - type: "Tanh"
+
+critic:
+  have_action_input: true
+  nn_arch:
+
+    - input: 0
+      name: "flatten-obs"
+      layers:
+        - type: "Flatten"
+
+    - input: ["flatten-obs", "action"]
+      name: "output"
+      layers:
+
+        - type: cat
+          module: torch
+          is_func: True
+          args:
+            dim: 1
+
+        - type: "Linear"
+          args:
+            in_features: 23
+            out_features: 128
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 128
+            out_features: 128
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 128
+            out_features: 128
+
+        - type: "ReLU"
+
+        - type: "Linear"
+          args:
+            in_features: 128
+            out_features: 1
+
+#            activation: "linear"
+#            kernel_initializer:
+#              class: "RandomUniform"
+#              module: "tensorflow.python.keras.initializers"
+#              args:
+#                minval: -0.003
+#                maxval: 0.003
+#            bias_initializer:
+#              class: "RandomUniform"
+#              module: "tensorflow.python.keras.initializers"
+#              args:
+#                minval: -0.003
+#                maxval: 0.003
+
+actor_optim:
+  module: torch.optim
+  class: Adam
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.001
+
+critic_optim:
+  module: torch.optim
+  class: Adam
+  schedule:
+    - limit: 0  # of train ops
+      lr: 0.001
+
+training:
+  schedule:
+    - limit: 0  # of train ops
+      batch_size: 2560
+
+agents:
+  - algorithm_id: 0
+    agents:
+      - agents_count: 1
+        visualize: True
+
+      - agents_count: 1
+        visualize: False
+
+      - agents_count: 1
+        visualize: True
+        exploration:
+          normal_noise: 0.1
+          random_action_prob: 0.1
+
+      - agents_count: 3
+        visualize: False
+        exploration:
+          normal_noise: 0.1
+          random_action_prob: 0.1

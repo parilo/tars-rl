@@ -19,6 +19,7 @@ algo_names = {
         'ddpg',
         'pddm_cem',
         'pddm_cem_lstm',
+        'td3'
     ]
 }
 
