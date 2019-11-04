@@ -16,7 +16,8 @@ class ServerBuffer:
         observation_shapes,
         observation_dtypes,
         action_size,
-        discrete_actions=False
+        discrete_actions=False,
+        input_buffer_size=20000
     ):
         self.size = capacity
         self.num_parts = len(observation_shapes)
@@ -25,11 +26,32 @@ class ServerBuffer:
         self.discrete_actions = discrete_actions
         self.action_size = action_size
 
+        # to not to slow down if there are a lot of
+        # small episodes coming
+        self.input_buffer_size = input_buffer_size
+        self._input_buffer_flush_size = input_buffer_size // 2
+        if input_buffer_size == 0:
+            self._input_buffer = None
+        else:
+            self._input_buffer = ServerBuffer(
+                input_buffer_size,
+                observation_shapes,
+                observation_dtypes,
+                action_size,
+                discrete_actions,
+                0
+            )
+
         self._store_lock = RLock()
 
         self.clear()
 
+    def get_lock(self):
+        return self._store_lock
+
     def clear(self):
+        if self._input_buffer:
+            self._input_buffer.clear()
         with self._store_lock:
             self.num_in_buffer = 0
             self.stored_in_buffer = 0
@@ -61,30 +83,68 @@ class ServerBuffer:
 
             self.pointer = 0
 
-    def push_episode(self, episode):
+    def push_episode_in_the_main_buffer(self, episode):
         """ episode = [observations, actions, rewards, dones]
             observations = [obs_part_1, ..., obs_part_n]
         """
-
         with self._store_lock:
 
             observations, actions, rewards, dones = episode
             episode_len = len(actions)
-            self.stored_in_buffer += episode_len
-            self.num_in_buffer = min(self.size, self.num_in_buffer + episode_len)
 
-            indices = np.arange(self.pointer, self.pointer + episode_len) % self.size
-            for part_id in range(self.num_parts):
-                self.observations[part_id][indices] = np.array(observations[part_id])
-            self.actions[indices] = np.array(actions)
-            self.rewards[indices] = np.array(rewards)
-            self.dones[indices] = np.array(dones)
-            self.td_errors[indices] = np.ones(len(indices))
+            self._push_arrays(
+                episode_len,
+                [np.array(observations[part_id])for part_id in range(self.num_parts)],
+                np.array(actions),
+                np.array(rewards),
+                np.array(dones),
+                np.ones(episode_len)
+            )
 
-            self.pointer = (self.pointer + episode_len) % self.size
+    def get_containers(self):
+        return (
+            self.pointer,
+            [obs_part[:self.pointer] for obs_part in self.observations],
+            self.actions[:self.pointer],
+            self.rewards[:self.pointer],
+            self.dones[:self.pointer],
+            self.td_errors[:self.pointer]
+        )
+
+    def _push_arrays(self, samples_count, observations, actions, rewards, dones, td_errors):
+        indices = np.arange(self.pointer, self.pointer + samples_count) % self.size
+        for part_id in range(self.num_parts):
+            self.observations[part_id][indices] = observations[part_id]
+        self.actions[indices] = actions
+        self.rewards[indices] = rewards
+        self.dones[indices] = dones
+        self.td_errors[indices] = td_errors
+
+        self.pointer = (self.pointer + samples_count) % self.size
+
+        self.stored_in_buffer += samples_count
+        self.num_in_buffer = min(self.size, self.num_in_buffer + samples_count)
+
+    def push_episode(self, episode):
+        """ episode = [observations, actions, rewards, dones]
+            observations = [obs_part_1, ..., obs_part_n]
+        """
+        if self._input_buffer:
+            self._input_buffer.push_episode_in_the_main_buffer(episode)
+            if self._input_buffer.get_stored_in_buffer() > self._input_buffer_flush_size:
+                with self._input_buffer.get_lock(), self._store_lock:
+                    containers_data = self._input_buffer.get_containers()
+                    self._push_arrays(*containers_data)
+                    self._input_buffer.clear()
 
     def get_stored_in_buffer(self):
         return self.stored_in_buffer
+
+    def get_stored_in_input_buffer(self):
+        return self._input_buffer.get_stored_in_buffer()
+
+    def get_stored_in_buffer_info(self):
+        return f'{self.get_stored_in_input_buffer()} / {self.get_stored_in_buffer()}'
 
     def _get_indices_backward(self, start_index, history_len):
         indices = [start_index]
@@ -107,13 +167,6 @@ class ServerBuffer:
                 s = np.zeros((part_hist_len, ) + tuple(self.obs_shapes[part_id]), dtype=np.float32)
                 v_mask = np.zeros((part_hist_len, ), dtype=np.float32)
                 indices = self._get_indices_backward(idx, part_hist_len)
-                # indices = [idx]
-                # for i in range(part_hist_len - 1):
-                #     next_idx = (idx-i-1) % self.size
-                #     if next_idx >= self.num_in_buffer or self.dones[next_idx]:
-                #         break
-                #     indices.append(next_idx)
-                # indices = indices[::-1]
                 s[-len(indices):] = self.observations[part_id][indices]
                 v_mask[-len(indices):] = 1
             else:
@@ -129,13 +182,6 @@ class ServerBuffer:
         if (start_idx < 0 or np.any(self.dones[start_idx:idx + 1])):
             actions = np.zeros((history_len,) + (self.action_size,), dtype=np.float32)
             indices = self._get_indices_backward(idx, history_len)
-            # indices = [idx]
-            # for i in range(history_len - 1):
-            #     next_idx = (idx - i - 1) % self.size
-            #     if next_idx >= self.num_in_buffer or self.dones[next_idx]:
-            #         break
-            #     indices.append(next_idx)
-            # indices = indices[::-1]
             actions[-len(indices):] = self.actions[indices]
         else:
             actions = self.actions[slice(start_idx, idx + 1, 1)]
@@ -157,9 +203,6 @@ class ServerBuffer:
         else:
             actions = self.actions[idx]
         return state, actions, cum_reward, next_state, done, self.td_errors[idx], valid_masks, next_valid_masks
-
-    def update_td_errors(self, indices, td_errors):
-        self.td_errors[indices] = td_errors
 
     def get_batch(self, batch_size, history_len=1, n_step=1, gamma=0.99, indices=None, action_history=False):
 
@@ -199,6 +242,9 @@ class ServerBuffer:
                 [np.array(mask, dtype=np.float32) for mask in next_valid_masks],
             )
             return batch
+
+    def update_td_errors(self, indices, td_errors):
+        self.td_errors[indices] = td_errors
 
     def get_prioritized_batch(self, batch_size, history_len=1,
                               n_step=1, gamma=0.99,

@@ -67,9 +67,6 @@ class RLTrainer:
         self._target_critic_update_num = 0
         self._n_saved = 0
 
-    # def set_algorithm(self, algo):
-    #     self._algo = algo
-
     def init(self):
         pass
 
@@ -91,7 +88,7 @@ class RLTrainer:
                     time.sleep(0.1)
             elif buffer_size < self._start_learning_after \
                     and self._step_index % 10 == 0:
-                print("--- buffer size {}".format(buffer_size))
+                print("--- buffer size {}".format(self.server_buffer.get_stored_in_buffer_info()))
                 time.sleep(1.0)
 
     def train_step(self):

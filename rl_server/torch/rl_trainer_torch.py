@@ -57,7 +57,7 @@ class TorchRLTrainer(RLTrainer):
                     self._step_index,
                     batch_size,
                     train_info,
-                    queue_size
+                    self.server_buffer.get_stored_in_buffer_info()
                 )
             )
 
