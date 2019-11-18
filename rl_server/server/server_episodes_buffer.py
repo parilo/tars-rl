@@ -48,3 +48,6 @@ class ServerEpisodesBuffer:
                 batch_of_episodes.append(self.episodes[i])
 
             return batch_of_episodes
+
+    def get_stored_in_buffer_info(self):
+        return self.get_stored_in_buffer()

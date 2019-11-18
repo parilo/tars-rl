@@ -5,7 +5,7 @@ from threading import RLock
 import numpy as np
 
 
-Transition = namedtuple("Transition", ("s", "a", "r", "s_", "done", "valid_mask", "next_valid_mask"))
+Transition = namedtuple("Transition", ("s", "a", "r", "s_", "done", "valid_mask", "next_valid_mask", "ep_indices"))
 
 
 class ServerBuffer:
@@ -80,6 +80,7 @@ class ServerBuffer:
             self.rewards = np.empty((self.size, ), dtype=np.float32)
             self.dones = np.empty((self.size, ), dtype=np.bool)
             self.td_errors = np.empty((self.size, ), dtype=np.float32)
+            self.ep_indices = np.empty((self.size, ), dtype=np.int32)
 
             self.pointer = 0
 
@@ -98,7 +99,8 @@ class ServerBuffer:
                 np.array(actions),
                 np.array(rewards),
                 np.array(dones),
-                np.ones(episode_len)
+                np.ones(episode_len),
+                np.arange(0, episode_len)
             )
 
     def get_containers(self):
@@ -108,10 +110,11 @@ class ServerBuffer:
             self.actions[:self.pointer],
             self.rewards[:self.pointer],
             self.dones[:self.pointer],
-            self.td_errors[:self.pointer]
+            self.td_errors[:self.pointer],
+            self.ep_indices[:self.pointer]
         )
 
-    def _push_arrays(self, samples_count, observations, actions, rewards, dones, td_errors):
+    def _push_arrays(self, samples_count, observations, actions, rewards, dones, td_errors, ep_indices):
         indices = np.arange(self.pointer, self.pointer + samples_count) % self.size
         for part_id in range(self.num_parts):
             self.observations[part_id][indices] = observations[part_id]
@@ -119,6 +122,7 @@ class ServerBuffer:
         self.rewards[indices] = rewards
         self.dones[indices] = dones
         self.td_errors[indices] = td_errors
+        self.ep_indices[indices] = ep_indices
 
         self.pointer = (self.pointer + samples_count) % self.size
 
@@ -202,7 +206,7 @@ class ServerBuffer:
             actions = self.get_action_history(idx, history_len[0])  # action history uses history len from the first obs
         else:
             actions = self.actions[idx]
-        return state, actions, cum_reward, next_state, done, self.td_errors[idx], valid_masks, next_valid_masks
+        return state, actions, cum_reward, next_state, done, self.td_errors[idx], valid_masks, next_valid_masks, self.ep_indices[idx]
 
     def get_batch(self, batch_size, history_len=1, n_step=1, gamma=0.99, indices=None, action_history=False):
 
@@ -229,6 +233,7 @@ class ServerBuffer:
 
             actions = [transitions[i][1] for i in range(batch_size)]
             rewards = [transitions[i][2] for i in range(batch_size)]
+            ep_indices = [transitions[i][8] for i in range(batch_size)]
 
             dones = [transitions[i][4] for i in range(batch_size)]
 
@@ -240,6 +245,7 @@ class ServerBuffer:
                 np.array(dones, dtype=np.bool),
                 [np.array(mask, dtype=np.float32) for mask in valid_masks],
                 [np.array(mask, dtype=np.float32) for mask in next_valid_masks],
+                np.array(ep_indices, dtype=np.int32),
             )
             return batch
 
