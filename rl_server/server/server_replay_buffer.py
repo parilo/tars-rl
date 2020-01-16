@@ -64,12 +64,10 @@ class ServerBuffer:
             # initialize all np.arrays which store necessary data
             self.observations = []
             for part_id in range(self.num_parts):
-                print(part_id, (self.size, ), self.obs_shapes[part_id], self.obs_dtypes[part_id])
                 obs = np.empty(
                     (self.size, ) + tuple(self.obs_shapes[part_id]),
                     dtype=self.obs_dtypes[part_id]
                 )
-                # print('created obs array', obs.nbytes / 1024 / 1024, obs.shape, obs.dtype)
                 self.observations.append(obs)
 
             if self.discrete_actions:

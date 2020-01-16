@@ -14,9 +14,9 @@ env:
   frame_skip: 4
   step_limit: 0
   agent_buffer_size: 2010
-  reward_scale: 0.1
+  reward_scale: 1
   reinit_random_action_every: 5
-  log_every_n_steps: 1000
+  log_every_n_steps: 200
   max_episode_length: 10000
 
 server:
@@ -25,22 +25,24 @@ server:
   experience_replay_buffer_size: 5000000
   use_prioritized_buffer: false
   train_every_nth: 1
-  start_learning_after: 5000
+  start_learning_after: 20000
   target_critic_update_period: 1
   target_actor_update_period: 1
   show_stats_period: 1
   save_model_period: 5000
   client_start_port: 10977
-  logdir: "logs/walker2d/walker2d_td3_torch"
+  logdir: "logs/walker2d_2/walker2d_td3_corr_noise"
   #load_checkpoint: ""
 
 algo_name: "td3"
 
 algorithm:
   gamma: 0.99
-  action_noise_std: 0.02
-  target_actor_update_rate: 0.005
-  target_critic_update_rate: 0.005
+  output_scale: 1.0
+  action_l2_loss: 0.01
+  action_noise_std: 0.01
+  target_actor_update_rate: 0.01
+  target_critic_update_rate: 0.01
 
 actor:
   nn_arch:
@@ -123,20 +125,6 @@ critic:
             in_features: 128
             out_features: 1
 
-#            activation: "linear"
-#            kernel_initializer:
-#              class: "RandomUniform"
-#              module: "tensorflow.python.keras.initializers"
-#              args:
-#                minval: -0.003
-#                maxval: 0.003
-#            bias_initializer:
-#              class: "RandomUniform"
-#              module: "tensorflow.python.keras.initializers"
-#              args:
-#                minval: -0.003
-#                maxval: 0.003
-
 actor_optim:
   module: torch.optim
   class: Adam
@@ -154,7 +142,7 @@ critic_optim:
 training:
   schedule:
     - limit: 0  # of train ops
-      batch_size: 2560
+      batch_size: 2048
 
 agents:
   - algorithm_id: 0
@@ -163,16 +151,36 @@ agents:
         visualize: True
 
       - agents_count: 1
-        visualize: False
-
-      - agents_count: 1
         visualize: True
         exploration:
-          normal_noise: 0.1
-          random_action_prob: 0.1
+          time_correlated_noise:
+            sigma: 1.0
+            beta: 0.5
 
-      - agents_count: 3
+      - agents_count: 2
         visualize: False
         exploration:
-          normal_noise: 0.1
-          random_action_prob: 0.1
+          time_correlated_noise:
+            sigma: 0.25
+            beta: 0.5
+
+      - agents_count: 1
+        visualize: False
+        exploration:
+          time_correlated_noise:
+            sigma: 0.5
+            beta: 0.5
+
+      - agents_count: 1
+        visualize: False
+        exploration:
+          time_correlated_noise:
+            sigma: 0.75
+            beta: 0.5
+
+      - agents_count: 1
+        visualize: False
+        exploration:
+          time_correlated_noise:
+            sigma: 1.0
+            beta: 0.5

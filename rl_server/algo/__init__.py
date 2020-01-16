@@ -20,7 +20,8 @@ algo_names = {
         'pddm_cem',
         'pddm_cem_lstm',
         'td3',
-        'vg'
+        'vg',
+        'sac',
     ]
 }
 

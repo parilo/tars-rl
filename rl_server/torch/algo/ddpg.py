@@ -1,4 +1,5 @@
 import os
+from collections import namedtuple
 
 import torch as t
 import torch.nn.functional as F
@@ -8,6 +9,8 @@ from rl_server.algo.algo_fabric import get_network_params, get_optimizer_class
 from rl_server.algo.base_algo import BaseAlgo as BaseAlgoAllFrameworks
 from rl_server.torch.networks.network_torch import NetworkTorch
 from rl_server.server.server_replay_buffer import Transition
+
+TransitionsBatch = namedtuple("Transition", ("s", "a", "r", "s_", "done"))
 
 
 def create_algo(algo_config):
@@ -33,10 +36,17 @@ def create_algo(algo_config):
     # true value of lr will come from lr_scheduler as multiplicative factor
     critic_optimizer = get_optimizer_class(critic_optim_info)(critic.parameters(), lr=1)
 
+    if algo_config.algorithm.isset('output_scale'):
+        output_scale = t.tensor(algo_config.algorithm.output_scale).float().to(algo_config.device)
+    else:
+        output_scale = t.tensor(1).float().to(algo_config.device)
+
     return DDPG(
         action_size=action_size,
         actor=actor,
         critic=critic,
+        gamma=algo_config.algorithm.gamma,
+        output_scale=output_scale,
         n_step=algo_config.algorithm.n_step,
         target_actor_update_rate=algo_config.algorithm.target_actor_update_rate,
         target_critic_update_rate=algo_config.algorithm.target_critic_update_rate,
@@ -60,6 +70,7 @@ class DDPG(BaseAlgoAllFrameworks):
         action_size,
         actor,
         critic,
+        output_scale,
         actor_optimizer,
         critic_optimizer,
         n_step=1,
@@ -85,6 +96,8 @@ class DDPG(BaseAlgoAllFrameworks):
         self._actor_optimizer = actor_optimizer
         self._critic_optimizer = critic_optimizer
         self._n_step = n_step
+        self._output_scale = output_scale
+        self._output_scale_arr = output_scale.cpu().numpy()
         self._gamma = gamma
         self._target_actor_update_rate = target_actor_update_rate
         self._target_critic_update_rate = target_critic_update_rate
@@ -97,9 +110,12 @@ class DDPG(BaseAlgoAllFrameworks):
             self._actor_optimizer, self.get_actor_lr, last_epoch=-1
         )
 
+    def _calc_action(self, actor, states):
+        return self._output_scale * actor(states)
+
     def _critic_update(self, batch):
         q_values = self._critic(batch.s + [batch.a])
-        next_actions = self._actor(batch.s_)
+        next_actions = self._target_actor(batch.s_)
         next_q_values = self._target_critic(batch.s_ + [next_actions])
         gamma = self._gamma ** self._n_step
         td_targets = batch.r[:, None] + gamma * (1 - batch.done[:, None]) * next_q_values
@@ -126,13 +142,13 @@ class DDPG(BaseAlgoAllFrameworks):
             model_input = []
             for state_part in states:
                 model_input.append(t.tensor(state_part).to(self.device))
-            return self._actor(model_input).cpu().numpy().tolist()
+            return (self._output_scale_arr * self._actor(model_input).cpu().numpy()).tolist()
 
     def act_batch_with_gradients(self, states):
         raise NotImplemented()
 
     def train(self, step_index, batch, actor_update=True, critic_update=True):
-        batch_tensors = Transition(
+        batch_tensors = TransitionsBatch(
             [t.tensor(s).to(self.device) for s in batch.s],
             t.tensor(batch.a).to(self.device),
             t.tensor(batch.r).to(self.device),

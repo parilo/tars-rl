@@ -277,7 +277,15 @@ class RLAgent:
 
         # prev_v = 0.
         # prev_v2 = 0.
-        
+
+        if self._exploration and self._exploration.isset('time_correlated_noise'):
+            time_correlated_noise = True
+            noise_sigma = self._exploration.time_correlated_noise.sigma
+            noise_beta = self._exploration.time_correlated_noise.beta
+            prev_noise = 0.0
+        else:
+            time_correlated_noise = False
+
         def prepare_state(state):
             if isinstance(state, list):
                 return [np.expand_dims(s_part, axis=0) for s_part in state]
@@ -336,6 +344,16 @@ class RLAgent:
                                 action = self._env.get_random_action()
                                 # if self._id == 2: print('--- expl random action 2', action)
 
+                        if time_correlated_noise:
+                            noise = noise_beta * np.random.normal(
+                                scale=noise_sigma,
+                                size=self._action_size
+                            ) + (1.0 - noise_beta) * prev_noise
+                            # if self._id == 1:
+                            #     print('--- n', noise, noise_sigma, noise_beta)
+                            action += noise
+                            prev_noise = noise
+
                     action = self._clipping_function(action)
                     # if self._id ==  2: print('--- action after expl', action)
 
@@ -359,28 +377,17 @@ class RLAgent:
             else:
                 env_action_remapped = env_action
 
+            if self._id == 0:
+                print('--- action', env_action_remapped)
+
             next_obs, reward, done, info = self._env.step(env_action_remapped)
             # next_obs, reward, done, info = self._env.step([env_action_remapped])
-
-            # if self._id == 0:
-            #     print('--- action', env_action_remapped, 'r', next_obs[8], 1e-3 * np.square(action).sum(), 0.1 * np.abs(action).sum())
-
-            # if self._id == 2:
-            #     print('--- state', next_obs)
 
             if self._reward_clip_max:
                 reward = min(reward, self._reward_clip_max)
 
             if self._reward_clip_min and reward > 0.:
                 reward = max(reward, self._reward_clip_min)
-
-            # if reward > 0.:
-            #     print('r', reward)
-
-            # np.save('obs-{}-{}.npy'.format(episode_index, n_steps), next_obs)
-
-            # if reward != 0.:
-            #     print('r', reward)
 
             action_repeated += 1
 

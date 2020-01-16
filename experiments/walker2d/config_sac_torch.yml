@@ -2,22 +2,22 @@ framework: torch
 device: 'cuda:0'
 
 env:
-  name: Pendulum-v0
+  name: Walker2d-v2
   is_gym: True
 
-  obs_shapes: [[3]]
+  obs_shapes: [[17]]  # list of lists
   obs_dtypes: ["float32"]
-  obs_is_image: False
   history_length: [1]
+  obs_is_image: False
 
-  action_size: 1
+  action_size: 6
   frame_skip: 1
   step_limit: 0
-  agent_buffer_size: 210
-  reward_scale: 0.1
+  agent_buffer_size: 4010
+  reward_scale: 1
   reinit_random_action_every: 5
-  log_every_n_steps: 200
-  max_episode_length: 210
+  log_every_n_steps: 1000
+  max_episode_length: 10000
 
 server:
   seed: 42
@@ -26,23 +26,30 @@ server:
   use_prioritized_buffer: false
   train_every_nth: 1
   start_learning_after: 10000
-  target_critic_update_period: 1
-  target_actor_update_period: 1
+  target_critic_update_period: 200
+  target_actor_update_period: 200
   show_stats_period: 100
   save_model_period: 5000
-  client_start_port: 11977
-  logdir: "logs/pendulum_ddpg_torch"
-  #load_checkpoint: ""
+  client_start_port: 10977
+  logdir: "logs/walker2d_2/walker2d_sac_torch_2"
+#  load_checkpoint:
+#    dir: /home/anton/devel/tars-rl/logs/humanoid_2/humanoid_ctc_11
+#    index: 615000
 
-algo_name: "ddpg"
+algo_name: "sac"
 
 algorithm:
-  n_step: 1
   gamma: 0.99
-  output_scale: 2.0
-  actor_grad_val_clip: 1.0
-  target_actor_update_rate: 0.0025
-  target_critic_update_rate: 0.005
+  output_scale: [
+    1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+    5.0, 5.0, 5.0, 5.0, 5.0, 5.0
+  ]
+#  action_l2_loss: 10.0
+  log_pi_scale: 0.001
+  target_actor_update_rate: 1
+  target_critic_update_rate: 1
+#  target_actor_update_rate: 0.005
+#  target_critic_update_rate: 0.005
 
 actor:
   nn_arch:
@@ -54,7 +61,7 @@ actor:
 
         - type: "Linear"
           args:
-            in_features: 3
+            in_features: 17
             out_features: 128
 
         - type: "ReLU"
@@ -76,23 +83,9 @@ actor:
         - type: "Linear"
           args:
             in_features: 128
-            out_features: 1  # number of actions
+            out_features: 12  # number of actions
 
         - type: "Tanh"
-
-#            activation: "linear"
-#            kernel_initializer:
-#              class: "RandomUniform"
-#              module: "tensorflow.python.keras.initializers"
-#              args:
-#                minval: -0.003
-#                maxval: 0.003
-#            bias_initializer:
-#              class: "RandomUniform"
-#              module: "tensorflow.python.keras.initializers"
-#              args:
-#                minval: -0.003
-#                maxval: 0.003
 
 critic:
   have_action_input: true
@@ -115,7 +108,7 @@ critic:
 
         - type: "Linear"
           args:
-            in_features: 4
+            in_features: 23
             out_features: 128
 
         - type: "ReLU"
@@ -138,20 +131,6 @@ critic:
           args:
             in_features: 128
             out_features: 1
-
-#            activation: "linear"
-#            kernel_initializer:
-#              class: "RandomUniform"
-#              module: "tensorflow.python.keras.initializers"
-#              args:
-#                minval: -0.003
-#                maxval: 0.003
-#            bias_initializer:
-#              class: "RandomUniform"
-#              module: "tensorflow.python.keras.initializers"
-#              args:
-#                minval: -0.003
-#                maxval: 0.003
 
 actor_optim:
   module: torch.optim
@@ -177,18 +156,18 @@ agents:
     agents:
       - agents_count: 1
         visualize: True
-
-      - agents_count: 1
-        visualize: False
+        exploration:
+          built_in_algo: True
+          validation: True
 
       - agents_count: 1
         visualize: True
         exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.0  #0.2
+          built_in_algo: True
+          validation: False
 
       - agents_count: 4
         visualize: False
         exploration:
-          normal_noise: 0.5
-          random_action_prob: 0.0  #0.2
+          built_in_algo: True
+          validation: False
